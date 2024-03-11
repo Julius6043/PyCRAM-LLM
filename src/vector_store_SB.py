@@ -132,24 +132,17 @@ def retrieve(query):
     return result
 
 
-def retrieve_large(query):
+def retrieve_large(query, number):
     matched_docs = vector_store_large.similarity_search(query)
-    result = (
-        matched_docs[0].page_content
-        + "\n\n"
-        + "Dokument: 2\n"
-        + matched_docs[1].page_content
-        + "\n\n"
-        + "Dokument: 3\n"
-        + matched_docs[2].page_content
-        + "\n\n"
-        + "Dokument: 4\n"
-        + matched_docs[3].page_content
-    )
+    result = ""
+    for i in range(number):
+        result += (
+            "Dokument: " + str(i + 1) + "\n" + matched_docs[i].page_content + "\n\n"
+        )
     return result
 
 
-def get_retriever(vector_store_id=1):
+def get_retriever(vector_store_id=1, num=5):
     vector_store_temp = vector_store
     if vector_store_id == 1:
         vector_store_temp = vector_store
@@ -157,7 +150,7 @@ def get_retriever(vector_store_id=1):
         vector_store_temp = vector_store_large
     else:
         raise Exception("Invalid vector store id")
-    retriever = vector_store_temp.as_retriever(search_kwargs={"k": 5})
+    retriever = vector_store_temp.as_retriever(search_kwargs={"k": num})
     return retriever
 
 
