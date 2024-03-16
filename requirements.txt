@@ -2,7 +2,10 @@ python-dotenv
 PyPDF2
 pypdf
 langchain
-crewai
-open-interpreter
 ipykernel
 supabase
+langchain_community
+tiktoken
+langchain-openai
+langchainhub
+faiss-cpu

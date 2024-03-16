@@ -6,7 +6,7 @@ import re
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.tools import DuckDuckGoSearchResults
 from langgraph.graph import StateGraph, END
-from vector_store_SB import retrieve_large
+from src.vector_store_SB import get_retriever
 
 load_dotenv()
 
@@ -22,33 +22,26 @@ class ReWOO(TypedDict):
 llm = ChatOpenAI(model="gpt-4-turbo-preview", temperature=0)
 llm3 = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 
-prompt = """For the following task, make plans that can solve the problem step by step. For each plan, indicate \
-which external tool together with tool input to retrieve evidence. You can store the evidence into a \
-variable #E that can be called by later tools. (Plan, #E1, Plan, #E2, Plan, ...)
-Use a format which can be recognised by this regex pattern:
-Plan\s*\d*:\s*(.+?)\s*(#E\d+)\s*=\s*(\w+)\s*\[([^\]]+)\]
+prompt = """Für den folgenden Sachverhalt, erstelle Pläne nach dem Gutachtenstil, die das Problem Schritt für Schritt lösen können. Für jeden Plan, gib an, welches externe Werkzeug zusammen mit der Eingabe für das Werkzeug verwendet wird, um Beweise zu sammeln. Du kannst die Beweise in einer Variablen #E speichern, die später von anderen Werkzeugen aufgerufen werden kann. (Plan, #E1, Plan, #E2, Plan, ...).
+Verwende ein Format, das durch folgendes Regex-Muster erkannt werden kann:
+Plan\s*\d*:\s*(.+?)\s*(#E\d+)\s*=\s*(\w+)\s*([^]+)]
 
+Die Werkzeuge können eines der folgenden sein:
+(1) Retrive[input]: Ein Vektor-Datenbank-Abrufsystem, das juristische Texte enthält. Verwende dieses Werkzeug, wenn du Informationen über Recht benötigst.
+Die Eingabe sollte eine Suchanfrage sein.
+(2) Google[input]: Ein Werkzeug, das Ergebnisse von Google sucht. Nützlich, wenn du kurze und prägnante Antworten zu einem spezifischen Thema finden musst. Die Eingabe sollte eine Suchanfrage sein.
+(3) LLM[input]: Ein vortrainiertes LLM wie du selbst. Nützlich, wenn du mit allgemeinem Weltwissen und gesundem Menschenverstand handeln musst. Bevorzuge es, wenn du zuversichtlich bist, das Problem selbst lösen zu können. Die Eingabe kann jede Anweisung sein.
 
-Tools can be one of the following:
-(1) Google[input]: Worker that searches results from Google. Useful when you need to find short
-and succinct answers about a specific topic. The input should be a search query.
-(2) LLM[input]: A pretrained LLM like yourself. Useful when you need to act with general
-world knowledge and common sense. Prioritize it when you are confident in solving the problem
-yourself. Input can be any instruction.
+Zum Beispiel,
+Aufgabe: A lässt absichtlich die Vase des B fallen, um ihn zu schädigen. Die Vase zerspringt dabei in 1000 Einzelteile.
+Plan: Angesichts dessen, dass Thomas x Stunden gearbeitet hat, übersetze das Problem in algebraische Ausdrücke und löse es mit Wolfram Alpha. #E1 = WolframAlpha[Löse x + (2x − 10) + ((2x − 10) − 8) = 157]
+Plan: Finde heraus, wie viele Stunden Thomas gearbeitet hat. #E2 = LLM[Was ist x, gegeben #E1]
+Plan: Berechne, wie viele Stunden Rebecca gearbeitet hat. #E3 = Rechner[(2 ∗ #E2 − 10) − 8]
 
-For example,
-Task: Thomas, Toby, and Rebecca worked a total of 157 hours in one week. Thomas worked x
-hours. Toby worked 10 hours less than twice what Thomas worked, and Rebecca worked 8 hours
-less than Toby. How many hours did Rebecca work?
-Plan: Given Thomas worked x hours, translate the problem into algebraic expressions and solve
-with Wolfram Alpha. #E1 = WolframAlpha[Solve x + (2x − 10) + ((2x − 10) − 8) = 157]
-Plan: Find out the number of hours Thomas worked. #E2 = LLM[What is x, given #E1]
-Plan: Calculate the number of hours Rebecca worked. #E3 = Calculator[(2 ∗ #E2 − 10) − 8]
+Beginne!
+Beschreibe deine Pläne mit reichen Details. Jeder Plan sollte nur einer #E folgen.
 
-Begin! 
-Describe your plans with rich details. Each Plan should be followed by only one #E.
-
-Task: {task}"""
+Aufgabe: {task}"""
 
 
 # Regex to match expressions of the form E#... = ...[...]
@@ -90,7 +83,8 @@ def tool_execution(state: ReWOO):
     elif tool == "LLM":
         result = llm.invoke(tool_input)
     elif tool == "Retrieve":
-        result = retrieve_large(tool_input, 10)
+        retriver = get_retriever(5, 10)
+        result = retriver.invoke(tool_input)
     else:
         raise ValueError
     _results[step_name] = str(result)
@@ -145,42 +139,31 @@ graph.set_entry_point("plan")
 app = graph.compile()
 app.config["recursion_limit"] = 50
 
-task = """A fährt nach reichlichem Alkoholkonsum, der ihn gleichwohl nicht an seiner Fahr
-tüchtigkeit zweifeln lässt, am späten Abend mit seinem Pkw nach Hause. Da wenig
-Verkehr herrscht und er es eilig hat, fährt A nicht mit der zulässigen Höchstgeschwin
-digkeit von 70 km/h, sondern etwas über 90 km/h. Als A ein Waldgebiet durchfährt,
-tritt plötzlich die F, die sich im Wald verlaufen hat, hinter einem Baum hervor auf
-die Straße, um das herannahende Fahrzeug auf sich aufmerksam zu machen. Obgleich
-A sofort bremst, kann er nicht mehr verhindern, dass F von seinem Fahrzeug erfasst
-und schwer verletzt wird. Da A sein Mobiltelefon zu Hause vergessen hat und er
-auch nicht über eine andere Möglichkeit verfügt, einen Rettungswagen herbeizurufen,
-entschließt er sich, die bewusstlose F mit seinem Pkw selbst in das nächstgelegene
-Krankenhaus zu bringen. Er hält sich dabei weiterhin für fahrtüchtig, da er die Kollisi
-on mit F nicht auf seine Alkoholisierung zurückführt.
-Während der Fahrt zum Krankenhaus überschreitet A die zulässige Höchstgeschwin
-digkeit erneut um 20 km/h. Infolge seiner Alkoholisierung - die Blutalkoholkonzentra
-tion von A beträgt 1,2 Promille - bemerkt er einen anderen Pkw, der von rechts auf
-einer Vorfahrtstraße seine Fahrbahn kreuzen will, zu spät. Ein Unfall kann jedoch
-durch eine geschickte Reaktion des anderen Fahrers vermieden werden. A erreicht das
-Krankenhaus 20 Minuten später ohne weitere Zwischenfälle. Dort kann das Leben der
-F durch eine umgehend eingeleitete Notoperation gerettet werden. Wäre F nur zehn
-Minuten später eingeliefert worden, wäre ihre Rettung nicht mehr möglich gewesen.
-Vom Krankenhaus fährt A mit seinem Pkw nach Hause, ohne dort seine Personalien
-zu hinterlassen oder das Eintreffen der Polizei abzuwarten; er wird jedoch kurze Zeit
-später als Unfallverursacher ermittelt.
-In dem anschließenden Strafverfahren macht A geltend, dass der Unfall sicher auch
-dann eingetreten wäre, wenn er die zulässige Geschwindigkeit von 70 km/h eingehal
-ten und nicht unter Alkoholeinfluss gestanden hätte. Der Staatsanwalt hält ihm entge
-gen, dass er zum einen aufgrund seiner Alkoholisierung von vornherein kein Fahrzeug
-mehr hätte führen dürfen; jedenfalls hätte er aber aufgrund seiner alkoholbedingten
-Fahruntüchtigkeit nur mit einer Geschwindigkeit von 50 km/h fahren dürfen. Bei
-dieser Geschwindigkeit hätte der Zusammenstoß mit F durch sofortiges Bremsen aber
-noch vermieden werden können.
-1. Wie hat sich A nach dem StGB strafbar gemacht? Gegebenenfalls erforderliche
-Strafanträge sind gestellt.
-2. Wie wäre zu entscheiden, wenn ein Sachverständiger feststellte, dass bei einer
-Geschwindigkeit von nur 70 km/h der Unfall von einem nüchternen Fahrer mit
-30 prozentiger Wahrscheinlichkeit vermieden worden wäre?"""
+task = """A, B, C und O sind Arbeitskollegen und gehen praktisch jeden Samstag ins Stadion. Während A, B und 
+C aber auch befreundet sind, können sich A und O nicht leiden. 
+Im März 2013, C ist dieses eine Mal ausnahmsweise nicht dabei, verabreden sich A und B, nach dem 
+Stadionbesuch den O „aufzumischen und ihm sein Handy zu klauen“. Sie wollen das vor ihrer 
+Stammkneipe tun, in der sie sich wöchentlich treffen und in der auch O regelmäßig Gast ist. Wie 
+immer nimmt B den A in seinem Wagen mit. Auf der Fahrt dorthin überlegt es sich B doch anders und 
+sagt A, dass er nicht mitmache. B denkt sich dabei, dass der A die geplante Tat alleine nicht begehen 
+werde und fährt weiter Richtung Stammkneipe. Dort angekommen steigen A und B aus, A geht 
+alleine auf O los, schlägt ihn mehrfach und sagt ihm, dass er O „das Handy wegnehmen wird, weil er 
+es eh nicht braucht“. O denkt sich, dass er sein Mobiltelefon in jedem Fall verloren hat und reicht es 
+A hin, um weitere Schläge zu vermeiden. A und B gehen ohne O, der wenig später A und B bei der 
+Polizei anzeigt, in die Kneipe. 
+Nach mehreren Monaten kommt es zur Anklage. A will diese ganze Angelegenheit möglichst 
+unbeschadet überstehen und den C hierzu einspannen. A berichtet ihm von der polizeilichen 
+Untersuchung. Er sagt zu C: „Aber hier, das kann doch gar nicht sein, wir fahren doch immer 
+gemeinsam und das hättest du doch gesehen, wenn das passiert wäre.“ C erinnert sich nicht genau, 
+hält das aber für zutreffend. In der Hauptverhandlung sagt C als Zeuge aus, dass er mit A und B 
+immer und so auch an dem fraglichen Tag zusammen zu ihrer Kneipe fahre, und dass er keinen 
+Vorfall zwischen A und O gesehen hat. 
+Aufgabe 1: Prüfen Sie in einem Gutachten die Strafbarkeit der Beteiligten nach dem StGB. 
+Aufgabe 2: Im Zusammenhang mit Sitzblockaden und anderen expressiven Demonstrations
+varianten „wütender Bürger“ fällt oft der Begriff des „zivilen Ungehorsams“. Wie verstehen 
+Sie diesen Begriff? Nehmen Sie Stellung zu der These, „nicht gewalttätige“ Straftaten (z.B. 
+§ 240 StGB oder Straftaten nach dem Versammlungsgesetz) seien wegen ihrer Eigenschaft als 
+ziviler Ungehorsam gerechtfertigt, also nicht strafbar."""
 
 for s in app.stream({"task": task}):
     print(s)
