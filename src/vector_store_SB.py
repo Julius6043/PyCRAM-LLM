@@ -11,6 +11,8 @@ from langchain_community.document_loaders import PyMuPDFLoader
 from supabase.client import Client, create_client
 from supabase.lib.client_options import ClientOptions
 from PyPDF2 import PdfReader
+from bs4 import BeautifulSoup as Soup
+from langchain_community.document_loaders.recursive_url_loader import RecursiveUrlLoader
 import httpx
 
 load_dotenv()
@@ -32,8 +34,8 @@ vector_store = SupabaseVectorStore(
 vector_store_large = SupabaseVectorStore(
     embedding=embeddings_large,
     client=supabase,
-    table_name="data",
-    query_name="match_data",
+    table_name="docs",
+    query_name="match_docs",
 )
 
 
@@ -52,6 +54,17 @@ def get_pdf_text(file_name, path_pdf=True):
     )
     chunks = text_splitter.split_text(text)
     return chunks
+
+
+def load_website(link, max_depth=20):
+    url = link
+    loader = RecursiveUrlLoader(
+        url=url, max_depth=max_depth, extractor=lambda x: Soup(x, "html.parser").text
+    )
+    docs_pycram = loader.load()
+    d_sorted = sorted(docs_pycram, key=lambda x: x.metadata["source"])
+    d_reversed = list(reversed(d_sorted))
+    return d_reversed
 
 
 def load_pdf(file_name):
@@ -77,14 +90,11 @@ def load_pdf_document(file_name):
 
 
 # Laden in ein der beiden VecktorStores
-def load_in_vector_store(file_name, vectore_store_id=1):
+def load_in_vector_store(source, vectore_store_id=1):
     global vector_store, vector_store_large
-    if vectore_store_id == 1:
-        chunks = load_pdf_document(file_name)
-    else:
-        chunks = load_pdf(file_name)
     # pages = load_pdf(file_name)
     if vectore_store_id == 1:
+        chunks = load_pdf_document(source)
         vector_store = SupabaseVectorStore.from_documents(
             chunks,
             embeddings,
@@ -94,13 +104,13 @@ def load_in_vector_store(file_name, vectore_store_id=1):
             chunk_size=500,
         )
     elif vectore_store_id == 2:
+        chunks = load_website(source)
         vector_store_large = SupabaseVectorStore.from_documents(
             chunks,
             embeddings_large,
             client=supabase,
-            table_name="data",
-            query_name="match_data",
-            chunk_size=500,
+            table_name="docs",
+            query_name="match_docs",
         )
     else:
         raise Exception("Invalid vector store id")
@@ -160,3 +170,4 @@ def get_retriever(vector_store_id=1, num=5):
 # load_in_vector_store("BAfoeG.pdf", 2)
 # result = retrieve_large("Was muss ich erfüllen um Bafoeg beantragen zu können?")
 # print(result)
+# load_in_vector_store("https://pycram.readthedocs.io/en/latest/", 2)
