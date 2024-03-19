@@ -17,7 +17,9 @@ load_dotenv()
 
 
 def format_docs(docs):
-    return "\n\n---\n\n".join([d.page_content for d in docs])
+    text = "\n\n---\n\n".join([d.page_content for d in docs])
+    bereinigter_text = re.sub(r"\n{3,}", "\n\n", text)
+    return bereinigter_text
 
 
 class ReWOO(TypedDict):
@@ -32,18 +34,29 @@ class ReWOO(TypedDict):
 llm = ChatOpenAI(model="gpt-4-turbo-preview", temperature=0)
 llm3 = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 
-prompt = """Du bist ein renommierter AI Enginer und Programmierer. Du bekommst Weltwissen und eine Aufgabe, Aufforderung oder Frage übergeben und sollst damit einen Ablaufplan zur entwicklung eines PyCramPlanCode für einen Roboter entwickeln, welcher den Roboter die Aufgabe ausführen lässt. Für jeden Plan, gib an, welches externe Werkzeug zusammen mit der Eingabe für das Werkzeug verwendet wird, um Beweise zu sammeln. Du kannst die Beweise in einer Variablen #E speichern, die später von anderen Werkzeugen aufgerufen werden kann. (Plan, #E1, Plan, #E2, Plan, ...).
-Verwende ein Format, das durch folgendes Regex-Muster erkannt werden kann:
+prompt = """You are a renowned AI engineer and programmer. You receive world knowledge and a task, command, or question and are to develop a plan for creating PyCramPlanCode for a robot that enables the robot to perform the task. For each plan, indicate which external tool, along with the input for the tool, is used to gather evidence. You can store the evidence in a variable #E, which can be called upon by other tools later. (Plan, #E1, Plan, #E2, Plan, ...).
+Use a format that can be recognized by the following regex pattern:
 Plan\s*\d*:\s*(.+?)\s*(#E\d+)\s*=\s*(\w+)\s*([^]+)]
 
-Die Werkzeuge können eines der folgenden sein:
-(1) Retrieve[input]: Ein Vektor-Datenbank-Abrufsystem, welches die Dokumentation von PyCram enthält. Verwende dieses Werkzeug, wenn du Informationen über Funktionen von PyCram benötigst.
-Die Eingabe sollte eine Suchanfrage sein.
-(2) LLM[input]: Ein vortrainiertes LLM wie du selbst. Nützlich, wenn du mit allgemeinem Weltwissen und gesundem Menschenverstand handeln musst. Bevorzuge es, wenn du zuversichtlich bist, das Problem selbst lösen zu können. Die Eingabe kann jede Anweisung sein.
-(3) Statement[state]: Es wird kein Tool benutzt sondern einfach ein Statement direkt verfasst. Nützlich, wenn du einfach nur Informationen aus dem Input extrahieren möchtest.
+The tools can be one of the following:
+(1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functions.
+The input should be a specific search query as a detailed question.
+(2) LLM[input]: A pre-trained LLM like yourself. Useful when you need to act with general world knowledge and common sense. Prefer it if you are confident you can solve the problem yourself. The input can be any statement.
+(3) Statement[state]: No tool is used, simply formulate a statement directly. Useful when you just need to extract information from the input.
 
-PyCramPlanCode folgt der folgenden Struktur:
-'from pycram.bullet_world import BulletWorld, Object
+PyCramPlanCode follow the following structure:
+Imports
+BulletWorld Definition
+Objects
+Object Designators
+The 'with simulated_robot:'-Block (defines the Aktions and moves of the Robot)
+    AktionDesignators
+    SematicCostmapLocation
+BulletWorld Close
+
+This is an example of a PyCramPlanCode:
+'#Imports
+from pycram.bullet_world import BulletWorld, Object
 from pycram.process_module import simulated_robot
 from pycram.designators.motion_designator import *
 from pycram.designators.location_designator import *
@@ -51,56 +64,67 @@ from pycram.designators.action_designator import *
 from pycram.designators.object_designator import *
 from pycram.enums import ObjectType
 
+#Bulletword Definition
 world = BulletWorld()
+
+#Objects
 kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf')
 robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf')
 cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', position=[1.4, 1, 0.95])
 
+#Object Designators
 cereal_desig = ObjectDesignatorDescription(names=['cereal'])
 kitchen_desig = ObjectDesignatorDescription(names=['kitchen'])
 robot_desig = ObjectDesignatorDescription(names=['pr2']).resolve()
 
+#The 'with simulated_robot:'-Block
 with simulated_robot:
+    #AktionDesignators
     ParkArmsAction([Arms.BOTH]).resolve().perform()
 
     MoveTorsoAction([0.3]).resolve().perform()
-
+    
+    #SemanticCostmapLocation
     pickup_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot_desig).resolve()
     pickup_arm = pickup_pose.reachable_arms[0]
 
+    #AktionDesignators
     NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
 
     PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=['front']).resolve().perform()
 
     ParkArmsAction([Arms.BOTH]).resolve().perform()
-
+        
+    #SemanticCostmapLocation
     place_island = SemanticCostmapLocation('kitchen_island_surface', kitchen_desig.resolve(), cereal_desig.resolve()).resolve()
 
     place_stand = CostmapLocation(place_island.pose, reachable_for=robot_desig, reachable_arm=pickup_arm).resolve()
-
+    
+    #AktionDesignators
     NavigateAction(target_locations=[place_stand.pose]).resolve().perform()
 
     PlaceAction(cereal_desig, target_locations=[place_island.pose], arms=[pickup_arm]).resolve().perform()
 
     ParkArmsAction([Arms.BOTH]).resolve().perform()
 
+#BulletWorld Close
 world.exit()'
 
 
-Der dazugehörige Ablaufplan der zu diesen PyCramPlanCode führen soll, sieht beispielsweise so aus:
-Weltwissen: [kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', position=[1.4, 1, 0.95]))]
-Aufgabe: Kannst du das Müsli auf die Kücheninsel stellen?
-Plan 1: Ermittle die Grundlagen von PyCram, einschließlich der Erstellung der simulierten Welt und der Initialisierung von Objekten. #E1 = Retrieve[PyCram Grundlagen]
-Plan 2: Erforsche, wie in PyCram Objekt- und Roboterdesignatoren verwendet werden. #E2 = Retrieve[Verwendung von Designatoren in PyCram]
-Plan 3: Untersuche, wie Bewegungs- und Aktionsmodule in PyCram für Navigation, Greifen und Platzieren von Objekten genutzt werden. #E3 = Retrieve[Bewegungs- und Aktionsmodule in PyCram]
-Plan 4: Erforsche Best Practices zur Implementierung von Aktionssequenzen in PyCram, einschließlich Fehlerbehandlung und Zustandsüberprüfung. #E4 = Retrieve[Implementierung von Aktionssequenzen in PyCram]
-Plan 5: Ermittle die beste Vorgehensweise zum ordnungsgemäßen Schließen der simulierten Umgebung und zum Freigeben von Ressourcen in PyCram. #E5 = Retrieve[Beenden der Simulation und Ressourcenmanagement in PyCram]
+The corresponding plan leading to this PyCramPlanCode might look like this:
+World knowledge: [kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', position=[1.4, 1, 0.95]))]
+Task: Can you place the cereal on the kitchen island?
+Plan 1: Determine the basics of PyCram, including creating the simulated world and initializing objects. #E1 = Retrieve[PyCram basics]
+Plan 2: Research how object and robot designators are used in PyCram. #E2 = Retrieve[Use of designators in PyCram]
+Plan 3: Investigate how movement and action modules in PyCram are used for navigation, grasping, and placing objects. #E3 = Retrieve[Movement and action modules in PyCram]
+Plan 4: Research best practices for implementing action sequences in PyCram, including error handling and state checking. #E4 = Retrieve[Implementation of action sequences in PyCram]
+Plan 5: Determine the best approach to properly close the simulated environment and release resources in PyCram. #E5 = Retrieve[Ending the simulation and resource management in PyCram]
 
-Beginne!
-Beschreibe deine Pläne mit reichen Details. Jeder Plan sollte nur einer #E folgen.
+Begin!
+Describe your plans with rich details. Each plan should follow only one #E. You do not need to consider how PyCram is installed and set up in the plans, as this is already given.
 
-Weltwissen: {world}
-Aufgabe: {task}"""
+World knowledge: {world}
+Task: {task}"""
 
 
 # Regex to match expressions of the form E#... = ...[...]
@@ -136,14 +160,14 @@ def _get_current_task(state: ReWOO):
 
 
 ###
-retriever = get_retriever(2, 10)
+retriever = get_retriever(2, 5)
 re_chain = retriever | format_docs
 prompt_retriever_chain = ChatPromptTemplate.from_template(
-    """Given the search query, write a detailed, structured, and comprehensive article on this topic based on all the important information from the following context:
+    """You are an professional tutorial writer and coding educator. Given the search query, write a detailed, structured, and comprehensive coding documentation for this question and the topic based on all the important information from the following context:
 {context}
 
 Search query: {task}
-Use at least 4000 tokens for the output and adhere to the provided information. Incorporate important code examples in their entirety.
+Use at least 4000 tokens for the output and adhere to the provided information. Incorporate important code examples in their entirety. The installation and configuration of pycram is not important, because it is already given.
 """
 )
 chain_docs = (
@@ -178,13 +202,29 @@ def tool_execution(state: ReWOO):
 
 solve_prompt = """You are a professional programmer, specialized on writing PycramRoboterPlans. To write the code, we have made step-by-step Plan and \
 retrieved corresponding evidence to each Plan. Use them with caution since long evidence might \
-contain irrelevant information.
+contain irrelevant information. The evidence are examples and information to write PyCramCode so use them with caution and only use the world knowledge for specific world information. But also be conscious about you hallucinating and therefore use evidence and example code as strong inspiration.
 
+Plan with evidence and examples:
+<Plan>
 {plan}
+</Plan>
 
-Now solve the question or task according to provided evidence above. Respond with nothing other than the generated python code
+Now create the PyCramPlanCode for the quenstion or task according to provided evidence above and the world knowledge. Respond with nothing other than the generated PyCramPlan python code.
+PyCramPlanCode follow the following structure:
+<Plan structure>
+Imports
+BulletWorld Definition
+Objects
+Object Designators
+The 'with simulated_robot:'-Block (defines the Aktions and moves of the Robot)
+    AktionDesignators
+    SematicCostmapLocation
+BulletWorld Close
+</Plan structure>
+
 
 Task: {task}
+World knowledge: {world}
 Response:
 """
 
@@ -197,7 +237,7 @@ def solve(state: ReWOO):
             tool_input = tool_input.replace(k, v)
             step_name = step_name.replace(k, v)
         plan += f"Plan: {_plan}\n{step_name} = {tool}[{tool_input}]"
-    prompt = solve_prompt.format(plan=plan, task=state["task"])
+    prompt = solve_prompt.format(plan=plan, task=state["task"], world=state["world"])
     result = llm.invoke(prompt)
     return {"result": result.content}
 
@@ -221,35 +261,21 @@ graph.add_edge("solve", END)
 graph.add_conditional_edges("tool", _route)
 graph.set_entry_point("plan")
 
-# app = graph.compile()
+app = graph.compile()
 
-task = """A, B, C und O sind Arbeitskollegen und gehen praktisch jeden Samstag ins Stadion. Während A, B und 
-C aber auch befreundet sind, können sich A und O nicht leiden. 
-Im März 2013, C ist dieses eine Mal ausnahmsweise nicht dabei, verabreden sich A und B, nach dem 
-Stadionbesuch den O „aufzumischen und ihm sein Handy zu klauen“. Sie wollen das vor ihrer 
-Stammkneipe tun, in der sie sich wöchentlich treffen und in der auch O regelmäßig Gast ist. Wie 
-immer nimmt B den A in seinem Wagen mit. Auf der Fahrt dorthin überlegt es sich B doch anders und 
-sagt A, dass er nicht mitmache. B denkt sich dabei, dass der A die geplante Tat alleine nicht begehen 
-werde und fährt weiter Richtung Stammkneipe. Dort angekommen steigen A und B aus, A geht 
-alleine auf O los, schlägt ihn mehrfach und sagt ihm, dass er O „das Handy wegnehmen wird, weil er 
-es eh nicht braucht“. O denkt sich, dass er sein Mobiltelefon in jedem Fall verloren hat und reicht es 
-A hin, um weitere Schläge zu vermeiden. A und B gehen ohne O, der wenig später A und B bei der 
-Polizei anzeigt, in die Kneipe. 
-Nach mehreren Monaten kommt es zur Anklage. A will diese ganze Angelegenheit möglichst 
-unbeschadet überstehen und den C hierzu einspannen. A berichtet ihm von der polizeilichen 
-Untersuchung. Er sagt zu C: „Aber hier, das kann doch gar nicht sein, wir fahren doch immer 
-gemeinsam und das hättest du doch gesehen, wenn das passiert wäre.“ C erinnert sich nicht genau, 
-hält das aber für zutreffend. In der Hauptverhandlung sagt C als Zeuge aus, dass er mit A und B 
-immer und so auch an dem fraglichen Tag zusammen zu ihrer Kneipe fahre, und dass er keinen 
-Vorfall zwischen A und O gesehen hat. 
+task = """ Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?
+"""
+world = """
+[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', position=[1.4, 1, 0.95]))]
 """
 
-# for s in app.stream({"task": task}):
-# print(s)
-# print("---")
+for s in app.stream({"task": task, "world": world}):
+    print(s)
+    print("---")
 
-# print(s[END]["result"])
+print(s[END]["result"])
 
 
-result = chain_docs.invoke("PyCram Grundlagen")
-print(result)
+##result = chain_docs.invoke("PyCram Grundlagen")
+# result = chain_docs.invoke("PyCram Grundlagen")
+# print(result)

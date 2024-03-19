@@ -1,13 +1,20 @@
 from typing import Dict, TypedDict
 from langgraph.graph import END, StateGraph
 from operator import itemgetter
-
+from vector_store_SB import get_retriever
 from langchain.output_parsers.openai_tools import PydanticToolsParser
 from langchain.prompts import PromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_openai import ChatOpenAI
+import re
+
+
+def format_docs(docs):
+    text = "\n\n---\n\n".join([d.page_content for d in docs])
+    bereinigter_text = re.sub(r"\n{3,}", "\n\n", text)
+    return bereinigter_text
 
 
 class GraphState(TypedDict):
@@ -62,14 +69,15 @@ def generate(state: GraphState):
     parser_tool = PydanticToolsParser(tools=[code])
 
     ## Prompt
-    template = """You are a coding assistant with expertise in LCEL, LangChain expression language. \n 
-        Here is a full set of LCEL documentation: 
+    template = """You are a coding assistant with expertise in PyCram, a python Roboter Language. \n 
+        Here is the most important part of the PyCram regarding your coming task documentation: 
         \n ------- \n
         {context} 
         \n ------- \n
-        Answer the user question based on the above provided documentation. \n
-        Ensure any code you provide can be executed with all required imports and variables defined. \n
-        Structure your answer with a description of the code solution. \n
+        Here is a code written by an specially trained LLM Network: \n --- \n
+        {code_from_pro}. \n --- \n
+        Check the Code based on the documentation and edit it only when you are 100 procent sure based on the informations that there is a mistake. Also ensure that the code can be executed with all required imports and variables defined. \n
+        Structure the final answer with a description of the code solution. \n
         Then list the imports. And finally list the functioning code block. \n
         Here is the user question: \n --- --- --- \n {question}"""
 
@@ -78,6 +86,7 @@ def generate(state: GraphState):
         print("---RE-GENERATE SOLUTION w/ ERROR FEEDBACK---")
 
         error = state_dict["error"]
+        code_from_pro = state_dict["code"]
         code_solution = state_dict["generation"]
 
         # Udpate prompt
@@ -100,6 +109,7 @@ def generate(state: GraphState):
         chain = (
             {
                 "context": lambda _: concatenated_content,
+                "code_from_pro": itemgetter("code"),
                 "question": itemgetter("question"),
                 "generation": itemgetter("generation"),
                 "error": itemgetter("error"),
@@ -110,12 +120,17 @@ def generate(state: GraphState):
         )
 
         code_solution = chain.invoke(
-            {"question": question, "generation": str(code_solution[0]), "error": error}
+            {
+                "question": question,
+                "code_from_pro": code_from_pro,
+                "generation": str(code_solution[0]),
+                "error": error,
+            }
         )
 
     else:
         print("---GENERATE SOLUTION---")
-
+        code_from_pro = ""
         # Prompt
         prompt = PromptTemplate(
             template=template,
@@ -126,6 +141,7 @@ def generate(state: GraphState):
         chain = (
             {
                 "context": lambda _: concatenated_content,
+                "code_from_pro": itemgetter("code"),
                 "question": itemgetter("question"),
             }
             | prompt
@@ -133,11 +149,16 @@ def generate(state: GraphState):
             | parser_tool
         )
 
-        code_solution = chain.invoke({"question": question})
+        code_solution = chain.invoke({"code": code_from_pro, "question": question})
 
     iter = iter + 1
     return {
-        "keys": {"generation": code_solution, "question": question, "iterations": iter}
+        "keys": {
+            "generation": code_solution,
+            "code": code_from_pro,
+            "question": question,
+            "iterations": iter,
+        }
     }
 
 

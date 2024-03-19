@@ -9,3 +9,4 @@ tiktoken
 langchain-openai
 langchainhub
 faiss-cpu
+langgraph
