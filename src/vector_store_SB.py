@@ -38,6 +38,13 @@ vector_store_large = SupabaseVectorStore(
     query_name="match_docs",
 )
 
+vector_store_examples = SupabaseVectorStore(
+    embedding=embeddings_large,
+    client=supabase,
+    table_name="examples",
+    query_name="match_examples",
+)
+
 
 def get_pdf_text(file_name, path_pdf=True):
     text = ""
@@ -91,7 +98,7 @@ def load_pdf_document(file_name):
 
 # Laden in ein der beiden VecktorStores
 def load_in_vector_store(source, vectore_store_id=1):
-    global vector_store, vector_store_large
+    global vector_store, vector_store_large, vector_store_examples
     # pages = load_pdf(file_name)
     if vectore_store_id == 1:
         chunks = load_pdf_document(source)
@@ -111,6 +118,15 @@ def load_in_vector_store(source, vectore_store_id=1):
             client=supabase,
             table_name="docs",
             query_name="match_docs",
+        )
+    elif vectore_store_id == 3:
+        chunks = source
+        vector_store_examples = SupabaseVectorStore.from_texts(
+            chunks,
+            embeddings_large,
+            client=supabase,
+            table_name="examples",
+            query_name="match_examples",
         )
     else:
         raise Exception("Invalid vector store id")
@@ -158,6 +174,8 @@ def get_retriever(vector_store_id=1, num=5):
         vector_store_temp = vector_store
     elif vector_store_id == 2:
         vector_store_temp = vector_store_large
+    elif vector_store_id == 3:
+        vector_store_temp = vector_store_examples
     else:
         raise Exception("Invalid vector store id")
     retriever = vector_store_temp.as_retriever(search_kwargs={"k": num})
