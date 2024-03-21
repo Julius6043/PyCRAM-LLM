@@ -2,18 +2,28 @@ from typing import Dict, TypedDict
 from langgraph.graph import END, StateGraph
 from operator import itemgetter
 from vector_store_SB import get_retriever
+from langgraph_ReWOO import stream_rewoo
 from langchain.output_parsers.openai_tools import PydanticToolsParser
 from langchain.prompts import PromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_openai import ChatOpenAI
+from dotenv import load_dotenv
 import re
+
+load_dotenv()
 
 
 def format_docs(docs):
     text = "\n\n---\n\n".join([d.page_content for d in docs])
-    bereinigter_text = re.sub(r"\n{3,}", "\n\n", text)
+
+    pattern = r"Next \n\n.*?\nBuilds"
+    pattern2 = r"pycram\n          \n\n                latest\n.*?Edit on GitHub"
+    # Ersetzen des gefundenen Textabschnitts durch einen leeren String
+    filtered_text = re.sub(pattern, "", text, flags=re.DOTALL)
+    filtered_text2 = re.sub(pattern2, "", filtered_text, flags=re.DOTALL)
+    bereinigter_text = re.sub(r"\n{3,}", "\n\n", filtered_text2)
     return bereinigter_text
 
 
@@ -43,6 +53,7 @@ def generate(state: GraphState):
     ## State
     state_dict = state["keys"]
     question = state_dict["question"]
+    world = state_dict["world"]
     iter = state_dict["iterations"]
 
     ## Data model
@@ -55,6 +66,13 @@ def generate(state: GraphState):
 
     ## LLM
     model = ChatOpenAI(temperature=0, model="gpt-4-0125-preview", streaming=True)
+
+    # Content
+    retriever = get_retriever(2, 10)
+    re_chain = retriever | format_docs
+    concatenated_content = re_chain.invoke(question)
+
+    # Code
 
     # Tool
     code_tool_oai = convert_to_openai_tool(code)
@@ -75,18 +93,22 @@ def generate(state: GraphState):
         {context} 
         \n ------- \n
         Here is a code written by an specially trained LLM Network: \n --- \n
-        {code_from_pro}. \n --- \n
+        {code_rewoo}. \n --- \n
         Check the Code based on the documentation and edit it only when you are 100 procent sure based on the informations that there is a mistake. Also ensure that the code can be executed with all required imports and variables defined. \n
+        Be aware the documentation are only examples, use world knowledge for spcific world information. \n
         Structure the final answer with a description of the code solution. \n
         Then list the imports. And finally list the functioning code block. \n
-        Here is the user question: \n --- --- --- \n {question}"""
+        Here is the user question: {question}
+        -----
+        Here is the world knowledge: {world}
+        """
 
     ## Generation
     if "error" in state_dict:
         print("---RE-GENERATE SOLUTION w/ ERROR FEEDBACK---")
 
         error = state_dict["error"]
-        code_from_pro = state_dict["code"]
+        code_rewoo = state_dict["code_rewoo"]
         code_solution = state_dict["generation"]
 
         # Udpate prompt
@@ -96,21 +118,29 @@ def generate(state: GraphState):
                     Structure your answer with a description of the code solution. \n Then list the imports. 
                     And finally list the functioning code block. Structure your answer with a description of 
                     the code solution. \n Then list the imports. And finally list the functioning code block. 
-                    \n Here is the user question: \n --- --- --- \n {question}"""
+                    \n Here is the user question: \n {question}"""
         template = template + addendum
 
         # Prompt
         prompt = PromptTemplate(
             template=template,
-            input_variables=["context", "question", "generation", "error"],
+            input_variables=[
+                "context",
+                "code_rewoo",
+                "question",
+                "world",
+                "generation",
+                "error",
+            ],
         )
 
         # Chain
         chain = (
             {
                 "context": lambda _: concatenated_content,
-                "code_from_pro": itemgetter("code"),
+                "code_rewoo": itemgetter("code_rewoo"),
                 "question": itemgetter("question"),
+                "world": itemgetter("world"),
                 "generation": itemgetter("generation"),
                 "error": itemgetter("error"),
             }
@@ -122,40 +152,45 @@ def generate(state: GraphState):
         code_solution = chain.invoke(
             {
                 "question": question,
-                "code_from_pro": code_from_pro,
+                "code_rewoo": code_rewoo,
+                "world": world,
                 "generation": str(code_solution[0]),
                 "error": error,
             }
         )
 
     else:
+
         print("---GENERATE SOLUTION---")
-        code_from_pro = ""
+        code_rewoo = stream_rewoo(question, world)
         # Prompt
         prompt = PromptTemplate(
             template=template,
-            input_variables=["context", "question"],
+            input_variables=["context", "code_rewoo", "question", "world"],
         )
 
         # Chain
         chain = (
             {
                 "context": lambda _: concatenated_content,
-                "code_from_pro": itemgetter("code"),
+                "code_rewoo": itemgetter("code_rewoo"),
                 "question": itemgetter("question"),
+                "world": itemgetter("world"),
             }
             | prompt
             | llm_with_tool
             | parser_tool
         )
 
-        code_solution = chain.invoke({"code": code_from_pro, "question": question})
+        code_solution = chain.invoke(
+            {"code_rewoo": code_rewoo, "question": question, "world": world}
+        )
 
     iter = iter + 1
     return {
         "keys": {
             "generation": code_solution,
-            "code": code_from_pro,
+            "code_rewoo": code_rewoo,
             "question": question,
             "iterations": iter,
         }
@@ -310,3 +345,41 @@ def decide_to_finish(state: GraphState):
         # We have relevant documents, so generate answer
         print("---DECISION: RE-TRY SOLUTION---")
         return "generate"
+
+
+workflow = StateGraph(GraphState)
+
+# Define the nodes
+workflow.add_node("generate", generate)  # generation solution
+workflow.add_node("check_code_imports", check_code_imports)  # check imports
+workflow.add_node("check_code_execution", check_code_execution)  # check execution
+
+# Build graph
+workflow.set_entry_point("generate")
+workflow.add_edge("generate", "check_code_imports")
+workflow.add_conditional_edges(
+    "check_code_imports",
+    decide_to_check_code_exec,
+    {
+        "check_code_execution": "check_code_execution",
+        "generate": "generate",
+    },
+)
+workflow.add_conditional_edges(
+    "check_code_execution",
+    decide_to_finish,
+    {
+        "end": END,
+        "generate": "generate",
+    },
+)
+
+# Compile
+app = workflow.compile()
+
+
+config = {"recursion_limit": 50}
+
+
+def model(input: dict):
+    return app.invoke({"keys": {**input, "iterations": 0}}, config=config)

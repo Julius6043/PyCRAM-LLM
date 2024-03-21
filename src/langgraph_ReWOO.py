@@ -18,7 +18,13 @@ load_dotenv()
 
 def format_docs(docs):
     text = "\n\n---\n\n".join([d.page_content for d in docs])
-    bereinigter_text = re.sub(r"\n{3,}", "\n\n", text)
+
+    pattern = r"Next \n\n.*?\nBuilds"
+    pattern2 = r"pycram\n          \n\n                latest\n.*?Edit on GitHub"
+    # Ersetzen des gefundenen Textabschnitts durch einen leeren String
+    filtered_text = re.sub(pattern, "", text, flags=re.DOTALL)
+    filtered_text2 = re.sub(pattern2, "", filtered_text, flags=re.DOTALL)
+    bereinigter_text = re.sub(r"\n{3,}", "\n\n", filtered_text2)
     return bereinigter_text
 
 
@@ -111,7 +117,7 @@ with simulated_robot:
 world.exit()'
 
 
-The corresponding plan leading to this PyCramPlanCode might look like this:
+The corresponding plan leading to this PyCramPlanCode above might look like this:
 World knowledge: [kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', position=[1.4, 1, 0.95]))]
 Task: Can you place the cereal on the kitchen island?
 Plan 1: Determine the basics of PyCram, including creating the simulated world and initializing objects. #E1 = Retrieve[PyCram basics]
@@ -162,6 +168,7 @@ def _get_current_task(state: ReWOO):
 ###
 retriever = get_retriever(2, 5)
 re_chain = retriever | format_docs
+
 prompt_retriever_chain = ChatPromptTemplate.from_template(
     """You are an professional tutorial writer and coding educator. Given the search query, write a detailed, structured, and comprehensive coding documentation for this question and the topic based on all the important information from the following context:
 {context}
@@ -269,11 +276,14 @@ world = """
 [kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', position=[1.4, 1, 0.95]))]
 """
 
-for s in app.stream({"task": task, "world": world}):
-    print(s)
-    print("---")
 
-print(s[END]["result"])
+def stream_rewoo(task, world):
+    for s in app.stream({"task": task, "world": world}):
+        print(s)
+        print("---")
+
+    print(s[END]["result"])
+    return s[END]["result"]
 
 
 ##result = chain_docs.invoke("PyCram Grundlagen")
