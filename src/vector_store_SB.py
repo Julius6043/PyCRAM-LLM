@@ -1,29 +1,38 @@
+# Load environment variables from a .env file for secure access to sensitive data like API keys.
 from dotenv import load_dotenv
-from langchain_community.document_loaders import PyPDFLoader
+
+# Import libraries and modules for document loading, text splitting, and vector storage.
+from langchain_community.document_loaders import PyPDFLoader, PyMuPDFLoader
 from langchain.text_splitter import (
     CharacterTextSplitter,
     RecursiveCharacterTextSplitter,
 )
 from langchain_openai import OpenAIEmbeddings
-import os
 from langchain_community.vectorstores import SupabaseVectorStore
-from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_community.document_loaders.recursive_url_loader import RecursiveUrlLoader
 from supabase.client import Client, create_client
 from supabase.lib.client_options import ClientOptions
 from PyPDF2 import PdfReader
 from bs4 import BeautifulSoup as Soup
-from langchain_community.document_loaders.recursive_url_loader import RecursiveUrlLoader
+import os
 import httpx
 
+# Initialize environment variables.
 load_dotenv()
 
+# Configuration for the Supabase client.
 client_options = ClientOptions(postgrest_client_timeout=None)
 supabase_url = os.environ.get("SUPABASE_URL")
 supabase_key = os.environ.get("SUPABASE_SERVICE_KEY")
+
+# Create a Supabase client using the URL and key from environment variables.
 supabase: Client = create_client(supabase_url, supabase_key, options=client_options)
+
+# Initialize OpenAI embeddings for vectorization of texts.
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 embeddings_large = OpenAIEmbeddings(model="text-embedding-3-large")
 
+# Create vector stores for storing and querying vectorized text using Supabase and the specified embeddings.
 vector_store = SupabaseVectorStore(
     embedding=embeddings,
     client=supabase,
@@ -46,6 +55,7 @@ vector_store_examples = SupabaseVectorStore(
 )
 
 
+# Function to extract text from a PDF file.
 def get_pdf_text(file_name, path_pdf=True):
     text = ""
     if path_pdf:
@@ -56,6 +66,7 @@ def get_pdf_text(file_name, path_pdf=True):
     for page in reader.pages:
         text += page.extract_text()
 
+    # Split the extracted text into manageable chunks for processing.
     text_splitter = CharacterTextSplitter(
         separator="\n", chunk_size=1000, chunk_overlap=200, length_function=len
     )
@@ -63,6 +74,7 @@ def get_pdf_text(file_name, path_pdf=True):
     return chunks
 
 
+# Function to recursively load text content from a website up to a specified depth.
 def load_website(link, max_depth=20):
     url = link
     loader = RecursiveUrlLoader(
@@ -74,6 +86,7 @@ def load_website(link, max_depth=20):
     return d_reversed
 
 
+# Function to load and split text from a PDF file using PyMuPDFLoader.
 def load_pdf(file_name):
     path = f"pdf\{file_name}"
     loader = PyMuPDFLoader(path)
@@ -85,6 +98,7 @@ def load_pdf(file_name):
     return chunks
 
 
+# Similar to load_pdf but for a specific document path.
 def load_pdf_document(file_name):
     path = file_name
     loader = PyMuPDFLoader(path)
@@ -96,10 +110,9 @@ def load_pdf_document(file_name):
     return chunks
 
 
-# Laden in ein der beiden VecktorStores
+# Function to load text into one of the vector stores.
 def load_in_vector_store(source, vectore_store_id=1):
     global vector_store, vector_store_large, vector_store_examples
-    # pages = load_pdf(file_name)
     if vectore_store_id == 1:
         chunks = load_pdf_document(source)
         vector_store = SupabaseVectorStore.from_documents(
@@ -132,6 +145,7 @@ def load_in_vector_store(source, vectore_store_id=1):
         raise Exception("Invalid vector store id")
 
 
+# Function to delete entries from a vector store.
 def delete_from_vectorstore(table, num=2):
     if num == -1:
         result = supabase.table("documents").select("id", count="exact").execute()
@@ -144,30 +158,33 @@ def delete_from_vectorstore(table, num=2):
         .execute()
     )
     if data.data:
-        ids_to_delete = [item["id"] for item in data.data]  # IDs extrahieren
+        ids_to_delete = [item["id"] for item in data.data]  # Extract IDs to delete.
         delete_response = (
             supabase.table(table).delete().in_("id", ids_to_delete).execute()
         )
     else:
-        print("Keine Einträge zum Löschen gefunden.")
+        print("No entries found to delete.")
 
 
+# Function to retrieve documents similar to a query from a vector store.
 def retrieve(query):
     matched_docs = vector_store.similarity_search(query)
     result = matched_docs[0].page_content + "\n\n" + matched_docs[1].page_content
     return result
 
 
+# Function to retrieve a specified number of documents similar to a query from the large vector store.
 def retrieve_large(query, number):
     matched_docs = vector_store_large.similarity_search(query)
     result = ""
     for i in range(number):
         result += (
-            "Dokument: " + str(i + 1) + "\n" + matched_docs[i].page_content + "\n\n"
+            "Document: " + str(i + 1) + "\n" + matched_docs[i].page_content + "\n\n"
         )
     return result
 
 
+# Function to get a retriever based on the vector store ID and number of documents to retrieve.
 def get_retriever(vector_store_id=1, num=5):
     vector_store_temp = vector_store
     if vector_store_id == 1:
