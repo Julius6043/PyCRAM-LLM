@@ -14,10 +14,55 @@ import re
 
 load_dotenv()
 
+test_code = """
+from pycram.bullet_world import BulletWorld, Object
+from pycram.process_module import simulated_robot
+from pycram.designators.motion_designator import *
+from pycram.designators.location_designator import *
+from pycram.designators.action_designator import *
+from pycram.designators.object_designator import *
+from pycram.pose import Pose
+from pycram.enums import ObjectType
+
+world = BulletWorld()
+
+#Objects
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.4, 1, 0.95]))
+
+#Object Designators
+cereal_desig = ObjectDesignatorDescription(names=["cereal"])
+
+with simulated_robot:
+    # Initial actions
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.25]).resolve().perform()
+
+    # Pick up the cereal
+    pickup_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot).resolve()
+    pickup_arm = pickup_pose.reachable_arms[0]
+    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+    PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=["front"]).resolve().perform()
+
+    # Move 3 steps to the right
+    motion_designator = MotionDesignator(direction="right", distance=3)
+    motion_designator.resolve().perform()
+
+    # Place the cereal
+    place_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot).resolve()
+    NavigateAction(target_locations=[place_pose.pose]).resolve().perform()
+    PlaceAction(cereal_desig, target_locations=[place_pose.pose], arms=[pickup_arm]).resolve().perform()
+
+    # Park the robot's arms again
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+world.exit()
+"""
+
 
 def format_docs(docs):
     text = "\n\n---\n\n".join([d.page_content for d in docs])
-
     pattern = r"Next \n\n.*?\nBuilds"
     pattern2 = r"pycram\n          \n\n                latest\n.*?Edit on GitHub"
     # Ersetzen des gefundenen Textabschnitts durch einen leeren String
@@ -70,9 +115,9 @@ def generate(state: GraphState):
     # Content
     retriever = get_retriever(2, 10)
     re_chain = retriever | format_docs
-    concatenated_content = re_chain.invoke(question)
-
-    # Code
+    # Error information
+    retriever_error = get_retriever(2, 2)
+    re_chain_error = retriever_error | format_docs
 
     # Tool
     code_tool_oai = convert_to_openai_tool(code)
@@ -87,62 +132,60 @@ def generate(state: GraphState):
     parser_tool = PydanticToolsParser(tools=[code])
 
     ## Prompt
-    template = """You are a coding assistant with expertise in PyCram, a python Roboter Language. \n 
-        Here is the most important part of the PyCram regarding your coming task documentation: 
-        \n ------- \n
-        {context} 
-        \n ------- \n
-        Here is a code written by an specially trained LLM Network: \n --- \n
-        {code_rewoo}. \n --- \n
-        Check the Code based on the documentation and edit it only when you are 100 procent sure based on the informations that there is a mistake. Also ensure that the code can be executed with all required imports and variables defined. \n
-        Be aware the documentation are only examples, use world knowledge for spcific world information. \n
-        Structure the final answer with a description of the code solution. \n
-        Then list the imports. And finally list the functioning code block. \n
-        Here is the user question: {question}
-        -----
-        Here is the world knowledge: {world}
-        """
+    template = """You are a coding assistant with expertise in PyCram, a python Roboter Language. \n Here is the most 
+    important part of the PyCram regarding your coming task documentation: \n ------- \n {context} \n ------- \n Here 
+    is a code written by an specially trained LLM Network: \n --- \n {code_rewoo}. \n --- \n Check the Code based on 
+    the documentation and edit it only when you are 100 percent sure based on the information that there is a 
+    mistake. Also ensure that the code can be executed with all required imports and variables defined. \n Be aware 
+    the documentation are only examples, use world knowledge for specific world information. \n Structure the final 
+    answer with a description of the code solution. \n Then list the imports. And finally list the functioning code 
+    block. \n Here is the user question: {question} Here is the world knowledge: {world}"""
 
     ## Generation
     if "error" in state_dict:
         print("---RE-GENERATE SOLUTION w/ ERROR FEEDBACK---")
 
         error = state_dict["error"]
-        code_rewoo = state_dict["code_rewoo"]
         code_solution = state_dict["generation"]
 
         # Udpate prompt
-        addendum = """  \n --- --- --- \n You previously tried to solve this problem. \n Here is your solution:  
-                    \n --- --- --- \n {generation}  \n --- --- --- \n  Here is the resulting error from code 
-                    execution:  \n --- --- --- \n {error}  \n --- --- --- \n Please re-try to answer this. 
-                    Structure your answer with a description of the code solution. \n Then list the imports. 
-                    And finally list the functioning code block. Structure your answer with a description of 
-                    the code solution. \n Then list the imports. And finally list the functioning code block. 
-                    \n Here is the user question: \n {question}"""
-        template = template + addendum
+        template_1 = """You are a coding assistant with expertise in PyCram, a python Roboter Language. \n Here is 
+        the most important part of the PyCram regarding your coming task documentation: \n ------- \n {context} \n 
+        ------- \n \n Be aware the documentation are only examples, use world knowledge for specific world 
+        information. \n Structure the final answer with a description of the code solution. \n Then list the imports. 
+        And finally list the functioning code block. \n Here is the user question: {question} Here is the world 
+        knowledge: {world}"""
+        addendum = """\n --- --- --- \n You previously tried to solve this problem. \n Here is your solution: \n --- 
+        --- --- \n {generation}  \n --- --- --- \n  Here is the resulting error from code execution:  \n --- --- --- 
+        \n {error}\n --- \n Additional information regarding the error: \n {information_error}  \n --- --- --- \n 
+        Please re-try to answer this. Structure your answer with a description of the code solution. \n Then list the 
+        imports. And finally list the functioning code block. Structure your answer with a description of the code 
+        solution. \n Then list the imports. And finally list the functioning code block. \n Here is the user 
+        question: \n {question}"""
+        template = template_1 + addendum
 
         # Prompt
         prompt = PromptTemplate(
             template=template,
             input_variables=[
                 "context",
-                "code_rewoo",
                 "question",
                 "world",
                 "generation",
                 "error",
+                "information_error",
             ],
         )
 
         # Chain
         chain = (
             {
-                "context": lambda _: concatenated_content,
-                "code_rewoo": itemgetter("code_rewoo"),
+                "context": itemgetter("question") | re_chain,
                 "question": itemgetter("question"),
                 "world": itemgetter("world"),
                 "generation": itemgetter("generation"),
                 "error": itemgetter("error"),
+                "information_error": itemgetter("error") | re_chain_error,
             }
             | prompt
             | llm_with_tool
@@ -152,7 +195,6 @@ def generate(state: GraphState):
         code_solution = chain.invoke(
             {
                 "question": question,
-                "code_rewoo": code_rewoo,
                 "world": world,
                 "generation": str(code_solution[0]),
                 "error": error,
@@ -162,7 +204,8 @@ def generate(state: GraphState):
     else:
 
         print("---GENERATE SOLUTION---")
-        code_rewoo = stream_rewoo(question, world)
+        # code_rewoo = stream_rewoo(question, world)
+        code_rewoo = test_code
         # Prompt
         prompt = PromptTemplate(
             template=template,
@@ -172,7 +215,7 @@ def generate(state: GraphState):
         # Chain
         chain = (
             {
-                "context": lambda _: concatenated_content,
+                "context": itemgetter("question") | re_chain,
                 "code_rewoo": itemgetter("code_rewoo"),
                 "question": itemgetter("question"),
                 "world": itemgetter("world"),
@@ -185,13 +228,14 @@ def generate(state: GraphState):
         code_solution = chain.invoke(
             {"code_rewoo": code_rewoo, "question": question, "world": world}
         )
+        print(code_solution)
 
     iter = iter + 1
     return {
         "keys": {
             "generation": code_solution,
-            "code_rewoo": code_rewoo,
             "question": question,
+            "world": world,
             "iterations": iter,
         }
     }
@@ -212,6 +256,7 @@ def check_code_imports(state: GraphState):
     print("---CHECKING CODE IMPORTS---")
     state_dict = state["keys"]
     question = state_dict["question"]
+    world = state_dict["world"]
     code_solution = state_dict["generation"]
     imports = code_solution[0].imports
     iter = state_dict["iterations"]
@@ -235,6 +280,7 @@ def check_code_imports(state: GraphState):
         "keys": {
             "generation": code_solution,
             "question": question,
+            "world": world,
             "error": error,
             "iterations": iter,
         }
@@ -257,6 +303,7 @@ def check_code_execution(state: GraphState):
     state_dict = state["keys"]
     question = state_dict["question"]
     code_solution = state_dict["generation"]
+    world = state_dict["world"]
     prefix = code_solution[0].prefix
     imports = code_solution[0].imports
     code = code_solution[0].code
@@ -287,6 +334,7 @@ def check_code_execution(state: GraphState):
             "imports": imports,
             "iterations": iter,
             "code": code,
+            "world": world,
         }
     }
 
@@ -377,9 +425,24 @@ workflow.add_conditional_edges(
 # Compile
 app = workflow.compile()
 
-
 config = {"recursion_limit": 50}
 
 
 def model(input: dict):
     return app.invoke({"keys": {**input, "iterations": 0}}, config=config)
+
+
+world_test = """[robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf", pose=Pose([1, 2, 0])), apartment = Object(
+"apartment", ObjectType.ENVIRONMENT, "apartment.urdf"), milk = Object("milk", ObjectType.MILK, "milk.stl", 
+pose=Pose([2.5, 2, 1.02]), color=[1, 0, 0, 1]), cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, 
+"breakfast_cereal.stl", pose=Pose([2.5, 2.3, 1.05]), color=[0, 1, 0, 1]), spoon = Object("spoon", ObjectType.SPOON, 
+"spoon.stl", pose=Pose([2.4, 2.2, 0.85]), color=[0, 0, 1, 1]), bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", 
+pose=Pose([2.5, 2.2, 1.02]), color=[1, 1, 0, 1]), apartment.attach(spoon, 'cabinet10_drawer_top')]"""
+result = model(
+    {
+        "question": "Can you set the table for breakfast? I want to eat a bowl of cereals with milk.",
+        "world": world_test,
+    }
+)
+
+print(result)

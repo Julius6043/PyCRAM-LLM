@@ -26,6 +26,12 @@ def format_docs(docs):
     return cleaned_text
 
 
+# Define a function to format documents for better readability
+def format_examples(docs):
+    # Join documents using a specified delimiter for separation
+    return "\n\n<next example>\n".join([d.page_content for d in docs])
+
+
 # TypedDict for structured data storage, defining the structure of the planning state
 class ReWOO(TypedDict):
     task: str
@@ -48,8 +54,8 @@ Plan\s*\d*:\s*(.+?)\s*(#E\d+)\s*=\s*(\w+)\s*([^]+)]
 The tools can be one of the following:
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functions.
 The input should be a specific search query as a detailed question.
-(2) LLM[input]: A pre-trained LLM like yourself. Useful when you need to act with general world knowledge and common sense. Prefer it if you are confident you can solve the problem yourself. The input can be any statement.
-(3) Statement[state]: No tool is used, simply formulate a statement directly. Useful when you just need to extract information from the input.
+(2) LLM[input]: A pre-trained LLM like yourself. Useful when you need to act with general information and common sense. Prefer it if you are confident you can solve the problem yourself. The input can be any statement.
+
 
 PyCramPlanCode follow the following structure:
 Imports
@@ -57,75 +63,18 @@ BulletWorld Definition
 Objects
 Object Designators
 The 'with simulated_robot:'-Block (defines the Aktions and moves of the Robot)
+    Start with this two Code lines in this block:
+        'ParkArmsAction([Arms.BOTH]).resolve().perform()
+        MoveTorsoAction([0.25]).resolve().perform()'
     AktionDesignators
     SematicCostmapLocation
 BulletWorld Close
 
-This is an example of a PyCramPlanCode:
-'#Imports
-from pycram.bullet_world import BulletWorld, Object
-from pycram.process_module import simulated_robot
-from pycram.designators.motion_designator import *
-from pycram.designators.location_designator import *
-from pycram.designators.action_designator import *
-from pycram.designators.object_designator import *
-from pycram.enums import ObjectType
 
-#Bulletword Definition
-world = BulletWorld()
+Here are some examples of PyCramPlanCode with its corresponding building plan (use them just as examples to learn the code format and the plan structure):
+{examples}
 
-#Objects
-kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf')
-robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf')
-cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', position=[1.4, 1, 0.95])
-
-#Object Designators
-cereal_desig = ObjectDesignatorDescription(names=['cereal'])
-kitchen_desig = ObjectDesignatorDescription(names=['kitchen'])
-robot_desig = ObjectDesignatorDescription(names=['pr2']).resolve()
-
-#The 'with simulated_robot:'-Block
-with simulated_robot:
-    #AktionDesignators
-    ParkArmsAction([Arms.BOTH]).resolve().perform()
-
-    MoveTorsoAction([0.3]).resolve().perform()
-    
-    #SemanticCostmapLocation
-    pickup_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot_desig).resolve()
-    pickup_arm = pickup_pose.reachable_arms[0]
-
-    #AktionDesignators
-    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
-
-    PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=['front']).resolve().perform()
-
-    ParkArmsAction([Arms.BOTH]).resolve().perform()
-        
-    #SemanticCostmapLocation
-    place_island = SemanticCostmapLocation('kitchen_island_surface', kitchen_desig.resolve(), cereal_desig.resolve()).resolve()
-
-    place_stand = CostmapLocation(place_island.pose, reachable_for=robot_desig, reachable_arm=pickup_arm).resolve()
-    
-    #AktionDesignators
-    NavigateAction(target_locations=[place_stand.pose]).resolve().perform()
-
-    PlaceAction(cereal_desig, target_locations=[place_island.pose], arms=[pickup_arm]).resolve().perform()
-
-    ParkArmsAction([Arms.BOTH]).resolve().perform()
-
-#BulletWorld Close
-world.exit()'
-
-
-The corresponding plan leading to this PyCramPlanCode above might look like this:
-World knowledge: [kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', position=[1.4, 1, 0.95]))]
-Task: Can you place the cereal on the kitchen island?
-Plan 1: Determine the basics of PyCram, including creating the simulated world and initializing objects. #E1 = Retrieve[PyCram basics]
-Plan 2: Research how object and robot designators are used in PyCram. #E2 = Retrieve[Use of designators in PyCram]
-Plan 3: Investigate how movement and action modules in PyCram are used for navigation, grasping, and placing objects. #E3 = Retrieve[Movement and action modules in PyCram]
-Plan 4: Research best practices for implementing action sequences in PyCram, including error handling and state checking. #E4 = Retrieve[Implementation of action sequences in PyCram]
-Plan 5: Determine the best approach to properly close the simulated environment and release resources in PyCram. #E5 = Retrieve[Ending the simulation and resource management in PyCram]
+--- end of examples ---
 
 Begin!
 Describe your plans with rich details. Each plan should follow only one #E. You do not need to consider how PyCram is installed and set up in the plans, as this is already given.
@@ -140,12 +89,18 @@ regex_pattern = r"Plan\s*\d*:\s*(.+?)\s*(#E\d+)\s*=\s*(\w+)\s*\[([^\]]+)\]"
 prompt_template = ChatPromptTemplate.from_messages([("user", prompt)])
 planner = prompt_template | llm
 
+# Retriever function for the examples
+retriever_examples = get_retriever(3, 2)
+re_chain_examples = retriever_examples | format_examples
+
 
 # Function to get the plan from the state using regex pattern matching
 def get_plan(state: ReWOO):
     task = state["task"]
     world = state["world"]
-    result = planner.invoke({"task": task, "world": world})
+    examples = re_chain_examples.invoke(task)
+    result = planner.invoke({"task": task, "world": world, "examples": examples})
+
     # Find all matches in the sample text
     matches = re.findall(regex_pattern, result.content)
     return {"steps": matches, "plan_string": result.content}
@@ -226,6 +181,9 @@ BulletWorld Definition
 Objects
 Object Designators
 The 'with simulated_robot:'-Block (defines the Aktions and moves of the Robot)
+    Start with this two Code lines in this block:
+        'ParkArmsAction([Arms.BOTH]).resolve().perform()
+        MoveTorsoAction([0.25]).resolve().perform()'
     AktionDesignators
     SematicCostmapLocation
 BulletWorld Close
@@ -279,7 +237,7 @@ app = graph.compile()
 # Example task and world knowledge strings...
 task = """ Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?"""
 world = """
-[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', position=[1.4, 1, 0.95]))]
+[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', pose=Pose([1.4, 1, 0.95])))]
 """
 
 
