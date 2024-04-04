@@ -40,21 +40,21 @@ def format_examples(docs):
 class ReWOO(TypedDict):
     task: str
     world: str
+    code: str
+    error: str
     plan_string: str
     steps: List
     results: dict
-    result: any
+    result: str
 
 
 # Instantiate Large Language Models with specific configurations
 llm = ChatOpenAI(model="gpt-4-turbo-preview", temperature=0)
 llm3 = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
-llm_AO = ChatAnthropic(model="claude-3-opus-20240229", temperature=0)
-llm_AS = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0)
 
 
-###PyDanticTollParser
+###pyDanticToolParser
 class code(BaseModel):
     """Code output"""
 
@@ -74,8 +74,11 @@ llm_with_tool = llm.bind(
 # Parser
 parser_tool = PydanticToolsParser(tools=[code])
 
+
 # Define a long and complex prompt template for generating plans...
-prompt = """You are a renowned AI engineer and programmer. You receive world knowledge and a task, command, or question and are to develop a plan for creating PyCramPlanCode for a robot that enables the robot to perform the task. For each plan, indicate which external tool, along with the input for the tool, is used to gather evidence. You can store the evidence in a variable #E, which can be called upon by other tools later. (Plan, #E1, Plan, #E2, Plan, ...).
+prompt = """You are a renowned AI engineer and programmer. You receive world knowledge, a task, an error-code and a code solution. The code solution was created by another LLM Agent like you to the given task and world knowledge. The code was already executed resulting in the provided error message. 
+Your task is to develop a plan to geather rescourcess and correct given PyCramPlanCode. PyCramPlanCode is a plan instruction for a robot that should enable the robot to perform the provided high level task. 
+For each plan, indicate which external tool, along with the input for the tool, is used to gather evidence. You can store the evidence in a variable #E, which can be called upon by other tools later. (Plan, #E1, Plan, #E2, Plan, ...).
 Use a format that can be recognized by the following regex pattern:
 Plan\s*\d*:\s*(.+?)\s*(#E\d+)\s*=\s*(\w+)\s*([^]+)]
 
@@ -99,15 +102,28 @@ The 'with simulated_robot:'-Block (defines the Aktions and moves of the Robot)
 BulletWorld Close
 
 
-Here are some examples of PyCramPlanCode with its corresponding building plan (use them just as examples to learn the code format and the plan structure):
-{examples}
+Here is an PyCramPlanCode with its corresponding correction plan (use them just as examples to learn the plan structure):
+Failed PyCramPlanCode: 
+---
+Corresponding error: 
+---
+World knowledge: 
+---
+Task: 
+---
+Corresponding output plan:
 
---- end of examples ---
+--- end of example ---
 
 Begin!
 Describe your plans with rich details. Each plan should follow only one #E. You do not need to consider how PyCram is installed and set up in the plans, as this is already given.
 
+Failed PyCramPlanCode: {code}
+---
+Corresponding error: {error}
+---
 World knowledge: {world}
+---
 Task: {task}"""
 
 
@@ -126,8 +142,16 @@ re_chain_examples = retriever_examples | format_examples
 def get_plan(state: ReWOO):
     task = state["task"]
     world = state["world"]
-    examples = re_chain_examples.invoke(task)
-    result = planner.invoke({"task": task, "world": world, "examples": examples})
+    code = state["code"]
+    error = state["error"]
+    result = planner.invoke(
+        {
+            "task": task,
+            "world": world,
+            "code": code,
+            "error": error,
+        }
+    )
 
     # Find all matches in the sample text
     matches = re.findall(regex_pattern, result.content)
@@ -192,9 +216,8 @@ def tool_execution(state: ReWOO):
 
 
 # Solve function to generate PyCramPlanCode based on the plan and its steps...
-solve_prompt = """You are a professional programmer, specialized on writing PycramRoboterPlans. To write the code, we have made step-by-step Plan and \
-retrieved corresponding evidence to each Plan. Use them with caution since long evidence might \
-contain irrelevant information. The evidences are examples and information to write PyCramPlanCode so use them with caution because long evidence might \
+solve_prompt = """You are a professional programmer, specialized on correcting PycramRoboterPlanCode. To repair the code, we have made step-by-step Plan and \
+retrieved corresponding evidence to each Plan. The evidence are examples and information to write PyCramCode so use them with caution because long evidence might \
 contain irrelevant information and only use the world knowledge for specific world information. Also be conscious about you hallucinating and therefore use evidence and example code as strong inspiration.
 
 Plan with evidence and examples:
@@ -202,7 +225,7 @@ Plan with evidence and examples:
 {plan}
 </Plan>
 
-Now create the PyCramPlanCode for the task according to provided evidence above and the world knowledge. Respond with nothing other than the generated PyCramPlan python code.
+Now create the new properly functioning PyCramPlanCode Version for the task according to provided evidence above and the world knowledge. Respond with nothing other than the generated PyCramPlan python code.
 PyCramPlanCode follow the following structure:
 <Plan structure>
 Imports
@@ -219,8 +242,14 @@ BulletWorld Close
 </Plan structure>
 
 
-Task: {task}
+Failed PyCramPlanCode: {code}
+---
+Corresponding error: {error}
+---
 World knowledge: {world}
+---
+Task: {task}
+---
 Response:
 """
 
@@ -234,10 +263,15 @@ def solve(state: ReWOO):
             tool_input = tool_input.replace(k, v)
             step_name = step_name.replace(k, v)
         plan += f"Plan: {_plan}\n{step_name} = {tool}[{tool_input}]"
-    prompt = solve_prompt.format(plan=plan, task=state["task"], world=state["world"])
-    result_chain = llm_with_tool | parser_tool
-    result = result_chain.invoke(prompt)
-    return {"result": result}
+    prompt = solve_prompt.format(
+        plan=plan,
+        error=state["error"],
+        code=state["code"],
+        task=state["task"],
+        world=state["world"],
+    )
+    result = llm.invoke(prompt)
+    return {"result": result.content}
 
 
 # Function to route the graph based on the current state
@@ -277,17 +311,16 @@ def _sanitize_output(text: str):
 
 
 # Function to stream the execution of the application
-def stream_rewoo(task, world):
-    for s in app.stream({"task": task, "world": world}):
+def stream_rewoo_check(task, world, code, error):
+    for s in app.stream({"task": task, "world": world, "code": code, "error": error}):
         print(s)
         print("---")
-    result = s[END]["result"]
-    result_print = result[0].imports + "\n\n #Code start: \n" + result[0].code
-    print(result[0])
+    result = _sanitize_output(s[END]["result"])
+    print(result)
     return result
 
 
 ##result = chain_docs.invoke("PyCram Grundlagen")
 # result = chain_docs.invoke("PyCram Grundlagen")
 # print(result)
-stream_rewoo(task, world)
+# stream_rewoo(task, world)

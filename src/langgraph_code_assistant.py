@@ -3,6 +3,7 @@ from langgraph.graph import END, StateGraph
 from operator import itemgetter
 from vector_store_SB import get_retriever
 from langgraph_ReWOO import stream_rewoo
+from ReWOO_codeCheck import stream_rewoo_check
 from langchain.output_parsers.openai_tools import PydanticToolsParser
 from langchain.prompts import PromptTemplate
 from langchain_core.pydantic_v1 import BaseModel, Field
@@ -105,7 +106,6 @@ def generate(state: GraphState):
     class code(BaseModel):
         """Code output"""
 
-        prefix: str = Field(description="Description of the problem and approach")
         imports: str = Field(description="Code block import statements")
         code: str = Field(description="Code block not including import statements")
 
@@ -192,14 +192,16 @@ def generate(state: GraphState):
             | parser_tool
         )
 
-        code_solution = chain.invoke(
+        """code_solution = chain.invoke(
             {
                 "question": question,
                 "world": world,
                 "generation": str(code_solution[0]),
                 "error": error,
             }
-        )
+        )"""
+        code_solution = stream_rewoo_check(question, world, str(code_solution[0]), error)
+        print(code_solution)
 
     else:
 
@@ -225,9 +227,8 @@ def generate(state: GraphState):
             | parser_tool
         )
 
-        code_solution = chain.invoke(
-            {"code_rewoo": code_rewoo, "question": question, "world": world}
-        )
+        # code_solution = chain.invoke({"code_rewoo": code_rewoo, "question": question, "world": world})
+        code_solution = stream_rewoo(question, world)
         print(code_solution)
 
     iter = iter + 1
