@@ -283,7 +283,7 @@ def stream_rewoo(task, world):
         print("---")
     result = s[END]["result"]
     result_print = result[0].imports + "\n\n #Code start: \n" + result[0].code
-    print(result[0])
+    print(result_print)
     return result
 
 

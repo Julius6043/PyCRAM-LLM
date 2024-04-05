@@ -270,8 +270,9 @@ def solve(state: ReWOO):
         task=state["task"],
         world=state["world"],
     )
-    result = llm.invoke(prompt)
-    return {"result": result.content}
+    result_chain = llm_with_tool | parser_tool
+    result = result_chain.invoke(prompt)
+    return {"result": result}
 
 
 # Function to route the graph based on the current state
@@ -315,8 +316,9 @@ def stream_rewoo_check(task, world, code, error):
     for s in app.stream({"task": task, "world": world, "code": code, "error": error}):
         print(s)
         print("---")
-    result = _sanitize_output(s[END]["result"])
-    print(result)
+    result = s[END]["result"]
+    result_print = result[0].imports + "\n\n #Code start: \n" + result[0].code
+    print(result_print)
     return result
 
 
