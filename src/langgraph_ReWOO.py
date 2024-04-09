@@ -14,6 +14,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain.output_parsers.openai_tools import PydanticToolsParser
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.utils.function_calling import convert_to_openai_tool
+import requests
 
 # Load environment variables for secure access to configuration settings
 load_dotenv()
@@ -75,41 +76,43 @@ llm_with_tool = llm.bind(
 parser_tool = PydanticToolsParser(tools=[code])
 
 # Define a long and complex prompt template for generating plans...
-prompt = """You are a renowned AI engineer and programmer. You receive world knowledge and a task, command, or question and are to develop a plan for creating PyCramPlanCode for a robot that enables the robot to perform the task. For each plan, indicate which external tool, along with the input for the tool, is used to gather evidence. You can store the evidence in a variable #E, which can be called upon by other tools later. (Plan, #E1, Plan, #E2, Plan, ...).
-Use a format that can be recognized by the following regex pattern:
+prompt = """You are a renowned AI engineer and programmer. You receive world knowledge and a task, command, 
+or question and are to develop a plan for creating PyCramPlanCode for a robot that enables the robot to perform the 
+task. For each plan, indicate which external tool, along with the input for the tool, is used to gather evidence. You 
+can store the evidence in a variable #E, which can be called upon by other tools later. (Plan, #E1, Plan, #E2, Plan, 
+...). 
+Use a format that can be recognized by the following regex pattern: 
 Plan\s*\d*:\s*(.+?)\s*(#E\d+)\s*=\s*(\w+)\s*([^]+)]
 
-The tools can be one of the following:
-(1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functions.
-The input should be a specific search query as a detailed question.
+The tools can be one of the following: 
+(1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functions. The input should be a specific search query as a detailed question. 
 (2) LLM[input]: A pre-trained LLM like yourself. Useful when you need to act with general information and common sense. Prefer it if you are confident you can solve the problem yourself. The input can be any statement.
-
 
 PyCramPlanCode follow the following structure:
 Imports
 BulletWorld Definition
 Objects
 Object Designators
-The 'with simulated_robot:'-Block (defines the Aktions and moves of the Robot)
+The 'with simulated_robot:'-Block (defines the Actions and moves of the Robot)
     Start with this two Code lines in this block:
         'ParkArmsAction([Arms.BOTH]).resolve().perform()
         MoveTorsoAction([0.25]).resolve().perform()'
-    AktionDesignators
+    ActionDesignators
     SematicCostmapLocation
 BulletWorld Close
 
 
-Here are some examples of PyCramPlanCode with its corresponding building plan (use them just as examples to learn the code format and the plan structure):
+Here are some examples of PyCramPlanCode with its corresponding building plan (use them just as examples to learn the 
+code format and the plan structure): 
 {examples}
 
 --- end of examples ---
 
-Begin!
-Describe your plans with rich details. Each plan should follow only one #E. You do not need to consider how PyCram is installed and set up in the plans, as this is already given.
+Begin! Describe your plans with rich details. Each plan should follow only one #E and it should be exactly in the given structure. Don't use any highlighting with markdown and co. You do not need to consider how 
+PyCram is installed and set up in the plans, as this is already given.
 
 World knowledge: {world}
 Task: {task}"""
-
 
 # Regex to match expressions of the form E#... = ...[...]
 # Regex pattern to extract information from the plan format specified in the prompt
@@ -148,9 +151,9 @@ def _get_current_task(state: ReWOO):
         return len(state["results"]) + 1
 
 
+# Haiku
 # Chain to retrieve documents using a vector store retriever and formatting them
-retriever = get_retriever(2, 8)
-re_chain = retriever | format_docs
+retriever_haiku = get_retriever(2, 7)
 
 # More complex template for tutorial writing, generating comprehensive documentation
 prompt_retriever_chain = ChatPromptTemplate.from_template(
@@ -161,11 +164,23 @@ Search query: {task}
 Use at least 4000 tokens for the output and adhere to the provided information. Incorporate important code examples in their entirety. The installation and configuration of pycram is not important, because it is already given.
 """
 )
-chain_docs = (
-    {"context": retriever | format_docs, "task": RunnablePassthrough()}
-    | prompt_retriever_chain
-    | llm_AH
-    | StrOutputParser()
+chain_docs_haiku = (
+        {"context": retriever_haiku | format_docs, "task": RunnablePassthrough()}
+        | prompt_retriever_chain
+        | llm_AH
+        | StrOutputParser()
+)
+
+# GPT
+# Chain to retrieve documents using a vector store retriever and formatting them
+retriever_gpt = get_retriever(2, 5)
+
+# More complex template for tutorial writing, generating comprehensive documentation
+chain_docs_gpt = (
+        {"context": retriever_gpt | format_docs, "task": RunnablePassthrough()}
+        | prompt_retriever_chain
+        | llm3
+        | StrOutputParser()
 )
 
 
@@ -182,7 +197,13 @@ def tool_execution(state: ReWOO):
     elif tool == "LLM":
         result = llm.invoke(tool_input)
     elif tool == "Retrieve":
-        result = chain_docs.invoke(tool_input)
+        try:
+            result = chain_docs_haiku.invoke(tool_input)
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                result = chain_docs_gpt.invoke(tool_input)
+            else:
+                raise e
     elif tool == "Statement":
         result = tool_input
     else:
@@ -192,28 +213,31 @@ def tool_execution(state: ReWOO):
 
 
 # Solve function to generate PyCramPlanCode based on the plan and its steps...
-solve_prompt = """You are a professional programmer, specialized on writing PycramRoboterPlans. To write the code, we have made step-by-step Plan and \
-retrieved corresponding evidence to each Plan. Use them with caution since long evidence might \
-contain irrelevant information. The evidences are examples and information to write PyCramPlanCode so use them with caution because long evidence might \
-contain irrelevant information and only use the world knowledge for specific world information. Also be conscious about you hallucinating and therefore use evidence and example code as strong inspiration.
+solve_prompt = """You are a professional programmer, specialized on writing PycramRoboterPlans. To write the code, 
+we have made step-by-step Plan and retrieved corresponding evidence to each Plan. Use them with caution since long 
+evidence might contain irrelevant information. The evidences are examples and information to write PyCramPlanCode so 
+use them with caution because long evidence might contain irrelevant information and only use the world knowledge 
+for specific world information. Also be conscious about you hallucinating and therefore use evidence and example code 
+as strong inspiration.
 
 Plan with evidence and examples:
 <Plan>
 {plan}
 </Plan>
 
-Now create the PyCramPlanCode for the task according to provided evidence above and the world knowledge. Respond with nothing other than the generated PyCramPlan python code.
+Now create the PyCramPlanCode for the task according to provided evidence above and the world knowledge. 
+Respond with nothing other than the generated PyCramPlan python code.
 PyCramPlanCode follow the following structure:
 <Plan structure>
 Imports
 BulletWorld Definition
 Objects
 Object Designators
-The 'with simulated_robot:'-Block (defines the Aktions and moves of the Robot)
+The 'with simulated_robot:'-Block (defines the Actions and moves of the Robot)
     Start with this two Code lines in this block:
         'ParkArmsAction([Arms.BOTH]).resolve().perform()
         MoveTorsoAction([0.25]).resolve().perform()'
-    AktionDesignators
+    ActionDesignators
     SematicCostmapLocation
 BulletWorld Close
 </Plan structure>
@@ -265,8 +289,8 @@ graph.set_entry_point("plan")
 app = graph.compile()
 
 # Example task and world knowledge strings...
-task = """ Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?"""
-world = """
+task_test = """ Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?"""
+world_test = """
 [kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', pose=Pose([1.4, 1, 0.95])))]
 """
 
@@ -286,8 +310,7 @@ def stream_rewoo(task, world):
     print(result_print)
     return result
 
-
 ##result = chain_docs.invoke("PyCram Grundlagen")
 # result = chain_docs.invoke("PyCram Grundlagen")
 # print(result)
-stream_rewoo(task, world)
+#stream_rewoo(task, world)

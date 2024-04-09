@@ -10,3 +10,6 @@ langchain-openai
 langchainhub
 faiss-cpu
 langgraph
+langchain-anthropic
+beautifulsoup4
+duckduckgo-search

@@ -261,7 +261,7 @@ def check_code_imports(state: GraphState):
     code_solution = state_dict["generation"]
     imports = code_solution[0].imports
     iter = state_dict["iterations"]
-
+    print(imports)
     try:
         # Attempt to execute the imports
         exec(imports)
@@ -269,6 +269,7 @@ def check_code_imports(state: GraphState):
         print("---CODE IMPORT CHECK: FAILED---")
         # Catch any error during execution (e.g., ImportError, SyntaxError)
         error = f"Execution error: {e}"
+        print(error)
         if "error" in state_dict:
             error_prev_runs = state_dict["error"]
             error = error_prev_runs + "\n --- Most recent run error --- \n" + error
