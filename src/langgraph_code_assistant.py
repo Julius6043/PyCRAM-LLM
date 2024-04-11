@@ -12,6 +12,7 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 import re
+from code_exec import execute_code_in_process
 
 load_dotenv()
 
@@ -206,8 +207,6 @@ def generate(state: GraphState):
     else:
 
         print("---GENERATE SOLUTION---")
-        # code_rewoo = stream_rewoo(question, world)
-        code_rewoo = test_code
         # Prompt
         prompt = PromptTemplate(
             template=template,
@@ -261,22 +260,20 @@ def check_code_imports(state: GraphState):
     code_solution = state_dict["generation"]
     imports = code_solution[0].imports
     iter = state_dict["iterations"]
-    print(imports)
-    try:
-        # Attempt to execute the imports
-        exec(imports)
-    except Exception as e:
-        print("---CODE IMPORT CHECK: FAILED---")
-        # Catch any error during execution (e.g., ImportError, SyntaxError)
-        error = f"Execution error: {e}"
-        print(error)
-        if "error" in state_dict:
-            error_prev_runs = state_dict["error"]
-            error = error_prev_runs + "\n --- Most recent run error --- \n" + error
-    else:
+    # Code Execution
+    exec_import_result = execute_code_in_process(imports)
+    print(exec_import_result)
+    if exec_import_result == "SUCCESS":
         print("---CODE IMPORT CHECK: SUCCESS---")
         # No errors occurred
         error = "None"
+    else:
+        print("---CODE IMPORT CHECK: FAILED---")
+        # Catch any error during execution (e.g., ImportError, SyntaxError)
+        error = exec_import_result
+        if "error" in state_dict:
+            error_prev_runs = state_dict["error"]
+            error = error_prev_runs + "\n --- Most recent run error --- \n" + error
 
     return {
         "keys": {
@@ -306,33 +303,30 @@ def check_code_execution(state: GraphState):
     question = state_dict["question"]
     code_solution = state_dict["generation"]
     world = state_dict["world"]
-    prefix = code_solution[0].prefix
     imports = code_solution[0].imports
     code = code_solution[0].code
     code_block = imports + "\n" + code
     iter = state_dict["iterations"]
 
-    try:
-        # Attempt to execute the code block
-        exec(code_block)
-    except Exception as e:
-        print("---CODE BLOCK CHECK: FAILED---")
-        # Catch any error during execution (e.g., ImportError, SyntaxError)
-        error = f"Execution error: {e}"
-        if "error" in state_dict:
-            error_prev_runs = state_dict["error"]
-            error = error_prev_runs + "\n --- Most recent run error --- \n" + error
-    else:
+    exec_result = execute_code_in_process(code_block)
+    print(exec_result)
+    if exec_result == "SUCCESS":
         print("---CODE BLOCK CHECK: SUCCESS---")
         # No errors occurred
         error = "None"
+    else:
+        print("---CODE BLOCK CHECK: FAILED---")
+        # Catch any error during execution (e.g., ImportError, SyntaxError)
+        error = exec_result
+        if "error" in state_dict:
+            error_prev_runs = state_dict["error"]
+            error = error_prev_runs + "\n --- Most recent run error --- \n" + error
 
     return {
         "keys": {
             "generation": code_solution,
             "question": question,
             "error": error,
-            "prefix": prefix,
             "imports": imports,
             "iterations": iter,
             "code": code,
@@ -434,17 +428,24 @@ def model(input: dict):
     return app.invoke({"keys": {**input, "iterations": 0}}, config=config)
 
 
+def generate_plan(question, world):
+    result_dic = model(
+        {
+            "question": question,
+            "world": world,
+        }
+    )
+    result_code = result_dic["result"]["generation"]
+    result_plan = result_code[0].code
+    return result_plan
+
+
 world_test = """[robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf", pose=Pose([1, 2, 0])), apartment = Object(
 "apartment", ObjectType.ENVIRONMENT, "apartment.urdf"), milk = Object("milk", ObjectType.MILK, "milk.stl", 
 pose=Pose([2.5, 2, 1.02]), color=[1, 0, 0, 1]), cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, 
 "breakfast_cereal.stl", pose=Pose([2.5, 2.3, 1.05]), color=[0, 1, 0, 1]), spoon = Object("spoon", ObjectType.SPOON, 
 "spoon.stl", pose=Pose([2.4, 2.2, 0.85]), color=[0, 0, 1, 1]), bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", 
 pose=Pose([2.5, 2.2, 1.02]), color=[1, 1, 0, 1]), apartment.attach(spoon, 'cabinet10_drawer_top')]"""
-result = model(
-    {
-        "question": "Can you set the table for breakfast? I want to eat a bowl of cereals with milk.",
-        "world": world_test,
-    }
-)
+result = generate_plan("Can you set the table for breakfast? I want to eat a bowl of cereals with milk.", world_test)
 
 print(result)

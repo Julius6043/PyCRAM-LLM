@@ -1,5 +1,6 @@
 # Import necessary libraries and modules
 import os
+import openai
 from dotenv import load_dotenv
 from typing import TypedDict, List
 from langchain_openai import ChatOpenAI
@@ -15,6 +16,7 @@ from langchain.output_parsers.openai_tools import PydanticToolsParser
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.utils.function_calling import convert_to_openai_tool
 import requests
+import anthropic
 
 # Load environment variables for secure access to configuration settings
 load_dotenv()
@@ -54,13 +56,14 @@ llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
 llm_AO = ChatAnthropic(model="claude-3-opus-20240229", temperature=0)
 llm_AS = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0)
 
+is_retriever_model_haiku = True
 
-###PyDanticTollParser
+###PyDanticToolParser
 class code(BaseModel):
     """Code output"""
 
     imports: str = Field(description="Code block import statements")
-    code: str = Field(description="Code block not including import statements")
+    code: str = Field(description="Code block without the import statements")
 
 
 # Tool
@@ -187,6 +190,7 @@ chain_docs_gpt = (
 # Function to execute tools as per the generated plan
 def tool_execution(state: ReWOO):
     """Worker node that executes the tools of a given plan."""
+    global is_retriever_model_haiku
     _step = _get_current_task(state)
     _, step_name, tool, tool_input = state["steps"][_step - 1]
     _results = state["results"] or {}
@@ -197,13 +201,36 @@ def tool_execution(state: ReWOO):
     elif tool == "LLM":
         result = llm.invoke(tool_input)
     elif tool == "Retrieve":
-        try:
-            result = chain_docs_haiku.invoke(tool_input)
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 429:
+        if is_retriever_model_haiku:
+            try:
+                result = chain_docs_haiku.invoke(tool_input)
+            except anthropic.RateLimitError as e:
+                is_retriever_model_haiku = False
                 result = chain_docs_gpt.invoke(tool_input)
-            else:
-                raise e
+        else:
+            trying = True
+            result = retriever_gpt.invoke(tool_input)
+            i = 6
+            retriever_gpt_temp = get_retriever(2, i)
+            chain_docs_gpt_temp = (
+                    {"context": retriever_gpt_temp | format_docs, "task": RunnablePassthrough()}
+                    | prompt_retriever_chain
+                    | llm3
+                    | StrOutputParser()
+            )
+            while trying:
+                try:
+                    result = chain_docs_gpt_temp.invoke(tool_input)
+                    trying = False
+                except openai.BadRequestError as e:
+                    i -= 1
+                    retriever_gpt_temp = get_retriever(2, i)
+                    chain_docs_gpt_temp = (
+                            {"context": retriever_gpt_temp | format_docs, "task": RunnablePassthrough()}
+                            | prompt_retriever_chain
+                            | llm3
+                            | StrOutputParser()
+                    )
     elif tool == "Statement":
         result = tool_input
     else:
@@ -245,7 +272,7 @@ BulletWorld Close
 
 Task: {task}
 World knowledge: {world}
-Response:
+Code Response:
 """
 
 
@@ -258,9 +285,9 @@ def solve(state: ReWOO):
             tool_input = tool_input.replace(k, v)
             step_name = step_name.replace(k, v)
         plan += f"Plan: {_plan}\n{step_name} = {tool}[{tool_input}]"
-    prompt = solve_prompt.format(plan=plan, task=state["task"], world=state["world"])
+    prompt_solve = solve_prompt.format(plan=plan, task=state["task"], world=state["world"])
     result_chain = llm_with_tool | parser_tool
-    result = result_chain.invoke(prompt)
+    result = result_chain.invoke(prompt_solve)
     return {"result": result}
 
 
@@ -306,7 +333,7 @@ def stream_rewoo(task, world):
         print(s)
         print("---")
     result = s[END]["result"]
-    result_print = result[0].imports + "\n\n #Code start: \n" + result[0].code
+    result_print = result[0].code
     print(result_print)
     return result
 
