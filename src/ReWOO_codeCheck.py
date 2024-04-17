@@ -39,6 +39,13 @@ def format_examples(docs):
     return "\n\n<next example>\n".join([d.page_content for d in docs])
 
 
+# Define a function to format documents for better readability
+def format_example(example):
+    text = example[0].page_content
+    code_example = text.split("The corresponding plan")[0]
+    return code_example
+
+
 # TypedDict for structured data storage, defining the structure of the planning state
 class ReWOO(TypedDict):
     task: str
@@ -52,7 +59,7 @@ class ReWOO(TypedDict):
 
 
 # Instantiate Large Language Models with specific configurations
-llm = ChatOpenAI(model="gpt-4-turbo-preview", temperature=0)
+llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
 llm3 = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
 
@@ -80,15 +87,15 @@ parser_tool = PydanticToolsParser(tools=[code])
 
 
 # Define a long and complex prompt template for generating plans...
-prompt = """You are a renowned AI engineer and programmer. You receive world knowledge, a task, an error-code and a 
+prompt = r"""You are a renowned AI engineer and programmer. You receive world knowledge, a task, an error-code and a 
 code solution. The code solution was created by another LLM Agent like you to the given task and world knowledge. The 
 code was already executed resulting in the provided error message. Your task is to develop a plan to geather 
 resources and correct given PyCramPlanCode. PyCramPlanCode is a plan instruction for a robot that should enable the 
 robot to perform the provided high level task. For each plan, indicate which external tool, along with the input for 
 the tool, is used to gather evidence. You can store the evidence in a variable #E, which can be called upon by other 
-tools later. (Plan, #E1, Plan, #E2, Plan, ...). 
+tools later. (Plan, #E1, Plan, #E2, Plan, ...). Don't use **...** to highlight something.
 Use a format that can be recognized by the following regex pattern: 
-Plan\s*\d*:\s*(.+?)\s*(#E\d+)\s*=\s*(\w+)\s*([^]+)]
+\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*
 
 The tools can be one of the following: 
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functions. The input should be a specific search query as a detailed question. 
@@ -179,28 +186,17 @@ Task:
 Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?
 ---
 Corresponding output plan: 
-Plan 1: Verify the correct usage of the resolve method on Object instances in PyCram. This 
-will help us understand whether kitchen.resolve() and cereal.resolve() in the line that caused the error are being 
-used appropriately. #E1 = Retrieve[How to correctly use the 'resolve' method with Object instances in PyCram] 
-Plan 2: Confirm the proper way to reference PyCram objects when setting up locations or actions that involve these objects. 
-This ensures that we correctly interact with kitchen and cereal objects in our plan, especially in context to 
-SemanticCostmapLocation. #E2 = Retrieve[How to reference objects for actions and locations in PyCram without using 
-the 'resolve' method.]
-Plan 3: Acquire knowledge on the proper instantiation and usage of SemanticCostmapLocation. Understanding its 
-parameters and usage will help us correctly position the cereal on the kitchen island. #E3 = Retrieve[Correct 
-instantiation and usage of SemanticCostmapLocation in PyCram.]
-Plan 4: Ensure we have a clear understanding of how to use the PlaceAction correctly, especially how to specify the 
-object_to_place and target_locations. This will correct the final action where the cereal is to be placed 3 steps to 
-the right. #E4 = Retrieve[How to use PlaceAction correctly in PyCram, including specifying object_to_place and 
-target_locations.]
-Plan 5: Given the task to move the cereal 3 steps to the right, we need to understand how to calculate the new 
-position based on the current position of the cereal. This will involve modifying the target pose for the MoveMotion 
-or directly in the PlaceAction to achieve the desired placement. #E5 = LLM[Given an object's current position, 
-calculate a new position that is 3 steps to the right in a coordinate system.] 
+Plan 1: Verify the correct usage of the resolve method on Object instances in PyCram. This will help us understand whether kitchen.resolve() and cereal.resolve() in the line that caused the error are being used appropriately. #E1 = Retrieve[How to correctly use the 'resolve' method with Object instances in PyCram] 
+Plan 2: Confirm the proper way to reference PyCram objects when setting up locations or actions that involve these objects. This ensures that we correctly interact with kitchen and cereal objects in our plan, especially in context to SemanticCostmapLocation. #E2 = Retrieve[How to reference objects for actions and locations in PyCram without using the 'resolve' method.]
+Plan 3: Acquire knowledge on the proper instantiation and usage of SemanticCostmapLocation. Understanding its parameters and usage will help us correctly position the cereal on the kitchen island. #E3 = Retrieve[Correct instantiation and usage of SemanticCostmapLocation in PyCram.]
+Plan 4: Ensure we have a clear understanding of how to use the PlaceAction correctly, especially how to specify the object_to_place and target_locations. This will correct the final action where the cereal is to be placed 3 steps to the right. #E4 = Retrieve[How to use PlaceAction correctly in PyCram, including specifying object_to_place and target_locations.]
+Plan 5: Given the task to move the cereal 3 steps to the right, we need to understand how to calculate the new position based on the current position of the cereal. This will involve modifying the target pose for the MoveMotion or directly in the PlaceAction to achieve the desired placement. #E5 = LLM[Given an object's current position, calculate a new position that is 3 steps to the right in a coordinate system.] 
 --- end of example ---
 
 Begin!
-Describe your plans with rich details. Each plan should follow only one #E and it should be exactly in the given structure. Don't use any highlighting with markdown and co. You do not need to consider how PyCram is installed and set up in the plans, as this is already given.
+Describe your plans with rich details. Each plan should follow only one #E and it should be exactly in the given structure. 
+Don't use any highlighting with markdown and co. You do not need to consider how PyCram is installed and set up in the plans, as this is already given.
+Your task is to make a plan to correct the error but also inculde a general check up for unseen errors in the plan.
 
 Failed PyCramPlanCode: {code}
 ---
@@ -213,7 +209,7 @@ Task: {task}"""
 
 # Regex to match expressions of the form E#... = ...[...]
 # Regex pattern to extract information from the plan format specified in the prompt
-regex_pattern = r"Plan\s*\d*:\s*(.+?)\s*(#E\d+)\s*=\s*(\w+)\s*\[([^\]]+)\]"
+regex_pattern = r"\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*"
 prompt_template = ChatPromptTemplate.from_messages([("user", prompt)])
 planner = prompt_template | llm
 
@@ -261,14 +257,16 @@ retriever_haiku = get_retriever(2, 8)
 
 # More complex template for tutorial writing, generating comprehensive documentation
 prompt_retriever_chain = ChatPromptTemplate.from_template(
-    """You are an professional tutorial writer and coding educator. Given the search query, write a detailed, 
-    structured, and comprehensive coding documentation for this question and the topic based on all the important 
-    information from the following context: {context}
-    
-    Search query: {task} 
-    Use at least 4000 tokens for the output and adhere to the provided information. Incorporate 
-    important code examples in their entirety. The installation and configuration of pycram is not important, because it 
-    is already given."""
+    """You are an professional tutorial writer and coding educator specially for the PyCRAM toolbox. Given the search 
+query, write a detailed, structured, and comprehensive coding documentation for this question and the topic based 
+on all the important information from the following context from the PyCRAM documentation: 
+{context}
+
+Search query: {task} 
+
+Use at 4000 tokens for the output and adhere to the provided information. Incorporate important 
+code examples in their entirety. The installation and configuration of pycram is not important, because it is already 
+given. Think step by step and make sure the user can produce correct code based on your output."""
 )
 chain_docs_haiku = (
     {"context": retriever_haiku | format_docs, "task": RunnablePassthrough()}
@@ -369,6 +367,8 @@ The 'with simulated_robot:'-Block (defines the Actions and moves of the Robot)
 BulletWorld Close
 </PyCramPlan structure>
 
+{code_example}
+
 
 Failed PyCramPlanCode: {code}
 ---
@@ -381,21 +381,30 @@ Task: {task}
 Corrected Code Response:
 """
 
+retriever_example_solve = get_retriever(3, 1)
+re_chain_example_solve = retriever_examples | format_example
+
 
 # Function to solve the task using the generated plan
 def solve(state: ReWOO):
     plan = ""
+    task = state["task"]
     for _plan, step_name, tool, tool_input in state["steps"]:
         _results = state["results"] or {}
         for k, v in _results.items():
             tool_input = tool_input.replace(k, v)
             step_name = step_name.replace(k, v)
         plan += f"Plan: {_plan}\n{step_name} = {tool}[{tool_input}]"
+    code_example = re_chain_example_solve.invoke(task)
+    # code_example_filler = """Here is also an example of a similar PyCRAM plan code (use this as a semantic and syntactic example for the code structure and not for the world knowledge):
+    # <Code example>""" + code_example + "\n</Code example>"
+    code_example_filler = ""
     prompt = solve_prompt.format(
         plan=plan,
         error=state["error"],
+        code_example=code_example_filler,
         code=state["code"],
-        task=state["task"],
+        task=task,
         world=state["world"],
     )
     result_chain = llm_with_tool | parser_tool
@@ -445,7 +454,7 @@ def stream_rewoo_check(task, world, code_input, error):
         print(s)
         print("---")
     result = s[END]["result"]
-    result_print = result[0].code
+    result_print = result[0].code + "\n" + result[0].code
     print(result_print)
     return result
 

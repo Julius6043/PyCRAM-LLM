@@ -16,52 +16,6 @@ from code_exec import execute_code_in_process
 
 load_dotenv()
 
-test_code = """
-from pycram.bullet_world import BulletWorld, Object
-from pycram.process_module import simulated_robot
-from pycram.designators.motion_designator import *
-from pycram.designators.location_designator import *
-from pycram.designators.action_designator import *
-from pycram.designators.object_designator import *
-from pycram.pose import Pose
-from pycram.enums import ObjectType
-
-world = BulletWorld()
-
-#Objects
-kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
-robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
-cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.4, 1, 0.95]))
-
-#Object Designators
-cereal_desig = ObjectDesignatorDescription(names=["cereal"])
-
-with simulated_robot:
-    # Initial actions
-    ParkArmsAction([Arms.BOTH]).resolve().perform()
-    MoveTorsoAction([0.25]).resolve().perform()
-
-    # Pick up the cereal
-    pickup_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot).resolve()
-    pickup_arm = pickup_pose.reachable_arms[0]
-    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
-    PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=["front"]).resolve().perform()
-
-    # Move 3 steps to the right
-    motion_designator = MotionDesignator(direction="right", distance=3)
-    motion_designator.resolve().perform()
-
-    # Place the cereal
-    place_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot).resolve()
-    NavigateAction(target_locations=[place_pose.pose]).resolve().perform()
-    PlaceAction(cereal_desig, target_locations=[place_pose.pose], arms=[pickup_arm]).resolve().perform()
-
-    # Park the robot's arms again
-    ParkArmsAction([Arms.BOTH]).resolve().perform()
-
-world.exit()
-"""
-
 
 def format_docs(docs):
     text = "\n\n---\n\n".join([d.page_content for d in docs])
@@ -102,6 +56,7 @@ def generate(state: GraphState):
     question = state_dict["question"]
     world = state_dict["world"]
     iter = state_dict["iterations"]
+    max_iter = state_dict["max_iter"]
 
     ## Data model
     class code(BaseModel):
@@ -111,7 +66,7 @@ def generate(state: GraphState):
         code: str = Field(description="Code block not including import statements")
 
     ## LLM
-    model = ChatOpenAI(temperature=0, model="gpt-4-0125-preview", streaming=True)
+    model = ChatOpenAI(temperature=0, model="gpt-4-turbo", streaming=True)
 
     # Content
     retriever = get_retriever(2, 10)
@@ -237,6 +192,7 @@ def generate(state: GraphState):
             "question": question,
             "world": world,
             "iterations": iter,
+            "max_iter" : max_iter
         }
     }
 
@@ -260,6 +216,7 @@ def check_code_imports(state: GraphState):
     code_solution = state_dict["generation"]
     imports = code_solution[0].imports
     iter = state_dict["iterations"]
+    max_iter = state_dict["max_iter"]
     # Code Execution
     exec_import_result = execute_code_in_process(imports)
     print(exec_import_result)
@@ -282,6 +239,7 @@ def check_code_imports(state: GraphState):
             "world": world,
             "error": error,
             "iterations": iter,
+            "max_iter": max_iter,
         }
     }
 
@@ -307,6 +265,7 @@ def check_code_execution(state: GraphState):
     code = code_solution[0].code
     code_block = imports + "\n" + code
     iter = state_dict["iterations"]
+    max_iter = state_dict["max_iter"]
 
     exec_result = execute_code_in_process(code_block)
     print(exec_result)
@@ -331,6 +290,7 @@ def check_code_execution(state: GraphState):
             "iterations": iter,
             "code": code,
             "world": world,
+            "max_iter": max_iter,
         }
     }
 
@@ -379,8 +339,9 @@ def decide_to_finish(state: GraphState):
     state_dict = state["keys"]
     error = state_dict["error"]
     iter = state_dict["iterations"]
+    max_iter = state_dict["max_iter"]
 
-    if error == "None" or iter == 3:
+    if error == "None" or iter == max_iter:
         # All documents have been filtered check_relevance
         # We will re-generate a new query
         print("---DECISION: TEST CODE EXECUTION---")
@@ -428,24 +389,31 @@ def model(input: dict):
     return app.invoke({"keys": {**input, "iterations": 0}}, config=config)
 
 
-def generate_plan(question, world):
+def generate_plan(question, world, max_iterations=3):
     result_dic = model(
         {
             "question": question,
             "world": world,
+            "max_iter": max_iterations,
         }
     )
-    result_code = result_dic["result"]["generation"]
-    result_plan = result_code[0].code
+    result_code = result_dic["keys"]["generation"]
+    result_plan = result_code[0].imports + "\n\n" + result_code[0].code
     return result_plan
 
 
-world_test = """[robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf", pose=Pose([1, 2, 0])), apartment = Object(
+task_test = """Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?"""
+world_test = """
+[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', pose=Pose([1.4, 1, 0.95])))]
+"""
+
+task_test2 = """Can you set the table for breakfast? I want to eat a bowl of cereals with milk."""
+world_test2 = """[robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf", pose=Pose([1, 2, 0])), apartment = Object(
 "apartment", ObjectType.ENVIRONMENT, "apartment.urdf"), milk = Object("milk", ObjectType.MILK, "milk.stl", 
 pose=Pose([2.5, 2, 1.02]), color=[1, 0, 0, 1]), cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, 
 "breakfast_cereal.stl", pose=Pose([2.5, 2.3, 1.05]), color=[0, 1, 0, 1]), spoon = Object("spoon", ObjectType.SPOON, 
 "spoon.stl", pose=Pose([2.4, 2.2, 0.85]), color=[0, 0, 1, 1]), bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", 
 pose=Pose([2.5, 2.2, 1.02]), color=[1, 1, 0, 1]), apartment.attach(spoon, 'cabinet10_drawer_top')]"""
-result = generate_plan("Can you set the table for breakfast? I want to eat a bowl of cereals with milk.", world_test)
+result = generate_plan(task_test, world_test)
 
 print(result)

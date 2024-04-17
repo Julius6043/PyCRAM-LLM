@@ -39,6 +39,13 @@ def format_examples(docs):
     return "\n\n<next example>\n".join([d.page_content for d in docs])
 
 
+# Define a function to format documents for better readability
+def format_example(example):
+    text = example[0].page_content
+    code_example = text.split("The corresponding plan")[0]
+    return code_example
+
+
 # TypedDict for structured data storage, defining the structure of the planning state
 class ReWOO(TypedDict):
     task: str
@@ -50,7 +57,7 @@ class ReWOO(TypedDict):
 
 
 # Instantiate Large Language Models with specific configurations
-llm = ChatOpenAI(model="gpt-4-turbo-preview", temperature=0)
+llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
 llm3 = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
 llm_AO = ChatAnthropic(model="claude-3-opus-20240229", temperature=0)
@@ -79,13 +86,13 @@ llm_with_tool = llm.bind(
 parser_tool = PydanticToolsParser(tools=[code])
 
 # Define a long and complex prompt template for generating plans...
-prompt = """You are a renowned AI engineer and programmer. You receive world knowledge and a task, command, 
+prompt = r"""You are a renowned AI engineer and programmer. You receive world knowledge and a task, command, 
 or question and are to develop a plan for creating PyCramPlanCode for a robot that enables the robot to perform the 
-task. For each plan, indicate which external tool, along with the input for the tool, is used to gather evidence. You 
+task. Concentrate on using Action Designators over MotionDesignators. For each plan, indicate which external tool, along with the input for the tool, is used to gather evidence. You 
 can store the evidence in a variable #E, which can be called upon by other tools later. (Plan, #E1, Plan, #E2, Plan, 
-...). 
+...). Don't use **...** to highlight something.
 Use a format that can be recognized by the following regex pattern: 
-Plan\s*\d*:\s*(.+?)\s*(#E\d+)\s*=\s*(\w+)\s*([^]+)]
+\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*
 
 The tools can be one of the following: 
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functions. The input should be a specific search query as a detailed question. 
@@ -119,12 +126,12 @@ Task: {task}"""
 
 # Regex to match expressions of the form E#... = ...[...]
 # Regex pattern to extract information from the plan format specified in the prompt
-regex_pattern = r"Plan\s*\d*:\s*(.+?)\s*(#E\d+)\s*=\s*(\w+)\s*\[([^\]]+)\]"
+regex_pattern = r"\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*"
 prompt_template = ChatPromptTemplate.from_messages([("user", prompt)])
 planner = prompt_template | llm
 
 # Retriever function for the examples
-retriever_examples = get_retriever(3, 2)
+retriever_examples = get_retriever(3, 1)
 re_chain_examples = retriever_examples | format_examples
 
 
@@ -160,11 +167,12 @@ retriever_haiku = get_retriever(2, 7)
 
 # More complex template for tutorial writing, generating comprehensive documentation
 prompt_retriever_chain = ChatPromptTemplate.from_template(
-    """You are an professional tutorial writer and coding educator. Given the search query, write a detailed, structured, and comprehensive coding documentation for this question and the topic based on all the important information from the following context:
+    """You are an professional tutorial writer and coding educator specially for the PyCRAM toolbox. Given the search query, write a detailed, structured, and comprehensive coding documentation for this question and the topic based on all the important information from the following context from the PyCRAM documentation:
 {context}
 
 Search query: {task}
-Use at least 4000 tokens for the output and adhere to the provided information. Incorporate important code examples in their entirety. The installation and configuration of pycram is not important, because it is already given.
+Use at 4000 tokens for the output and adhere to the provided information. Incorporate important code examples in their entirety. The installation and configuration of pycram is not important, because it is already given.
+Think step by step and make sure the user can produce correct code based on your output.
 """
 )
 chain_docs_haiku = (
@@ -269,23 +277,33 @@ The 'with simulated_robot:'-Block (defines the Actions and moves of the Robot)
 BulletWorld Close
 </Plan structure>
 
+{code_example}
+
 
 Task: {task}
 World knowledge: {world}
 Code Response:
 """
 
+retriever_example_solve = get_retriever(3, 1)
+re_chain_example_solve = retriever_examples | format_example
+
 
 # Function to solve the task using the generated plan
 def solve(state: ReWOO):
     plan = ""
+    task = state["task"]
     for _plan, step_name, tool, tool_input in state["steps"]:
         _results = state["results"] or {}
         for k, v in _results.items():
             tool_input = tool_input.replace(k, v)
             step_name = step_name.replace(k, v)
         plan += f"Plan: {_plan}\n{step_name} = {tool}[{tool_input}]"
-    prompt_solve = solve_prompt.format(plan=plan, task=state["task"], world=state["world"])
+    code_example = re_chain_example_solve.invoke(task)
+    #code_example_filler = """Here is also an example of a similar PyCRAM plan code (use this as a semantic and syntactic example for the code structure and not for the world knowledge):
+    #<Code example>""" + code_example + "\n</Code example>"
+    code_example_filler = ""
+    prompt_solve = solve_prompt.format(plan=plan, code_example=code_example_filler, task=task, world=state["world"])
     result_chain = llm_with_tool | parser_tool
     result = result_chain.invoke(prompt_solve)
     return {"result": result}
@@ -316,7 +334,7 @@ graph.set_entry_point("plan")
 app = graph.compile()
 
 # Example task and world knowledge strings...
-task_test = """ Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?"""
+task_test = """Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?"""
 world_test = """
 [kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', pose=Pose([1.4, 1, 0.95])))]
 """
@@ -333,11 +351,12 @@ def stream_rewoo(task, world):
         print(s)
         print("---")
     result = s[END]["result"]
-    result_print = result[0].code
+    result_print = result[0].imports + "\n" + result[0].code
     print(result_print)
     return result
 
 ##result = chain_docs.invoke("PyCram Grundlagen")
 # result = chain_docs.invoke("PyCram Grundlagen")
-# print(result)
+#result = re_chain_example_solve.invoke(task_test)
+#print(result)
 #stream_rewoo(task, world)
