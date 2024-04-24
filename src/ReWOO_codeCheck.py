@@ -198,7 +198,7 @@ Plan 6: Given the task to move the cereal 3 steps to the right, we need to under
 --- end of example ---
 
 Begin!
-Describe your plans with rich details. Each plan should follow only one #E and it should be exactly in the given structure. 
+Describe your plans with rich details. Each plan should follow only one #E and it should be exactly in the given structure. Do not include other characters for highlighting because this can break the Regex Pattern.
 Don't use any highlighting with markdown and co. You do not need to consider how PyCram is installed and set up in the plans, as this is already given.
 Your task is to make a plan to correct the error but also inculde a general check up for unseen errors in the plan.
 
@@ -503,5 +503,5 @@ def stream_rewoo_check(task, world, code_input, error):
 # print(result)
 # stream_rewoo(task, world)
 
-result = ((retriever_code | format_code).invoke("""SemanticCostmapLocation"""))
-print(result)
+#result = ((retriever_code | format_code).invoke("""SemanticCostmapLocation"""))
+#print(result)
