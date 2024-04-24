@@ -32,6 +32,9 @@ def format_docs(docs):
     cleaned_text = re.sub(r"\n{3,}", "\n\n", filtered_text2)
     return cleaned_text
 
+def format_code(codes):
+    text = "\n\n---\n\n".join([d.page_content for d in codes])
+    return text
 
 # Define a function to format documents for better readability
 def format_examples(docs):
@@ -93,14 +96,14 @@ code was already executed resulting in the provided error message. Your task is 
 resources and correct given PyCramPlanCode. PyCramPlanCode is a plan instruction for a robot that should enable the 
 robot to perform the provided high level task. For each plan, indicate which external tool, along with the input for 
 the tool, is used to gather evidence. You can store the evidence in a variable #E, which can be called upon by other 
-tools later. (Plan, #E1, Plan, #E2, Plan, ...). Don't use **...** to highlight something.
+tools later. (Plan, #E1, Plan, #E2, Plan, ...).
 Use a format that can be recognized by the following regex pattern: 
 \**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*
 
 The tools can be one of the following: 
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functions. The input should be a specific search query as a detailed question. 
 (2) LLM[input]: A pre-trained LLM like yourself. Useful when you need to act with general information and common sense. Prefer it if you are confident you can solve the problem yourself. The input can be any statement.
-
+(3) CodeRetrieve[input]: A vector database retriever to search and look directly into the PyCram package code. As input give the exact Function and a little describtion.
 
 PyCramPlanCode follow the following structure:
 Imports
@@ -186,11 +189,12 @@ Task:
 Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?
 ---
 Corresponding output plan: 
-Plan 1: Verify the correct usage of the resolve method on Object instances in PyCram. This will help us understand whether kitchen.resolve() and cereal.resolve() in the line that caused the error are being used appropriately. #E1 = Retrieve[How to correctly use the 'resolve' method with Object instances in PyCram] 
-Plan 2: Confirm the proper way to reference PyCram objects when setting up locations or actions that involve these objects. This ensures that we correctly interact with kitchen and cereal objects in our plan, especially in context to SemanticCostmapLocation. #E2 = Retrieve[How to reference objects for actions and locations in PyCram without using the 'resolve' method.]
-Plan 3: Acquire knowledge on the proper instantiation and usage of SemanticCostmapLocation. Understanding its parameters and usage will help us correctly position the cereal on the kitchen island. #E3 = Retrieve[Correct instantiation and usage of SemanticCostmapLocation in PyCram.]
-Plan 4: Ensure we have a clear understanding of how to use the PlaceAction correctly, especially how to specify the object_to_place and target_locations. This will correct the final action where the cereal is to be placed 3 steps to the right. #E4 = Retrieve[How to use PlaceAction correctly in PyCram, including specifying object_to_place and target_locations.]
-Plan 5: Given the task to move the cereal 3 steps to the right, we need to understand how to calculate the new position based on the current position of the cereal. This will involve modifying the target pose for the MoveMotion or directly in the PlaceAction to achieve the desired placement. #E5 = LLM[Given an object's current position, calculate a new position that is 3 steps to the right in a coordinate system.] 
+Plan 1: Research the Code of the function SemanticCostmapLocation. #E2 = CodeRetrieve[SemanticCostmapLocation]
+Plan 2: Verify the correct usage of the resolve method on Object instances in PyCram. This will help us understand whether kitchen.resolve() and cereal.resolve() in the line that caused the error are being used appropriately. #E2 = Retrieve[How to correctly use the 'resolve' method with Object instances in PyCram] 
+Plan 3: Confirm the proper way to reference PyCram objects when setting up locations or actions that involve these objects. This ensures that we correctly interact with kitchen and cereal objects in our plan, especially in context to SemanticCostmapLocation. #E3 = Retrieve[How to reference objects for actions and locations in PyCram without using the 'resolve' method.]
+Plan 4: Acquire knowledge on the proper instantiation and usage of SemanticCostmapLocation. Understanding its parameters and usage will help us correctly position the cereal on the kitchen island. #E4 = Retrieve[Correct instantiation and usage of SemanticCostmapLocation in PyCram.]
+Plan 5: Ensure we have a clear understanding of how to use the PlaceAction correctly, especially how to specify the object_to_place and target_locations. This will correct the final action where the cereal is to be placed 3 steps to the right. #E5 = Retrieve[How to use PlaceAction correctly in PyCram, including specifying object_to_place and target_locations.]
+Plan 6: Given the task to move the cereal 3 steps to the right, we need to understand how to calculate the new position based on the current position of the cereal. This will involve modifying the target pose for the MoveMotion or directly in the PlaceAction to achieve the desired placement. #E6 = LLM[Given an object's current position, calculate a new position that is 3 steps to the right in a coordinate system.] 
 --- end of example ---
 
 Begin!
@@ -286,6 +290,30 @@ chain_docs_gpt = (
         | StrOutputParser()
 )
 
+# PyCram Code Retriever
+prompt_retriever_code = ChatPromptTemplate.from_template(
+    """You are an professional tutorial writer and coding educator specially for the PyCRAM toolbox. You get a function, 
+your task is to search for it in the provided context code and write a tutorial for the function and likewise and near other functions.
+Provide the full code of the provided function in your output.
+Explain also the general functioning of PyCram in relation to this function with the Context Code.
+Context: {context}
+--- Context End ---
+
+Function: {task} 
+
+Use at 4000 tokens for the output and adhere to the provided information. Incorporate important 
+code examples in their entirety. Think step by step and make sure the a other llm agent can produce correct code based on your output."""
+)
+retriever_code = get_retriever(1, 4)
+
+chain_code = (
+        {"context": retriever_code | format_code, "task": RunnablePassthrough()}
+        | prompt_retriever_code
+        | llm_AH
+        | StrOutputParser()
+)
+
+
 # Function to execute tools as per the generated plan
 def tool_execution(state: ReWOO):
     """Worker node that executes the tools of a given plan."""
@@ -299,6 +327,17 @@ def tool_execution(state: ReWOO):
         result = search.invoke(tool_input)
     elif tool == "LLM":
         result = llm.invoke(tool_input)
+    elif tool == "CodeRetrieve":
+        try:
+            result = chain_code.invoke(tool_input)
+        except anthropic.RateLimitError as e:
+            chain_code_gpt4 = (
+                    {"context": retriever_code | format_code, "task": RunnablePassthrough()}
+                    | prompt_retriever_code
+                    | llm
+                    | StrOutputParser()
+            )
+            result = chain_code_gpt4.invoke(tool_input)
     elif tool == "Retrieve":
         if is_retriever_model_haiku:
             try:
@@ -463,3 +502,6 @@ def stream_rewoo_check(task, world, code_input, error):
 # result = chain_docs.invoke("PyCram Grundlagen")
 # print(result)
 # stream_rewoo(task, world)
+
+result = ((retriever_code | format_code).invoke("""SemanticCostmapLocation"""))
+print(result)

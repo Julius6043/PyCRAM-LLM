@@ -33,6 +33,11 @@ def format_docs(docs):
     return cleaned_text
 
 
+def format_code(codes):
+    text = "\n\n---\n\n".join([d.page_content for d in codes])
+    return text
+
+
 # Define a function to format documents for better readability
 def format_examples(docs):
     # Join documents using a specified delimiter for separation
@@ -194,6 +199,29 @@ chain_docs_gpt = (
         | StrOutputParser()
 )
 
+# PyCram Code Retriever
+prompt_retriever_code = ChatPromptTemplate.from_template(
+    """You are an professional tutorial writer and coding educator specially for the PyCRAM toolbox. You get a function, 
+your task is to search for it in the provided context code and write a tutorial for the function and likewise and near other functions.
+Provide the full code of the provided function in your output.
+Explain also the general functioning of PyCram in relation to this function with the Context Code.
+Context: {context}
+--- Context End ---
+
+Function: {task} 
+
+Use at 4000 tokens for the output and adhere to the provided information. Incorporate important 
+code examples in their entirety. Think step by step and make sure the a other llm agent can produce correct code based on your output."""
+)
+
+retriever_code = get_retriever(1, 3)
+
+chain_docs_code = (
+        {"context": retriever_code | format_code, "task": RunnablePassthrough()}
+        | prompt_retriever_code
+        | llm3
+        | StrOutputParser()
+)
 
 # Function to execute tools as per the generated plan
 def tool_execution(state: ReWOO):
@@ -273,7 +301,7 @@ The 'with simulated_robot:'-Block (defines the Actions and moves of the Robot)
         'ParkArmsAction([Arms.BOTH]).resolve().perform()
         MoveTorsoAction([0.25]).resolve().perform()'
     ActionDesignators
-    SematicCostmapLocation
+    SemanticCostmapLocation
 BulletWorld Close
 </Plan structure>
 

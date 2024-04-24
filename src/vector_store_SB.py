@@ -33,11 +33,12 @@ embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 embeddings_large = OpenAIEmbeddings(model="text-embedding-3-large")
 
 # Create vector stores for storing and querying vectorized text using Supabase and the specified embeddings.
-vector_store = SupabaseVectorStore(
-    embedding=embeddings,
+
+vector_store_code = SupabaseVectorStore(
+    embedding=embeddings_large,
     client=supabase,
-    table_name="documents",
-    query_name="match_documents",
+    table_name="code",
+    query_name="match_code",
 )
 
 vector_store_large = SupabaseVectorStore(
@@ -112,16 +113,20 @@ def load_pdf_document(file_name):
 
 # Function to load text into one of the vector stores.
 def load_in_vector_store(source, vectore_store_id=1):
-    global vector_store, vector_store_large, vector_store_examples
+    global vector_store_code, vector_store_large, vector_store_examples
     if vectore_store_id == 1:
-        chunks = load_pdf_document(source)
-        vector_store = SupabaseVectorStore.from_documents(
+        try:
+            with open(source, 'r') as file:
+                content = file.read()
+        except IOError as e:
+            print(f"Error reading file {source}: {e}")
+        chunks = content.split("##New ")
+        vector_store_code = SupabaseVectorStore.from_texts(
             chunks,
-            embeddings,
+            embeddings_large,
             client=supabase,
-            table_name="documents",
-            query_name="match_documents",
-            chunk_size=500,
+            table_name="code",
+            query_name="match_code",
         )
     elif vectore_store_id == 2:
         chunks = load_website(source)
@@ -148,10 +153,10 @@ def load_in_vector_store(source, vectore_store_id=1):
 # Function to delete entries from a vector store.
 def delete_from_vectorstore(table, num=2):
     if num == -1:
-        result = supabase.table("documents").select("id", count="exact").execute()
+        result = supabase.table(table).select("id", count="exact").execute()
         num = result.data
     data = (
-        supabase.table("documents")
+        supabase.table(table)
         .select("id")
         .order("id", desc=True)
         .limit(num)
@@ -166,29 +171,10 @@ def delete_from_vectorstore(table, num=2):
         print("No entries found to delete.")
 
 
-# Function to retrieve documents similar to a query from a vector store.
-def retrieve(query):
-    matched_docs = vector_store.similarity_search(query)
-    result = matched_docs[0].page_content + "\n\n" + matched_docs[1].page_content
-    return result
-
-
-# Function to retrieve a specified number of documents similar to a query from the large vector store.
-def retrieve_large(query, number):
-    matched_docs = vector_store_large.similarity_search(query)
-    result = ""
-    for i in range(number):
-        result += (
-            "Document: " + str(i + 1) + "\n" + matched_docs[i].page_content + "\n\n"
-        )
-    return result
-
-
 # Function to get a retriever based on the vector store ID and number of documents to retrieve.
 def get_retriever(vector_store_id=1, num=5):
-    vector_store_temp = vector_store
     if vector_store_id == 1:
-        vector_store_temp = vector_store
+        vector_store_temp = vector_store_code
     elif vector_store_id == 2:
         vector_store_temp = vector_store_large
     elif vector_store_id == 3:
@@ -200,9 +186,7 @@ def get_retriever(vector_store_id=1, num=5):
 
 
 # delete_from_vectorstore(table="documents", num=-1)
-# load_in_vector_store("BAfoeG.pdf", 1)
-# chunks = get_pdf_text("BAfoeG.pdf")
-# load_in_vector_store("BAfoeG.pdf", 2)
-# result = retrieve_large("Was muss ich erfüllen um Bafoeg beantragen zu können?")
+# load_in_vector_store("/home/julius/ros/ros_ws/src/pycram/src/llm/llm_pyCram_plans/output.txt", 1)
 # print(result)
 # load_in_vector_store("https://pycram.readthedocs.io/en/latest/", 2)
+
