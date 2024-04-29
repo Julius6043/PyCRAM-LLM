@@ -32,9 +32,11 @@ def format_docs(docs):
     cleaned_text = re.sub(r"\n{3,}", "\n\n", filtered_text2)
     return cleaned_text
 
+
 def format_code(codes):
     text = "\n\n---\n\n".join([d.page_content for d in codes])
     return text
+
 
 # Define a function to format documents for better readability
 def format_examples(docs):
@@ -68,6 +70,7 @@ llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
 
 is_retriever_model_haiku = True
 
+
 ###pyDanticToolParser
 class code(BaseModel):
     """Code output"""
@@ -96,7 +99,7 @@ code was already executed resulting in the provided error message. Your task is 
 resources and correct given PyCramPlanCode. PyCramPlanCode is a plan instruction for a robot that should enable the 
 robot to perform the provided high level task. For each plan, indicate which external tool, along with the input for 
 the tool, is used to gather evidence. You can store the evidence in a variable #E, which can be called upon by other 
-tools later. (Plan, #E1, Plan, #E2, Plan, ...).
+tools later. (Plan, #E1, Plan, #E2, Plan, ...). Don't use **...** to highlight something.
 Use a format that can be recognized by the following regex pattern: 
 \**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*
 
@@ -210,10 +213,12 @@ World knowledge: {world}
 ---
 Task: {task}"""
 
-
+print(prompt)
 # Regex to match expressions of the form E#... = ...[...]
 # Regex pattern to extract information from the plan format specified in the prompt
-regex_pattern = r"\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*"
+regex_pattern = (
+    r"\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*"
+)
 prompt_template = ChatPromptTemplate.from_messages([("user", prompt)])
 planner = prompt_template | llm
 
@@ -284,10 +289,10 @@ chain_docs_haiku = (
 retriever_gpt = get_retriever(2, 6)
 
 chain_docs_gpt = (
-        {"context": retriever_gpt | format_docs, "task": RunnablePassthrough()}
-        | prompt_retriever_chain
-        | llm3
-        | StrOutputParser()
+    {"context": retriever_gpt | format_docs, "task": RunnablePassthrough()}
+    | prompt_retriever_chain
+    | llm3
+    | StrOutputParser()
 )
 
 # PyCram Code Retriever
@@ -307,10 +312,10 @@ code examples in their entirety. Think step by step and make sure the a other ll
 retriever_code = get_retriever(1, 4)
 
 chain_code = (
-        {"context": retriever_code | format_code, "task": RunnablePassthrough()}
-        | prompt_retriever_code
-        | llm_AH
-        | StrOutputParser()
+    {"context": retriever_code | format_code, "task": RunnablePassthrough()}
+    | prompt_retriever_code
+    | llm_AH
+    | StrOutputParser()
 )
 
 
@@ -332,10 +337,10 @@ def tool_execution(state: ReWOO):
             result = chain_code.invoke(tool_input)
         except anthropic.RateLimitError as e:
             chain_code_gpt4 = (
-                    {"context": retriever_code | format_code, "task": RunnablePassthrough()}
-                    | prompt_retriever_code
-                    | llm
-                    | StrOutputParser()
+                {"context": retriever_code | format_code, "task": RunnablePassthrough()}
+                | prompt_retriever_code
+                | llm
+                | StrOutputParser()
             )
             result = chain_code_gpt4.invoke(tool_input)
     elif tool == "Retrieve":
@@ -351,10 +356,13 @@ def tool_execution(state: ReWOO):
             i = 6
             retriever_gpt_temp = get_retriever(2, i)
             chain_docs_gpt_temp = (
-                    {"context": retriever_gpt_temp | format_docs, "task": RunnablePassthrough()}
-                    | prompt_retriever_chain
-                    | llm3
-                    | StrOutputParser()
+                {
+                    "context": retriever_gpt_temp | format_docs,
+                    "task": RunnablePassthrough(),
+                }
+                | prompt_retriever_chain
+                | llm3
+                | StrOutputParser()
             )
             while trying:
                 try:
@@ -364,10 +372,13 @@ def tool_execution(state: ReWOO):
                     i -= 1
                     retriever_gpt_temp = get_retriever(2, i)
                     chain_docs_gpt_temp = (
-                            {"context": retriever_gpt_temp | format_docs, "task": RunnablePassthrough()}
-                            | prompt_retriever_chain
-                            | llm3
-                            | StrOutputParser()
+                        {
+                            "context": retriever_gpt_temp | format_docs,
+                            "task": RunnablePassthrough(),
+                        }
+                        | prompt_retriever_chain
+                        | llm3
+                        | StrOutputParser()
                     )
     elif tool == "Statement":
         result = tool_input
@@ -489,7 +500,9 @@ def _sanitize_output(text: str):
 
 # Function to stream the execution of the application
 def stream_rewoo_check(task, world, code_input, error):
-    for s in app.stream({"task": task, "world": world, "code": code_input, "error": error}):
+    for s in app.stream(
+        {"task": task, "world": world, "code": code_input, "error": error}
+    ):
         print(s)
         print("---")
     result = s[END]["result"]
@@ -503,5 +516,5 @@ def stream_rewoo_check(task, world, code_input, error):
 # print(result)
 # stream_rewoo(task, world)
 
-#result = ((retriever_code | format_code).invoke("""SemanticCostmapLocation"""))
-#print(result)
+# result = ((retriever_code | format_code).invoke("""SemanticCostmapLocation"""))
+# print(result)
