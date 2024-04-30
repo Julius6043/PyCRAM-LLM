@@ -14,12 +14,12 @@ def scrape_python_files_to_text(directory, output_file):
         # Walk through the directory
         for dirpath, dirnames, filenames in os.walk(directory):
             # Filter and process each Python file
-            for filename in [f for f in filenames if f.endswith('.py')]:
+            for filename in [f for f in filenames if f.endswith('.urdf')]:
                 filepath = os.path.join(dirpath, filename)
                 try:
                     with open(filepath, 'r') as file:
                         content = file.read()
-                        outfile.write(f"##New # Content from: {filepath}\n")
+                        outfile.write(f"##New # Content from: #<{filename}>#\n")
                         outfile.write(content + "\n\n")
                 except IOError as e:
                     print(f"Error reading file {filepath}: {e}")
@@ -27,4 +27,4 @@ def scrape_python_files_to_text(directory, output_file):
 # Example usage:
 
 
-scrape_python_files_to_text("/home/julius/ros/ros_ws/src/pycram/src/pycram", 'output.txt')
+scrape_python_files_to_text("/home/julius/ros/ros_ws/src/pycram/src/llm/llm_pyCram_plans/src/urdf", 'output_urdf.txt')

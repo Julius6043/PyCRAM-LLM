@@ -15,7 +15,9 @@ from supabase.lib.client_options import ClientOptions
 from PyPDF2 import PdfReader
 from bs4 import BeautifulSoup as Soup
 import os
+import re
 import httpx
+from langchain.docstore.document import Document
 
 # Initialize environment variables.
 load_dotenv()
@@ -53,6 +55,13 @@ vector_store_examples = SupabaseVectorStore(
     client=supabase,
     table_name="examples",
     query_name="match_examples",
+)
+
+vector_store_urdf = SupabaseVectorStore(
+    embedding=embeddings_large,
+    client=supabase,
+    table_name="urdf",
+    query_name="match_urdf",
 )
 
 
@@ -118,16 +127,17 @@ def load_in_vector_store(source, vectore_store_id=1):
         try:
             with open(source, 'r') as file:
                 content = file.read()
+            chunks = content.split("##New ")
+            vector_store_code = SupabaseVectorStore.from_texts(
+                chunks,
+                embeddings_large,
+                client=supabase,
+                table_name="code",
+                query_name="match_code",
+            )
         except IOError as e:
             print(f"Error reading file {source}: {e}")
-        chunks = content.split("##New ")
-        vector_store_code = SupabaseVectorStore.from_texts(
-            chunks,
-            embeddings_large,
-            client=supabase,
-            table_name="code",
-            query_name="match_code",
-        )
+
     elif vectore_store_id == 2:
         chunks = load_website(source)
         vector_store_large = SupabaseVectorStore.from_documents(
@@ -146,6 +156,29 @@ def load_in_vector_store(source, vectore_store_id=1):
             table_name="examples",
             query_name="match_examples",
         )
+    elif vectore_store_id == 4:
+        try:
+            with open(source, 'r') as file:
+                content = file.read()
+            meta_data = re.findall(r"#<(.+?)>#", content)
+            print(meta_data)
+            chunks_temp = content.split("##New # ")
+            chunks_temp.pop(0)
+            chunks = []
+            i = 0
+            for chunk in chunks_temp:
+                chunks.append(Document(page_content=chunk, metadata={"source": meta_data[i]}))
+                i += 1
+            vector_store_code = SupabaseVectorStore.from_documents(
+                chunks,
+                embeddings_large,
+                client=supabase,
+                table_name="urdf",
+                query_name="match_urdf",
+            )
+        except IOError as e:
+            print(f"Error reading file {source}: {e}")
+
     else:
         raise Exception("Invalid vector store id")
 
@@ -186,7 +219,7 @@ def get_retriever(vector_store_id=1, num=5):
 
 
 # delete_from_vectorstore(table="documents", num=-1)
-# load_in_vector_store("/home/julius/ros/ros_ws/src/pycram/src/llm/llm_pyCram_plans/output.txt", 1)
+load_in_vector_store("/home/julius/ros/ros_ws/src/pycram/src/llm/llm_pyCram_plans/output_urdf.txt", 4)
 # print(result)
 # load_in_vector_store("https://pycram.readthedocs.io/en/latest/", 2)
 

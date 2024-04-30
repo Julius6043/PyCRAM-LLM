@@ -101,7 +101,7 @@ robot to perform the provided high level task. For each plan, indicate which ext
 the tool, is used to gather evidence. You can store the evidence in a variable #E, which can be called upon by other 
 tools later. (Plan, #E1, Plan, #E2, Plan, ...). Don't use **...** to highlight something.
 Use a format that can be recognized by the following regex pattern: 
-\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*
+\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[\**([^\]]+)\**\].*
 
 The tools can be one of the following: 
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functions. The input should be a specific search query as a detailed question. 
