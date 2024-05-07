@@ -17,6 +17,7 @@ from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.utils.function_calling import convert_to_openai_tool
 import requests
 import anthropic
+from langchain_community.chat_models import ChatOllama
 
 # Load environment variables for secure access to configuration settings
 load_dotenv()
@@ -67,6 +68,7 @@ llm3 = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
 llm_AO = ChatAnthropic(model="claude-3-opus-20240229", temperature=0)
 llm_AS = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0)
+llm_llama3 = ChatOllama(model="llama3")
 
 is_retriever_model_haiku = True
 
@@ -174,10 +176,12 @@ retriever_haiku = get_retriever(2, 7)
 prompt_retriever_chain = ChatPromptTemplate.from_template(
     """You are an professional tutorial writer and coding educator specially for the PyCRAM toolbox. Given the search query, write a detailed, structured, and comprehensive coding documentation for this question and the topic based on all the important information from the following context from the PyCRAM documentation:
 {context}
+--- Context End ---
 
 Search query: {task}
-Use at 4000 tokens for the output and adhere to the provided information. Incorporate important code examples in their entirety. The installation and configuration of pycram is not important, because it is already given.
-Think step by step and make sure the user can produce correct code based on your output.
+
+Use at 4000 tokens for the output and adhere to the provided information. Incorporate important 
+code examples in their entirety. Think step by step and make sure the a other llm agent can produce correct code based on your output.
 """
 )
 chain_docs_haiku = (
@@ -195,7 +199,7 @@ retriever_gpt = get_retriever(2, 5)
 chain_docs_gpt = (
         {"context": retriever_gpt | format_docs, "task": RunnablePassthrough()}
         | prompt_retriever_chain
-        | llm3
+        | llm_llama3
         | StrOutputParser()
 )
 
@@ -219,7 +223,7 @@ retriever_code = get_retriever(1, 3)
 chain_docs_code = (
         {"context": retriever_code | format_code, "task": RunnablePassthrough()}
         | prompt_retriever_code
-        | llm3
+        | llm
         | StrOutputParser()
 )
 
@@ -251,7 +255,7 @@ def tool_execution(state: ReWOO):
             chain_docs_gpt_temp = (
                     {"context": retriever_gpt_temp | format_docs, "task": RunnablePassthrough()}
                     | prompt_retriever_chain
-                    | llm3
+                    | llm_llama3
                     | StrOutputParser()
             )
             while trying:
@@ -264,7 +268,7 @@ def tool_execution(state: ReWOO):
                     chain_docs_gpt_temp = (
                             {"context": retriever_gpt_temp | format_docs, "task": RunnablePassthrough()}
                             | prompt_retriever_chain
-                            | llm3
+                            | llm_llama3
                             | StrOutputParser()
                     )
     elif tool == "Statement":
@@ -386,5 +390,5 @@ def stream_rewoo(task, world):
 ##result = chain_docs.invoke("PyCram Grundlagen")
 # result = chain_docs.invoke("PyCram Grundlagen")
 #result = re_chain_example_solve.invoke(task_test)
-#print(result)
-#stream_rewoo(task, world)
+result = stream_rewoo(task_test, world_test)
+print(result)

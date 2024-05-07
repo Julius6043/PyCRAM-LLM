@@ -219,7 +219,7 @@ def get_retriever(vector_store_id=1, num=5):
 
 
 # delete_from_vectorstore(table="documents", num=-1)
-load_in_vector_store("/home/julius/ros/ros_ws/src/pycram/src/llm/llm_pyCram_plans/output_urdf.txt", 4)
+# load_in_vector_store("/home/julius/ros/ros_ws/src/pycram/src/llm/llm_pyCram_plans/output_urdf.txt", 4)
 # print(result)
 # load_in_vector_store("https://pycram.readthedocs.io/en/latest/", 2)
 
