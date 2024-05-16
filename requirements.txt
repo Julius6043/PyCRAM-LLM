@@ -14,3 +14,4 @@ langchain-anthropic
 beautifulsoup4
 duckduckgo-search
 ollama
+paramiko

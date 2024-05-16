@@ -18,6 +18,9 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 import requests
 import anthropic
 from langchain_community.chat_models import ChatOllama
+from run_llm_local import run_llama3_remote
+import sys
+import tiktoken
 
 # Load environment variables for secure access to configuration settings
 load_dotenv()
@@ -52,6 +55,18 @@ def format_example(example):
     return code_example
 
 
+# Count the Tokens in a string
+def count_tokens(model_name, text):
+    # Lade das Tokenizer-Modell
+    encoding = tiktoken.encoding_for_model(model_name)
+
+    # Tokenisiere den Text
+    tokens = encoding.encode(text)
+
+    # Anzahl der Tokens
+    return len(tokens)
+
+
 # TypedDict for structured data storage, defining the structure of the planning state
 class ReWOO(TypedDict):
     task: str
@@ -63,7 +78,7 @@ class ReWOO(TypedDict):
 
 
 # Instantiate Large Language Models with specific configurations
-llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
 llm3 = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
 llm_AO = ChatAnthropic(model="claude-3-opus-20240229", temperature=0)
@@ -104,6 +119,8 @@ Use a format that can be recognized by the following regex pattern:
 The tools can be one of the following: 
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functions. The input should be a specific search query as a detailed question. 
 (2) LLM[input]: A pre-trained LLM like yourself. Useful when you need to act with general information and common sense. Prefer it if you are confident you can solve the problem yourself. The input can be any statement.
+(3) Code[input]: A LLM Agent with a database retriever for the PyCRAM code. Returns a function from the code base and provides a tutorial for it. Provide a function as input
+(4) URDF[input]: A database retriver which returns the URDF file text. Use this tool when you need information about the URDF files used in the world. Provide the URDF file name as input.
 
 PyCramPlanCode follow the following structure:
 Imports
@@ -173,8 +190,7 @@ def _get_current_task(state: ReWOO):
 retriever_haiku = get_retriever(2, 7)
 
 # More complex template for tutorial writing, generating comprehensive documentation
-prompt_retriever_chain = ChatPromptTemplate.from_template(
-    """You are an professional tutorial writer and coding educator specially for the PyCRAM toolbox. Given the search query, write a detailed, structured, and comprehensive coding documentation for this question and the topic based on all the important information from the following context from the PyCRAM documentation:
+prompt_docs = """You are an professional tutorial writer and coding educator specially for the PyCRAM toolbox. Given the search query, write a detailed, structured, and comprehensive coding documentation for this question and the topic based on all the important information from the following context from the PyCRAM documentation:
 {context}
 --- Context End ---
 
@@ -183,6 +199,8 @@ Search query: {task}
 Use at 4000 tokens for the output and adhere to the provided information. Incorporate important 
 code examples in their entirety. Think step by step and make sure the a other llm agent can produce correct code based on your output.
 """
+prompt_retriever_chain = ChatPromptTemplate.from_template(
+    prompt_docs
 )
 chain_docs_haiku = (
         {"context": retriever_haiku | format_docs, "task": RunnablePassthrough()}
@@ -199,13 +217,12 @@ retriever_gpt = get_retriever(2, 5)
 chain_docs_gpt = (
         {"context": retriever_gpt | format_docs, "task": RunnablePassthrough()}
         | prompt_retriever_chain
-        | llm_llama3
+        | llm
         | StrOutputParser()
 )
 
 # PyCram Code Retriever
-prompt_retriever_code = ChatPromptTemplate.from_template(
-    """You are an professional tutorial writer and coding educator specially for the PyCRAM toolbox. You get a function, 
+prompt_code = """You are an professional tutorial writer and coding educator specially for the PyCRAM toolbox. You get a function, 
 your task is to search for it in the provided context code and write a tutorial for the function and likewise and near other functions.
 Provide the full code of the provided function in your output.
 Explain also the general functioning of PyCram in relation to this function with the Context Code.
@@ -216,9 +233,11 @@ Function: {task}
 
 Use at 4000 tokens for the output and adhere to the provided information. Incorporate important 
 code examples in their entirety. Think step by step and make sure the a other llm agent can produce correct code based on your output."""
+prompt_retriever_code = ChatPromptTemplate.from_template(
+    prompt_code
 )
 
-retriever_code = get_retriever(1, 3)
+retriever_code = get_retriever(1, 5)
 
 chain_docs_code = (
         {"context": retriever_code | format_code, "task": RunnablePassthrough()}
@@ -241,7 +260,13 @@ def tool_execution(state: ReWOO):
     elif tool == "LLM":
         result = llm.invoke(tool_input)
     elif tool == "Retrieve":
-        if is_retriever_model_haiku:
+        #retriever_llama3 = get_retriever(2, 3)
+        #re_llama = retriever_llama3 | format_docs
+        #prompt_filled = prompt_docs.format(task=tool_input, context=re_llama.invoke(tool_input))
+        prompt_filled = tool_input
+        if count_tokens("gpt-4", prompt_filled) < 1:
+            result = run_llama3_remote(prompt_filled)
+        elif is_retriever_model_haiku:
             try:
                 result = chain_docs_haiku.invoke(tool_input)
             except anthropic.RateLimitError as e:
@@ -255,7 +280,7 @@ def tool_execution(state: ReWOO):
             chain_docs_gpt_temp = (
                     {"context": retriever_gpt_temp | format_docs, "task": RunnablePassthrough()}
                     | prompt_retriever_chain
-                    | llm_llama3
+                    | llm
                     | StrOutputParser()
             )
             while trying:
@@ -268,11 +293,14 @@ def tool_execution(state: ReWOO):
                     chain_docs_gpt_temp = (
                             {"context": retriever_gpt_temp | format_docs, "task": RunnablePassthrough()}
                             | prompt_retriever_chain
-                            | llm_llama3
+                            | llm
                             | StrOutputParser()
                     )
-    elif tool == "Statement":
-        result = tool_input
+    elif tool == "Code":
+        result = chain_docs_code.invoke(tool_input)
+    elif tool == "URDF":
+        urdf_retriever = get_retriever(4, 1)
+        result = urdf_retriever.invoke(tool_input)
     else:
         raise ValueError
     _results[step_name] = str(result)
@@ -391,4 +419,5 @@ def stream_rewoo(task, world):
 # result = chain_docs.invoke("PyCram Grundlagen")
 #result = re_chain_example_solve.invoke(task_test)
 result = stream_rewoo(task_test, world_test)
+#result = count_tokens("gpt-4", task_test)
 print(result)

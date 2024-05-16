@@ -17,6 +17,8 @@ from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.utils.function_calling import convert_to_openai_tool
 import requests
 import anthropic
+from langgraph_ReWOO import count_tokens
+from run_llm_local import run_llama3_remote
 
 # Load environment variables for secure access to configuration settings
 load_dotenv()
@@ -107,6 +109,7 @@ The tools can be one of the following:
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functions. The input should be a specific search query as a detailed question. 
 (2) LLM[input]: A pre-trained LLM like yourself. Useful when you need to act with general information and common sense. Prefer it if you are confident you can solve the problem yourself. The input can be any statement.
 (3) CodeRetrieve[input]: A vector database retriever to search and look directly into the PyCram package code. As input give the exact Function and a little describtion.
+(4) URDF[input]: A database retriver which returns the URDF file text. Use this tool when you need information about the URDF files used in the world. Provide the URDF file name as input.
 
 PyCramPlanCode follow the following structure:
 Imports

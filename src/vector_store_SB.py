@@ -212,6 +212,8 @@ def get_retriever(vector_store_id=1, num=5):
         vector_store_temp = vector_store_large
     elif vector_store_id == 3:
         vector_store_temp = vector_store_examples
+    elif vector_store_id == 4:
+        vector_store_temp = vector_store_urdf
     else:
         raise Exception("Invalid vector store id")
     retriever = vector_store_temp.as_retriever(search_kwargs={"k": num})
