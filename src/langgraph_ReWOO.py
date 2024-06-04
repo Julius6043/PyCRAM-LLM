@@ -83,9 +83,10 @@ llm3 = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
 llm_AO = ChatAnthropic(model="claude-3-opus-20240229", temperature=0)
 llm_AS = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0)
-llm_llama3 = ChatOllama(model="llama3")
+# llm_llama3 = ChatOllama(model="llama3")
 
 is_retriever_model_haiku = True
+
 
 ###PyDanticToolParser
 class code(BaseModel):
@@ -150,7 +151,9 @@ Task: {task}"""
 
 # Regex to match expressions of the form E#... = ...[...]
 # Regex pattern to extract information from the plan format specified in the prompt
-regex_pattern = r"\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*"
+regex_pattern = (
+    r"\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*"
+)
 prompt_template = ChatPromptTemplate.from_messages([("user", prompt)])
 planner = prompt_template | llm
 
@@ -199,14 +202,12 @@ Search query: {task}
 Use at 4000 tokens for the output and adhere to the provided information. Incorporate important 
 code examples in their entirety. Think step by step and make sure the a other llm agent can produce correct code based on your output.
 """
-prompt_retriever_chain = ChatPromptTemplate.from_template(
-    prompt_docs
-)
+prompt_retriever_chain = ChatPromptTemplate.from_template(prompt_docs)
 chain_docs_haiku = (
-        {"context": retriever_haiku | format_docs, "task": RunnablePassthrough()}
-        | prompt_retriever_chain
-        | llm_AH
-        | StrOutputParser()
+    {"context": retriever_haiku | format_docs, "task": RunnablePassthrough()}
+    | prompt_retriever_chain
+    | llm_AH
+    | StrOutputParser()
 )
 
 # GPT
@@ -215,10 +216,10 @@ retriever_gpt = get_retriever(2, 5)
 
 # More complex template for tutorial writing, generating comprehensive documentation
 chain_docs_gpt = (
-        {"context": retriever_gpt | format_docs, "task": RunnablePassthrough()}
-        | prompt_retriever_chain
-        | llm
-        | StrOutputParser()
+    {"context": retriever_gpt | format_docs, "task": RunnablePassthrough()}
+    | prompt_retriever_chain
+    | llm
+    | StrOutputParser()
 )
 
 # PyCram Code Retriever
@@ -233,18 +234,17 @@ Function: {task}
 
 Use at 4000 tokens for the output and adhere to the provided information. Incorporate important 
 code examples in their entirety. Think step by step and make sure the a other llm agent can produce correct code based on your output."""
-prompt_retriever_code = ChatPromptTemplate.from_template(
-    prompt_code
-)
+prompt_retriever_code = ChatPromptTemplate.from_template(prompt_code)
 
 retriever_code = get_retriever(1, 5)
 
 chain_docs_code = (
-        {"context": retriever_code | format_code, "task": RunnablePassthrough()}
-        | prompt_retriever_code
-        | llm
-        | StrOutputParser()
+    {"context": retriever_code | format_code, "task": RunnablePassthrough()}
+    | prompt_retriever_code
+    | llm
+    | StrOutputParser()
 )
+
 
 # Function to execute tools as per the generated plan
 def tool_execution(state: ReWOO):
@@ -260,9 +260,9 @@ def tool_execution(state: ReWOO):
     elif tool == "LLM":
         result = llm.invoke(tool_input)
     elif tool == "Retrieve":
-        #retriever_llama3 = get_retriever(2, 3)
-        #re_llama = retriever_llama3 | format_docs
-        #prompt_filled = prompt_docs.format(task=tool_input, context=re_llama.invoke(tool_input))
+        # retriever_llama3 = get_retriever(2, 3)
+        # re_llama = retriever_llama3 | format_docs
+        # prompt_filled = prompt_docs.format(task=tool_input, context=re_llama.invoke(tool_input))
         prompt_filled = tool_input
         if count_tokens("gpt-4", prompt_filled) < 1:
             result = run_llama3_remote(prompt_filled)
@@ -278,10 +278,13 @@ def tool_execution(state: ReWOO):
             i = 6
             retriever_gpt_temp = get_retriever(2, i)
             chain_docs_gpt_temp = (
-                    {"context": retriever_gpt_temp | format_docs, "task": RunnablePassthrough()}
-                    | prompt_retriever_chain
-                    | llm
-                    | StrOutputParser()
+                {
+                    "context": retriever_gpt_temp | format_docs,
+                    "task": RunnablePassthrough(),
+                }
+                | prompt_retriever_chain
+                | llm
+                | StrOutputParser()
             )
             while trying:
                 try:
@@ -291,10 +294,13 @@ def tool_execution(state: ReWOO):
                     i -= 1
                     retriever_gpt_temp = get_retriever(2, i)
                     chain_docs_gpt_temp = (
-                            {"context": retriever_gpt_temp | format_docs, "task": RunnablePassthrough()}
-                            | prompt_retriever_chain
-                            | llm
-                            | StrOutputParser()
+                        {
+                            "context": retriever_gpt_temp | format_docs,
+                            "task": RunnablePassthrough(),
+                        }
+                        | prompt_retriever_chain
+                        | llm
+                        | StrOutputParser()
                     )
     elif tool == "Code":
         result = chain_docs_code.invoke(tool_input)
@@ -360,10 +366,12 @@ def solve(state: ReWOO):
             step_name = step_name.replace(k, v)
         plan += f"Plan: {_plan}\n{step_name} = {tool}[{tool_input}]"
     code_example = re_chain_example_solve.invoke(task)
-    #code_example_filler = """Here is also an example of a similar PyCRAM plan code (use this as a semantic and syntactic example for the code structure and not for the world knowledge):
-    #<Code example>""" + code_example + "\n</Code example>"
+    # code_example_filler = """Here is also an example of a similar PyCRAM plan code (use this as a semantic and syntactic example for the code structure and not for the world knowledge):
+    # <Code example>""" + code_example + "\n</Code example>"
     code_example_filler = ""
-    prompt_solve = solve_prompt.format(plan=plan, code_example=code_example_filler, task=task, world=state["world"])
+    prompt_solve = solve_prompt.format(
+        plan=plan, code_example=code_example_filler, task=task, world=state["world"]
+    )
     result_chain = llm_with_tool | parser_tool
     result = result_chain.invoke(prompt_solve)
     return {"result": result}
@@ -401,8 +409,11 @@ world_test = """
 
 
 def _sanitize_output(text: str):
-    _, after = text.split("```python")
-    return after.split("```")[0]
+    if text.startswith("```python"):
+        _, after = text.split("```python")
+        return after.split("```")[0]
+    else:
+        return text
 
 
 # Function to stream the execution of the application
@@ -415,9 +426,10 @@ def stream_rewoo(task, world):
     print(result_print)
     return result
 
+
 ##result = chain_docs.invoke("PyCram Grundlagen")
 # result = chain_docs.invoke("PyCram Grundlagen")
-#result = re_chain_example_solve.invoke(task_test)
+# result = re_chain_example_solve.invoke(task_test)
 result = stream_rewoo(task_test, world_test)
-#result = count_tokens("gpt-4", task_test)
+# result = count_tokens("gpt-4", task_test)
 print(result)

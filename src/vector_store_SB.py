@@ -125,7 +125,7 @@ def load_in_vector_store(source, vectore_store_id=1):
     global vector_store_code, vector_store_large, vector_store_examples
     if vectore_store_id == 1:
         try:
-            with open(source, 'r') as file:
+            with open(source, "r") as file:
                 content = file.read()
             chunks = content.split("##New ")
             vector_store_code = SupabaseVectorStore.from_texts(
@@ -158,7 +158,7 @@ def load_in_vector_store(source, vectore_store_id=1):
         )
     elif vectore_store_id == 4:
         try:
-            with open(source, 'r') as file:
+            with open(source, "r") as file:
                 content = file.read()
             meta_data = re.findall(r"#<(.+?)>#", content)
             print(meta_data)
@@ -167,7 +167,9 @@ def load_in_vector_store(source, vectore_store_id=1):
             chunks = []
             i = 0
             for chunk in chunks_temp:
-                chunks.append(Document(page_content=chunk, metadata={"source": meta_data[i]}))
+                chunks.append(
+                    Document(page_content=chunk, metadata={"source": meta_data[i]})
+                )
                 i += 1
             vector_store_code = SupabaseVectorStore.from_documents(
                 chunks,
@@ -189,11 +191,7 @@ def delete_from_vectorstore(table, num=2):
         result = supabase.table(table).select("id", count="exact").execute()
         num = result.data
     data = (
-        supabase.table(table)
-        .select("id")
-        .order("id", desc=True)
-        .limit(num)
-        .execute()
+        supabase.table(table).select("id").order("id", desc=True).limit(num).execute()
     )
     if data.data:
         ids_to_delete = [item["id"] for item in data.data]  # Extract IDs to delete.
@@ -205,7 +203,19 @@ def delete_from_vectorstore(table, num=2):
 
 
 # Function to get a retriever based on the vector store ID and number of documents to retrieve.
-def get_retriever(vector_store_id=1, num=5):
+def get_retriever(vector_store_id=1, num=5, filter={}):
+    """Gibt einen Retriever zurück, der den angegebenen VectorStore verwendet.
+
+    Args:
+        vector_store_id (int): ID des VectorStores, der verwendet werden soll.
+        num (int, optional): Anzahl der zurückzugebenden Ergebnisse pro Suchanfrage vom Retriever. Defaults to 5.
+
+    Raises:
+        Exception: Wenn die angegebene VectorStore-ID ungültig ist.
+
+    Returns:
+        Retriever: Ein Retriever, der den angegebenen VectorStore verwendet.
+    """
     if vector_store_id == 1:
         vector_store_temp = vector_store_code
     elif vector_store_id == 2:
@@ -216,7 +226,12 @@ def get_retriever(vector_store_id=1, num=5):
         vector_store_temp = vector_store_urdf
     else:
         raise Exception("Invalid vector store id")
-    retriever = vector_store_temp.as_retriever(search_kwargs={"k": num})
+    if filter == {}:
+        retriever = vector_store_temp.as_retriever(search_kwargs={"k": num})
+    else:
+        retriever = vector_store_temp.as_retriever(
+            search_kwargs={"k": num, "filter": filter}
+        )
     return retriever
 
 
@@ -224,4 +239,3 @@ def get_retriever(vector_store_id=1, num=5):
 # load_in_vector_store("/home/julius/ros/ros_ws/src/pycram/src/llm/llm_pyCram_plans/output_urdf.txt", 4)
 # print(result)
 # load_in_vector_store("https://pycram.readthedocs.io/en/latest/", 2)
-
