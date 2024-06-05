@@ -116,7 +116,7 @@ Imports
 BulletWorld Definition
 Objects
 Object Designators
-The 'with simulated_robot:'-Block (defines the Actions and moves of the Robot)
+The 'with simulated_robot'-Block (defines the Actions and moves of the Robot)
     Start with this two Code lines in this block:
         'ParkArmsAction([Arms.BOTH]).resolve().perform()
         MoveTorsoAction([0.25]).resolve().perform()'
@@ -127,7 +127,7 @@ BulletWorld Close
 
 Here is an PyCramPlanCode with its corresponding correction plan (use them just as examples to learn the plan structure):
 Failed PyCramPlanCode: 
-<code>
+<failed_code>
 from pycram.bullet_world import BulletWorld, Object
 from pycram.process_module import simulated_robot
 # The import statements for designators are incomplete.
@@ -175,7 +175,7 @@ with simulated_robot:
 
 # Exit the simulation
 world.exit()
-</code>
+</failed_code>
 ---
 Corresponding error: 
 AttributeError                            Traceback (most recent call last)
@@ -203,10 +203,10 @@ Plan 5: Ensure we have a clear understanding of how to use the PlaceAction corre
 Plan 6: Given the task to move the cereal 3 steps to the right, we need to understand how to calculate the new position based on the current position of the cereal. This will involve modifying the target pose for the MoveMotion or directly in the PlaceAction to achieve the desired placement. #E6 = LLM[Given an object's current position, calculate a new position that is 3 steps to the right in a coordinate system.] 
 --- end of example ---
 
-Below you find the info for
+Below you find all the Infos for your current task.
 Describe your plans with rich details. Each plan should follow only one #E and it should be exactly in the given structure. Do not include other characters for highlighting because this can break the Regex Pattern.
 Don't use any highlighting with markdown and co. You do not need to consider how PyCram is installed and set up in the plans, as this is already given.
-Your task is to make a plan to correct the error but also inculde a general check up for unseen errors in the plan.
+Your task is to make a plan to correct the error but also include a general check up for unseen errors in the plan.
 
 Failed PyCramPlanCode: {code}
 ---

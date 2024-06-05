@@ -143,7 +143,8 @@ code format and the plan structure):
 
 --- end of examples ---
 
-Begin! Describe your plans with rich details. Each plan should follow only one #E and it should be exactly in the given structure. Don't use any highlighting with markdown and co. You do not need to consider how 
+Below you find all the Infos for your current task.
+Describe your plans with rich details. Each plan should follow only one #E and it should be exactly in the given structure. Don't use any highlighting with markdown and co. You do not need to consider how 
 PyCram is installed and set up in the plans, as this is already given.
 
 World knowledge: {world}
