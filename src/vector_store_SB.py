@@ -121,14 +121,19 @@ def load_pdf_document(file_name):
 
 
 # Function to load text into one of the vector stores.
-def load_in_vector_store(source, vectore_store_id=1):
-    global vector_store_code, vector_store_large, vector_store_examples
+def load_in_vector_store(source, vectore_store_id=1, metadata=None):
+    global vector_store_code, vector_store_large, vector_store_examples, vector_store_urdf
+    if metadata is None:
+        metadata = {}
     if vectore_store_id == 1:
         try:
             with open(source, "r") as file:
                 content = file.read()
-            chunks = content.split("##New ")
-            vector_store_code = SupabaseVectorStore.from_texts(
+            chunks_temp = content.split("##New ")
+            chunks = []
+            for chunk in chunks_temp:
+                chunks.append(Document(page_content=chunk, metadata=metadata))
+            vector_store_code = SupabaseVectorStore.from_documents(
                 chunks,
                 embeddings_large,
                 client=supabase,
@@ -139,7 +144,11 @@ def load_in_vector_store(source, vectore_store_id=1):
             print(f"Error reading file {source}: {e}")
 
     elif vectore_store_id == 2:
-        chunks = load_website(source)
+        chunks_temp = load_website(source)
+        chunks = []
+        for chunk in chunks_temp:
+            chunk.metadata.update(metadata)
+            chunks.append(Document(page_content=chunk.page_content, metadata=chunk.metadata))
         vector_store_large = SupabaseVectorStore.from_documents(
             chunks,
             embeddings_large,
@@ -148,8 +157,11 @@ def load_in_vector_store(source, vectore_store_id=1):
             query_name="match_docs",
         )
     elif vectore_store_id == 3:
-        chunks = source
-        vector_store_examples = SupabaseVectorStore.from_texts(
+        chunks_temp = source
+        chunks = []
+        for chunk in chunks_temp:
+            chunks.append(Document(page_content=chunk, metadata=metadata))
+        vector_store_examples = SupabaseVectorStore.from_documents(
             chunks,
             embeddings_large,
             client=supabase,
@@ -167,11 +179,13 @@ def load_in_vector_store(source, vectore_store_id=1):
             chunks = []
             i = 0
             for chunk in chunks_temp:
+                metadata_temp = {"source": meta_data[i]}
+                metadata_temp.update(metadata)
                 chunks.append(
-                    Document(page_content=chunk, metadata={"source": meta_data[i]})
+                    Document(page_content=chunk, metadata=metadata_temp)
                 )
                 i += 1
-            vector_store_code = SupabaseVectorStore.from_documents(
+            vector_store_urdf = SupabaseVectorStore.from_documents(
                 chunks,
                 embeddings_large,
                 client=supabase,

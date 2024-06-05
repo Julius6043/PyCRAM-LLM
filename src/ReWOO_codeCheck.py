@@ -66,7 +66,7 @@ class ReWOO(TypedDict):
 
 
 # Instantiate Large Language Models with specific configurations
-llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
 llm3 = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
 
@@ -203,7 +203,7 @@ Plan 5: Ensure we have a clear understanding of how to use the PlaceAction corre
 Plan 6: Given the task to move the cereal 3 steps to the right, we need to understand how to calculate the new position based on the current position of the cereal. This will involve modifying the target pose for the MoveMotion or directly in the PlaceAction to achieve the desired placement. #E6 = LLM[Given an object's current position, calculate a new position that is 3 steps to the right in a coordinate system.] 
 --- end of example ---
 
-Begin!
+Below you find the info for
 Describe your plans with rich details. Each plan should follow only one #E and it should be exactly in the given structure. Do not include other characters for highlighting because this can break the Regex Pattern.
 Don't use any highlighting with markdown and co. You do not need to consider how PyCram is installed and set up in the plans, as this is already given.
 Your task is to make a plan to correct the error but also inculde a general check up for unseen errors in the plan.
@@ -214,7 +214,9 @@ Corresponding error: {error}
 ---
 World knowledge: {world}
 ---
-Task: {task}"""
+Task: {task}
+---
+Plan:"""
 
 print(prompt)
 # Regex to match expressions of the form E#... = ...[...]
@@ -407,7 +409,7 @@ Now create the new properly functioning PyCramPlanCode Version for the task acco
 the world knowledge. Respond with nothing other than the generated PyCramPlan python code. 
 PyCramPlanCode follow the following structure:
 <PyCramPlan structure>
-Imports
+Imports #Import Designators with *
 BulletWorld Definition
 Objects
 Object Designators

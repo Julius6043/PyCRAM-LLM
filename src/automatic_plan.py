@@ -104,16 +104,16 @@ def generate_plan(
     # Option to load the result into a vector store, if needed
     if load_vector_store:
         full_result = (
-            "PyCramPlanCode:\n"
+            "Task:"
+            + task
+            + "\nPyCramPlanCode:\n"
             + "<code>\n"
             + pycram_plan_code
             + "\n</code>\n"
             + "World Knowledge:\n"
-            + "<knowledge>\n"
+            + "<world_knowledge>\n"
             + world_knowledge
-            + "\n</knowledge>\n"
-            + "Task:"
-            + task
+            + "\n</world_knowledge>\n"
             + "\n This is the corresponding plan:\n"
             + result
         )

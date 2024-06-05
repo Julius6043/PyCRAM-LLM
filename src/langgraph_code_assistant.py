@@ -1,15 +1,9 @@
 from typing import Dict, TypedDict
 from langgraph.graph import END, StateGraph
 from operator import itemgetter
-from vector_store_SB import get_retriever
+from vector_store_SB import get_retriever, load_in_vector_store
 from langgraph_ReWOO import stream_rewoo
 from ReWOO_codeCheck import stream_rewoo_check
-from langchain.output_parsers.openai_tools import PydanticToolsParser
-from langchain.prompts import PromptTemplate
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.utils.function_calling import convert_to_openai_tool
-from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 import re
 from code_exec import execute_code_in_process
@@ -51,137 +45,25 @@ def generate(state: GraphState):
         state (dict): New key added to state, documents, that contains retrieved documents
     """
 
-    ## State
+    # State
     state_dict = state["keys"]
     question = state_dict["question"]
     world = state_dict["world"]
     iter = state_dict["iterations"]
     max_iter = state_dict["max_iter"]
 
-    ## Data model
-    class code(BaseModel):
-        """Code output"""
-
-        imports: str = Field(description="Code block import statements")
-        code: str = Field(description="Code block not including import statements")
-
-    ## LLM
-    model = ChatOpenAI(temperature=0, model="gpt-4-turbo", streaming=True)
-
-    # Content
-    retriever = get_retriever(2, 10)
-    re_chain = retriever | format_docs
-    # Error information
-    retriever_error = get_retriever(2, 2)
-    re_chain_error = retriever_error | format_docs
-
-    # Tool
-    code_tool_oai = convert_to_openai_tool(code)
-
-    # LLM with tool and enforce invocation
-    llm_with_tool = model.bind(
-        tools=[code_tool_oai],
-        tool_choice={"type": "function", "function": {"name": "code"}},
-    )
-
-    # Parser
-    parser_tool = PydanticToolsParser(tools=[code])
-
-    ## Prompt
-    template = """You are a coding assistant with expertise in PyCram, a python Roboter Language. \n Here is the most 
-    important part of the PyCram regarding your coming task documentation: \n ------- \n {context} \n ------- \n Here 
-    is a code written by an specially trained LLM Network: \n --- \n {code_rewoo}. \n --- \n Check the Code based on 
-    the documentation and edit it only when you are 100 percent sure based on the information that there is a 
-    mistake. Also ensure that the code can be executed with all required imports and variables defined. \n Be aware 
-    the documentation are only examples, use world knowledge for specific world information. \n Structure the final 
-    answer with a description of the code solution. \n Then list the imports. And finally list the functioning code 
-    block. \n Here is the user question: {question} Here is the world knowledge: {world}"""
-
-    ## Generation
+    # Generation
     if "error" in state_dict:
         print("---RE-GENERATE SOLUTION w/ ERROR FEEDBACK---")
 
         error = state_dict["error"]
         code_solution = state_dict["generation"]
-
-        # Udpate prompt
-        template_1 = """You are a coding assistant with expertise in PyCram, a python Roboter Language. \n Here is 
-        the most important part of the PyCram regarding your coming task documentation: \n ------- \n {context} \n 
-        ------- \n \n Be aware the documentation are only examples, use world knowledge for specific world 
-        information. \n Structure the final answer with a description of the code solution. \n Then list the imports. 
-        And finally list the functioning code block. \n Here is the user question: {question} Here is the world 
-        knowledge: {world}"""
-        addendum = """\n --- --- --- \n You previously tried to solve this problem. \n Here is your solution: \n --- 
-        --- --- \n {generation}  \n --- --- --- \n  Here is the resulting error from code execution:  \n --- --- --- 
-        \n {error}\n --- \n Additional information regarding the error: \n {information_error}  \n --- --- --- \n 
-        Please re-try to answer this. Structure your answer with a description of the code solution. \n Then list the 
-        imports. And finally list the functioning code block. Structure your answer with a description of the code 
-        solution. \n Then list the imports. And finally list the functioning code block. \n Here is the user 
-        question: \n {question}"""
-        template = template_1 + addendum
-
-        # Prompt
-        prompt = PromptTemplate(
-            template=template,
-            input_variables=[
-                "context",
-                "question",
-                "world",
-                "generation",
-                "error",
-                "information_error",
-            ],
-        )
-
-        # Chain
-        chain = (
-            {
-                "context": itemgetter("question") | re_chain,
-                "question": itemgetter("question"),
-                "world": itemgetter("world"),
-                "generation": itemgetter("generation"),
-                "error": itemgetter("error"),
-                "information_error": itemgetter("error") | re_chain_error,
-            }
-            | prompt
-            | llm_with_tool
-            | parser_tool
-        )
-
-        """code_solution = chain.invoke(
-            {
-                "question": question,
-                "world": world,
-                "generation": str(code_solution[0]),
-                "error": error,
-            }
-        )"""
         code_solution = stream_rewoo_check(question, world, str(code_solution[0]), error)
         print(code_solution)
 
     else:
 
         print("---GENERATE SOLUTION---")
-        # Prompt
-        prompt = PromptTemplate(
-            template=template,
-            input_variables=["context", "code_rewoo", "question", "world"],
-        )
-
-        # Chain
-        chain = (
-            {
-                "context": itemgetter("question") | re_chain,
-                "code_rewoo": itemgetter("code_rewoo"),
-                "question": itemgetter("question"),
-                "world": itemgetter("world"),
-            }
-            | prompt
-            | llm_with_tool
-            | parser_tool
-        )
-
-        # code_solution = chain.invoke({"code_rewoo": code_rewoo, "question": question, "world": world})
         code_solution = stream_rewoo(question, world)
         print(code_solution)
 
@@ -208,7 +90,7 @@ def check_code_imports(state: GraphState):
         state (dict): New key added to state, error
     """
 
-    ## State
+    # State
     print("---CHECKING CODE IMPORTS---")
     state_dict = state["keys"]
     question = state_dict["question"]
@@ -273,6 +155,22 @@ def check_code_execution(state: GraphState):
         print("---CODE BLOCK CHECK: SUCCESS---")
         # No errors occurred
         error = "None"
+        # Load the result as a new example in the database
+        full_result = (
+                "Task:"
+                + question
+                + "\nPyCramPlanCode:\n"
+                + "<code>\n"
+                + code_block
+                + "\n</code>\n"
+                + "World Knowledge:\n"
+                + "<world_knowledge>\n"
+                + world
+                + "\n</world_knowledge>\n"
+                + "\n This is the corresponding plan:\n"
+                + result
+        )
+        load_in_vector_store([full_result], 3)
     else:
         print("---CODE BLOCK CHECK: FAILED---")
         # Catch any error during execution (e.g., ImportError, SyntaxError)

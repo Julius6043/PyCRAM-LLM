@@ -321,6 +321,8 @@ use them with caution because long evidence might contain irrelevant information
 for specific world information. Also be conscious about you hallucinating and therefore use evidence and example code 
 as strong inspiration.
 
+{code_example}
+
 Plan with evidence and examples:
 <Plan>
 {plan}
@@ -330,7 +332,7 @@ Now create the PyCramPlanCode for the task according to provided evidence above 
 Respond with nothing other than the generated PyCramPlan python code.
 PyCramPlanCode follow the following structure:
 <Plan structure>
-Imports
+Imports #Import Designators with *
 BulletWorld Definition
 Objects
 Object Designators
@@ -342,8 +344,6 @@ The 'with simulated_robot:'-Block (defines the Actions and moves of the Robot)
     SemanticCostmapLocation
 BulletWorld Close
 </Plan structure>
-
-{code_example}
 
 
 Task: {task}
@@ -366,9 +366,9 @@ def solve(state: ReWOO):
             step_name = step_name.replace(k, v)
         plan += f"Plan: {_plan}\n{step_name} = {tool}[{tool_input}]"
     code_example = re_chain_example_solve.invoke(task)
-    # code_example_filler = """Here is also an example of a similar PyCRAM plan code (use this as a semantic and syntactic example for the code structure and not for the world knowledge):
-    # <Code example>""" + code_example + "\n</Code example>"
-    code_example_filler = ""
+    code_example_filler = """Here is also an related example of a similar PyCRAM plan code (use this as a semantic and syntactic example for the code structure and not for the world knowledge):
+    <Code example>""" + code_example + "\n</Code example>"
+    # code_example_filler = ""
     prompt_solve = solve_prompt.format(
         plan=plan, code_example=code_example_filler, task=task, world=state["world"]
     )
