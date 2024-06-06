@@ -22,7 +22,7 @@ def format_docs(docs):
 
 
 # Initialize the LLM with a specific model and temperature setting
-llm = ChatOpenAI(model="gpt-4-turbo-preview", temperature=0)
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 # Set up the retriever with specific parameters and chain it with the document formatter
 retriever = get_retriever(3, 1)  # Assuming '3, 3' are retriever-specific parameters
