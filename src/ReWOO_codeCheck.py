@@ -67,10 +67,9 @@ class ReWOO(TypedDict):
 
 # Instantiate Large Language Models with specific configurations
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
-llm3 = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+llm_mini = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
-
-is_retriever_model_haiku = True
+llm_AS = ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0)
 
 
 ###pyDanticToolParser
@@ -252,10 +251,6 @@ def get_plan(state: ReWOO):
     return {"steps": matches, "plan_string": result.content}
 
 
-# Instantiate a DuckDuckGo search tool
-search = DuckDuckGoSearchResults()
-
-
 # Function to determine the current task based on state
 def _get_current_task(state: ReWOO):
     if state["results"] is None:
@@ -291,12 +286,12 @@ chain_docs_haiku = (
 
 # GPT
 # Chain to retrieve documents using a vector store retriever and formatting them
-retriever_gpt = get_retriever(2, 6)
+retriever_gpt = get_retriever(2, 7)
 
 chain_docs_gpt = (
     {"context": retriever_gpt | format_docs, "task": RunnablePassthrough()}
     | prompt_retriever_chain
-    | llm3
+    | llm_mini
     | StrOutputParser()
 )
 
@@ -319,7 +314,7 @@ retriever_code = get_retriever(1, 4)
 chain_code = (
     {"context": retriever_code | format_code, "task": RunnablePassthrough()}
     | prompt_retriever_code
-    | llm_AH
+    | llm_mini
     | StrOutputParser()
 )
 
@@ -333,58 +328,12 @@ def tool_execution(state: ReWOO):
     _results = state["results"] or {}
     for k, v in _results.items():
         tool_input = tool_input.replace(k, v)
-    if tool == "Google":
-        result = search.invoke(tool_input)
-    elif tool == "LLM":
+    if tool == "LLM":
         result = llm.invoke(tool_input)
     elif tool == "CodeRetrieve":
-        try:
-            result = chain_code.invoke(tool_input)
-        except anthropic.RateLimitError as e:
-            chain_code_gpt4 = (
-                {"context": retriever_code | format_code, "task": RunnablePassthrough()}
-                | prompt_retriever_code
-                | llm
-                | StrOutputParser()
-            )
-            result = chain_code_gpt4.invoke(tool_input)
+        result = chain_code.invoke(tool_input)
     elif tool == "Retrieve":
-        if is_retriever_model_haiku:
-            try:
-                result = chain_docs_haiku.invoke(tool_input)
-            except anthropic.RateLimitError as e:
-                is_retriever_model_haiku = False
-                result = chain_docs_gpt.invoke(tool_input)
-        else:
-            trying = True
-            result = retriever_gpt.invoke(tool_input)
-            i = 6
-            retriever_gpt_temp = get_retriever(2, i)
-            chain_docs_gpt_temp = (
-                {
-                    "context": retriever_gpt_temp | format_docs,
-                    "task": RunnablePassthrough(),
-                }
-                | prompt_retriever_chain
-                | llm3
-                | StrOutputParser()
-            )
-            while trying:
-                try:
-                    result = chain_docs_gpt_temp.invoke(tool_input)
-                    trying = False
-                except openai.BadRequestError as e:
-                    i -= 1
-                    retriever_gpt_temp = get_retriever(2, i)
-                    chain_docs_gpt_temp = (
-                        {
-                            "context": retriever_gpt_temp | format_docs,
-                            "task": RunnablePassthrough(),
-                        }
-                        | prompt_retriever_chain
-                        | llm3
-                        | StrOutputParser()
-                    )
+        result = chain_docs_gpt.invoke(tool_input)
     elif tool == "Statement":
         result = tool_input
     else:
