@@ -11,47 +11,12 @@ from langgraph.graph import StateGraph, END
 from vector_store_SB import get_retriever
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.output_parsers.openai_tools import PydanticToolsParser
 from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.utils.function_calling import convert_to_openai_tool
-import requests
-import anthropic
-from langgraph_ReWOO import count_tokens
+from helper_func import format_docs, format_code, format_examples, format_example, llm, llm_GP, llm_mini
 from run_llm_local import run_llama3_remote
 
 # Load environment variables for secure access to configuration settings
 load_dotenv()
-
-
-# Function to clean and format documents, removing unwanted patterns and reducing whitespace
-def format_docs(docs):
-    text = "\n\n---\n\n".join([d.page_content for d in docs])
-    pattern = r"Next \n\n.*?\nBuilds"
-    pattern2 = r"pycram\n          \n\n                latest\n.*?Edit on GitHub"
-    filtered_text = re.sub(pattern, "", text, flags=re.DOTALL)
-    filtered_text2 = re.sub(pattern2, "", filtered_text, flags=re.DOTALL)
-    cleaned_text = re.sub(r"\n{3,}", "\n\n", filtered_text2)
-    return cleaned_text
-
-
-def format_code(codes):
-    text = "\n\n---\n\n".join([d.page_content for d in codes])
-    return text
-
-
-# Define a function to format documents for better readability
-def format_examples(docs):
-    # Join documents using a specified delimiter for separation
-    return "\n\n<next example>\n".join([d.page_content for d in docs])
-
-
-# Define a function to format documents for better readability
-def format_example(example):
-    text = example[0].page_content
-    code_example = text.split("The corresponding plan")[0]
-    return code_example
 
 
 # TypedDict for structured data storage, defining the structure of the planning state
@@ -66,21 +31,13 @@ class ReWOO(TypedDict):
     result: str
 
 
-# Instantiate Large Language Models with specific configurations
-llm = ChatOpenAI(model="gpt-4o", temperature=0)
-llm_mini = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
-llm_AS = ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0)
-llm_GP = ChatGoogleGenerativeAI(model="gemini-1.5-pro-exp-0801")
-
-
 ###pyDanticToolParser
 class code(BaseModel):
     """Code output"""
 
     prefix: str = Field(description="Description of the problem and approach")
     imports: str = Field(description="Import statements of the code")
-    code: str = Field(description="Code block not including import statements")
+    code: str = Field(description="Just the Code block without including import statements")
     description = "Schema for code solutions for robot tasks."
 
 
@@ -89,13 +46,11 @@ llm_with_tool = llm_GP.with_structured_output(code)
 # Define a long and complex prompt template for generating plans...
 prompt = r"""You are a renowned AI engineer and programmer. You receive world knowledge, a task, an error-code and a 
 code solution. The code solution was created by another LLM Agent like you to the given task and world knowledge. The 
-code was already executed resulting in the provided error message. Your task is to develop a plan to geather 
-resources and correct given PyCramPlanCode. PyCramPlanCode is a plan instruction for a robot that should enable the 
+code was already executed resulting in the provided error message. Your task is to develop a sequenz of plans to geather 
+resources and correct the given PyCramPlanCode. PyCramPlanCode is a plan instruction for a robot that should enable the 
 robot to perform the provided high level task. For each plan, indicate which external tool, along with the input for 
 the tool, is used to gather evidence. You can store the evidence in a variable #E, which can be called upon by other 
 tools later. (Plan, #E1, Plan, #E2, Plan, ...). Don't use **...** to highlight something.
-Use a format that can be recognized by the following regex pattern: 
-\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[\**([^\]]+)\**\].*
 
 The tools can be one of the following: 
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functions. The input should be a specific search query as a detailed question. 
@@ -187,7 +142,7 @@ Task:
 Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?
 ---
 Corresponding output plan: 
-Plan 1: Research the Code of the function SemanticCostmapLocation. #E2 = CodeRetrieve[SemanticCostmapLocation]
+Plan 1: Research the Code of the function SemanticCostmapLocation. #E1 = CodeRetrieve[SemanticCostmapLocation]
 Plan 2: Verify the correct usage of the resolve method on Object instances in PyCram. This will help us understand whether kitchen.resolve() and cereal.resolve() in the line that caused the error are being used appropriately. #E2 = Retrieve[How to correctly use the 'resolve' method with Object instances in PyCram] 
 Plan 3: Confirm the proper way to reference PyCram objects when setting up locations or actions that involve these objects. This ensures that we correctly interact with kitchen and cereal objects in our plan, especially in context to SemanticCostmapLocation. #E3 = Retrieve[How to reference objects for actions and locations in PyCram without using the 'resolve' method.]
 Plan 4: Acquire knowledge on the proper instantiation and usage of SemanticCostmapLocation. Understanding its parameters and usage will help us correctly position the cereal on the kitchen island. #E4 = Retrieve[Correct instantiation and usage of SemanticCostmapLocation in PyCram.]
@@ -210,14 +165,13 @@ Task: {task}
 ---
 Plan:"""
 
-print(prompt)
 # Regex to match expressions of the form E#... = ...[...]
 # Regex pattern to extract information from the plan format specified in the prompt
 regex_pattern = (
     r"\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*"
 )
 prompt_template = ChatPromptTemplate.from_messages([("user", prompt)])
-planner = prompt_template | llm
+planner = prompt_template | llm_GP
 
 # Retriever function for the examples
 retriever_examples = get_retriever(3, 2)
@@ -254,9 +208,6 @@ def _get_current_task(state: ReWOO):
         return len(state["results"]) + 1
 
 
-# Chain to retrieve documents using a vector store retriever and formatting them
-retriever_haiku = get_retriever(2, 8)
-
 # More complex template for tutorial writing, generating comprehensive documentation
 prompt_retriever_chain = ChatPromptTemplate.from_template(
     """You are an professional tutorial writer and coding educator specially for the PyCRAM toolbox. Given the search 
@@ -269,12 +220,6 @@ Search query: {task}
 Use at 4000 tokens for the output and adhere to the provided information. Incorporate important 
 code examples in their entirety. The installation and configuration of pycram is not important, because it is already 
 given. Think step by step and make sure the user can produce correct code based on your output."""
-)
-chain_docs_haiku = (
-    {"context": retriever_haiku | format_docs, "task": RunnablePassthrough()}
-    | prompt_retriever_chain
-    | llm_AH
-    | StrOutputParser()
 )
 
 # GPT
@@ -315,7 +260,6 @@ chain_code = (
 # Function to execute tools as per the generated plan
 def tool_execution(state: ReWOO):
     """Worker node that executes the tools of a given plan."""
-    global is_retriever_model_haiku
     _step = _get_current_task(state)
     _, step_name, tool, tool_input = state["steps"][_step - 1]
     _results = state["results"] or {}
@@ -433,12 +377,6 @@ graph.set_entry_point("plan")
 # Compile the graph into an executable application
 app = graph.compile()
 
-# Example task and world knowledge strings...
-task_test = """ Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?"""
-world_test = """[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', 
-ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', 
-pose=Pose([1.4, 1, 0.95])))]"""
-
 
 def _sanitize_output(text: str):
     _, after = text.split("```python")
@@ -452,12 +390,20 @@ def stream_rewoo_check(task, world, code_input, error):
     ):
         print(s)
         print("---")
-    result = s["solve"]["result"]
-    result_print = result.imports + "\n" + result.code
+    if "result" in s:
+        final_result = s["result"]
+    else:
+        final_result = s["solve"]["result"]
+    result_print = final_result.imports + "\n" + final_result.code
     print(result_print)
-    return result
+    return final_result
 
 
+# Example task and world knowledge strings...
+task_test = """ Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?"""
+world_test = """[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', 
+ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', 
+pose=Pose([1.4, 1, 0.95])))]"""
 ##result = chain_docs.invoke("PyCram Grundlagen")
 # result = chain_docs.invoke("PyCram Grundlagen")
 # print(result)

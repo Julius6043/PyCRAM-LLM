@@ -5,21 +5,11 @@ from vector_store_SB import get_retriever, load_in_vector_store
 from langgraph_ReWOO import stream_rewoo
 from ReWOO_codeCheck import stream_rewoo_check
 from dotenv import load_dotenv
+from helper_func import format_docs
 import re
 from code_exec import execute_code_in_process
 
 load_dotenv()
-
-
-def format_docs(docs):
-    text = "\n\n---\n\n".join([d.page_content for d in docs])
-    pattern = r"Next \n\n.*?\nBuilds"
-    pattern2 = r"pycram\n          \n\n                latest\n.*?Edit on GitHub"
-    # Ersetzen des gefundenen Textabschnitts durch einen leeren String
-    filtered_text = re.sub(pattern, "", text, flags=re.DOTALL)
-    filtered_text2 = re.sub(pattern2, "", filtered_text, flags=re.DOTALL)
-    bereinigter_text = re.sub(r"\n{3,}", "\n\n", filtered_text2)
-    return bereinigter_text
 
 
 class GraphState(TypedDict):
@@ -51,6 +41,9 @@ def generate(state: GraphState):
     world = state_dict["world"]
     iter = state_dict["iterations"]
     max_iter = state_dict["max_iter"]
+    plan = ""
+    if "plan" in state_dict:
+        plan = state_dict["plan"]
 
     # Generation
     if "error" in state_dict:
@@ -58,13 +51,13 @@ def generate(state: GraphState):
 
         error = state_dict["error"]
         code_solution = state_dict["generation"]
-        code_solution = stream_rewoo_check(question, world, str(code_solution[0]), error)
+        code_solution = stream_rewoo_check(question, world, str(code_solution), error)
         print(code_solution)
 
     else:
 
         print("---GENERATE SOLUTION---")
-        code_solution = stream_rewoo(question, world)
+        code_solution, plan = stream_rewoo(question, world)
         print(code_solution)
 
     iter = iter + 1
@@ -73,6 +66,7 @@ def generate(state: GraphState):
             "generation": code_solution,
             "question": question,
             "world": world,
+            "plan": plan,
             "iterations": iter,
             "max_iter" : max_iter
         }
@@ -96,7 +90,8 @@ def check_code_imports(state: GraphState):
     question = state_dict["question"]
     world = state_dict["world"]
     code_solution = state_dict["generation"]
-    imports = code_solution[0].imports
+    imports = code_solution.imports
+    plan = state_dict["plan"]
     iter = state_dict["iterations"]
     max_iter = state_dict["max_iter"]
     # Code Execution
@@ -120,6 +115,7 @@ def check_code_imports(state: GraphState):
             "question": question,
             "world": world,
             "error": error,
+            "plan": plan,
             "iterations": iter,
             "max_iter": max_iter,
         }
@@ -143,9 +139,10 @@ def check_code_execution(state: GraphState):
     question = state_dict["question"]
     code_solution = state_dict["generation"]
     world = state_dict["world"]
-    imports = code_solution[0].imports
-    code = code_solution[0].code
+    imports = code_solution.imports
+    code = code_solution.code
     code_block = imports + "\n" + code
+    plan = state_dict["plan"]
     iter = state_dict["iterations"]
     max_iter = state_dict["max_iter"]
 
@@ -168,7 +165,7 @@ def check_code_execution(state: GraphState):
                 + world
                 + "\n</world_knowledge>\n"
                 + "\n This is the corresponding plan:\n"
-                + result
+                + plan
         )
         load_in_vector_store([full_result], 3)
     else:
@@ -240,12 +237,9 @@ def decide_to_finish(state: GraphState):
     max_iter = state_dict["max_iter"]
 
     if error == "None" or iter == max_iter:
-        # All documents have been filtered check_relevance
-        # We will re-generate a new query
         print("---DECISION: TEST CODE EXECUTION---")
         return "end"
     else:
-        # We have relevant documents, so generate answer
         print("---DECISION: RE-TRY SOLUTION---")
         return "generate"
 
@@ -296,7 +290,7 @@ def generate_plan(question, world, max_iterations=3):
         }
     )
     result_code = result_dic["keys"]["generation"]
-    result_plan = result_code[0].imports + "\n\n" + result_code[0].code
+    result_plan = result_code.imports + "\n\n" + result_code.code
     return result_plan
 
 
