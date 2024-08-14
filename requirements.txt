@@ -16,3 +16,4 @@ duckduckgo-search
 ollama
 paramiko
 pyaudio
+langchain-google-genai

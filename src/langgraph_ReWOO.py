@@ -4,6 +4,7 @@ import openai
 from dotenv import load_dotenv
 from typing import TypedDict, List
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 import re
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.tools import DuckDuckGoSearchResults
@@ -18,7 +19,8 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 import requests
 import anthropic
 from langchain_community.chat_models import ChatOllama
-from run_llm_local import run_llama3_remote
+
+# from run_llm_local import run_llama3_remote
 import sys
 import tiktoken
 
@@ -83,6 +85,7 @@ llm_mini = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
 llm_AO = ChatAnthropic(model="claude-3-opus-20240229", temperature=0)
 llm_AS = ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0)
+llm_GP = ChatGoogleGenerativeAI(model="gemini-1.5-pro-exp-0801")
 # llm_llama3 = ChatOllama(model="llama3")
 
 
@@ -90,18 +93,14 @@ llm_AS = ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0)
 class code(BaseModel):
     """Code output"""
 
-    imports: str = Field(description="Code block import statements")
-    code: str = Field(description="Code block without the import statements")
+    prefix: str = Field(description="Description of the problem and approach")
+    imports: str = Field(description="Import statements of the code")
+    code: str = Field(description="Code block not including import statements")
+    description = "Schema for code solutions for robot tasks."
 
-
-# Tool
-code_tool_oai = convert_to_openai_tool(code)
 
 # LLM with tool and enforce invocation
-llm_with_tool = llm.bind(
-    tools=[code_tool_oai],
-    tool_choice={"type": "function", "function": {"name": "code"}},
-)
+llm_with_tool = llm_GP.with_structured_output(code)
 
 # Parser
 parser_tool = PydanticToolsParser(tools=[code])
@@ -270,8 +269,7 @@ def tool_execution(state: ReWOO):
 
 # Solve function to generate PyCramPlanCode based on the plan and its steps...
 solve_prompt = """You are a professional programmer, specialized on writing PycramRoboterPlans. To write the code, 
-we have made step-by-step Plan and retrieved corresponding evidence to each Plan. Use them with caution since long 
-evidence might contain irrelevant information. The evidences are examples and information to write PyCramPlanCode so 
+we have made a step-by-step Plan and retrieved corresponding evidence to each Plan. The evidences are examples and information to write PyCramPlanCode so 
 use them with caution because long evidence might contain irrelevant information and only use the world knowledge 
 for specific world information. Also be conscious about you hallucinating and therefore use evidence and example code 
 as strong inspiration.
@@ -288,6 +286,7 @@ Respond with nothing other than the generated PyCramPlan python code.
 PyCramPlanCode follow the following structure:
 <Plan structure>
 Imports #Import Designators with *
+#clear seperation between code block
 BulletWorld Definition
 Objects
 Object Designators
@@ -303,7 +302,7 @@ BulletWorld Close
 
 Task: {task}
 World knowledge: {world}
-Code Response:
+Code Response (Response structure: prefix("Description of the problem and approach"); imports()"Import statements of the code"); code(Code block not including import statements)):
 """
 
 retriever_example_solve = get_retriever(3, 1)
@@ -331,7 +330,8 @@ def solve(state: ReWOO):
     prompt_solve = solve_prompt.format(
         plan=plan, code_example=code_example_filler, task=task, world=state["world"]
     )
-    result_chain = llm_with_tool | parser_tool
+    result_chain = llm_with_tool
+    # result_chain = llm_GP
     result = result_chain.invoke(prompt_solve)
     return {"result": result}
 
@@ -380,8 +380,8 @@ def stream_rewoo(task, world):
     for s in app.stream({"task": task, "world": world}):
         print(s)
         print("---")
-    result = s[END]["result"]
-    result_print = result[0].imports + "\n" + result[0].code
+    result = s["solve"]["result"]
+    result_print = result.imports + "\n" + result.code
     print(result_print)
     return result
 

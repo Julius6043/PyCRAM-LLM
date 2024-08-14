@@ -12,6 +12,7 @@ from vector_store_SB import get_retriever
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.output_parsers.openai_tools import PydanticToolsParser
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.utils.function_calling import convert_to_openai_tool
@@ -70,28 +71,20 @@ llm = ChatOpenAI(model="gpt-4o", temperature=0)
 llm_mini = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
 llm_AS = ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0)
+llm_GP = ChatGoogleGenerativeAI(model="gemini-1.5-pro-exp-0801")
 
 
 ###pyDanticToolParser
 class code(BaseModel):
     """Code output"""
 
-    imports: str = Field(description="Code block import statements")
-    code: str = Field(description="Code block without the import statements")
+    prefix: str = Field(description="Description of the problem and approach")
+    imports: str = Field(description="Import statements of the code")
+    code: str = Field(description="Code block not including import statements")
+    description = "Schema for code solutions for robot tasks."
 
 
-# Tool
-code_tool_oai = convert_to_openai_tool(code)
-
-# LLM with tool and enforce invocation
-llm_with_tool = llm.bind(
-    tools=[code_tool_oai],
-    tool_choice={"type": "function", "function": {"name": "code"}},
-)
-
-# Parser
-parser_tool = PydanticToolsParser(tools=[code])
-
+llm_with_tool = llm_GP.with_structured_output(code)
 
 # Define a long and complex prompt template for generating plans...
 prompt = r"""You are a renowned AI engineer and programmer. You receive world knowledge, a task, an error-code and a 
@@ -382,7 +375,7 @@ World knowledge: {world}
 ---
 Task: {task}
 ---
-Corrected Code Response:
+Corrected Code Response (Response structure: prefix("Description of the problem and approach"); imports()"Import statements of the code"); code(Code block not including import statements)):
 """
 
 retriever_example_solve = get_retriever(3, 1)
@@ -411,7 +404,7 @@ def solve(state: ReWOO):
         task=task,
         world=state["world"],
     )
-    result_chain = llm_with_tool | parser_tool
+    result_chain = llm_with_tool
     result = result_chain.invoke(prompt)
     return {"result": result}
 
@@ -459,8 +452,8 @@ def stream_rewoo_check(task, world, code_input, error):
     ):
         print(s)
         print("---")
-    result = s[END]["result"]
-    result_print = result[0].code + "\n" + result[0].code
+    result = s["solve"]["result"]
+    result_print = result.imports + "\n" + result.code
     print(result_print)
     return result
 
