@@ -52,12 +52,14 @@ def generate(state: GraphState):
         error = state_dict["error"]
         code_solution = state_dict["generation"]
         code_solution = stream_rewoo_check(question, world, str(code_solution), error)
+        print(f"----CodePlan Versuch {iter}----")
         print(code_solution)
 
     else:
 
         print("---GENERATE SOLUTION---")
         code_solution, plan = stream_rewoo(question, world)
+        print("----CodePlan Versuch 1----")
         print(code_solution)
 
     iter = iter + 1
@@ -306,6 +308,6 @@ pose=Pose([2.5, 2, 1.02]), color=[1, 0, 0, 1]), cereal = Object("cereal", Object
 "breakfast_cereal.stl", pose=Pose([2.5, 2.3, 1.05]), color=[0, 1, 0, 1]), spoon = Object("spoon", ObjectType.SPOON, 
 "spoon.stl", pose=Pose([2.4, 2.2, 0.85]), color=[0, 0, 1, 1]), bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", 
 pose=Pose([2.5, 2.2, 1.02]), color=[1, 1, 0, 1]), apartment.attach(spoon, 'cabinet10_drawer_top')]"""
-result = generate_plan(task_test, world_test)
+#result = generate_plan(task_test, world_test)
 
-print(result)
+#print(result)

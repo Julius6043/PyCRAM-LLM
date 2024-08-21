@@ -19,22 +19,10 @@ from helper_func import format_docs, format_code, format_examples, format_exampl
 
 # from run_llm_local import run_llama3_remote
 import sys
-import tiktoken
+
 
 # Load environment variables for secure access to configuration settings
 load_dotenv()
-
-
-# Count the Tokens in a string
-def count_tokens(model_name, text):
-    # Lade das Tokenizer-Modell
-    encoding = tiktoken.encoding_for_model(model_name)
-
-    # Tokenisiere den Text
-    tokens = encoding.encode(text)
-
-    # Anzahl der Tokens
-    return len(tokens)
 
 
 # TypedDict for structured data storage, defining the structure of the planning state
@@ -58,10 +46,8 @@ class code(BaseModel):
 
 
 # LLM with tool and enforce invocation
-llm_with_tool = llm_GP.with_structured_output(code)
+llm_with_tool = llm.with_structured_output(code)
 
-# Parser
-parser_tool = PydanticToolsParser(tools=[code])
 
 # Define a long and complex prompt template for generating plans...
 prompt = r"""You are a renowned AI engineer and programmer. You receive world knowledge and a task. You use them to develop a detailed sequence of plans to creat PyCramPlanCode for a robot that enables the robot to perform the 
@@ -70,9 +56,9 @@ can store the evidence in a variable #E, which can be called upon by other tools
 ...). Don't use **...** to highlight anything.
 
 The tools can be one of the following: 
-(1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functions. The input should be a specific search query as a detailed question. 
+(1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functionality. The input should be a specific search query as a detailed question. 
 (2) LLM[input]: A pre-trained LLM like yourself. Useful when you need to act with general information and common sense. Prefer it if you are confident you can solve the problem yourself. The input can be any statement.
-(3) Code[input]: A LLM Agent with a database retriever for the PyCRAM code. Returns a function from the code base and provides a tutorial for it. Provide a function as input
+(3) Code[input]: A LLM Agent with a database retriever for the PyCRAM code. Returns a function from the code base and provides a tutorial for it. Provide a function as input.
 (4) URDF[input]: A database retriver which returns the URDF file text. Use this tool when you need information about the URDF files used in the world. Provide the URDF file name as input.
 
 PyCramPlanCode follow the following structure:
@@ -139,14 +125,34 @@ def _get_current_task(state: ReWOO):
 
 
 # More complex template for tutorial writing, generating comprehensive documentation
-prompt_docs = """You are an professional tutorial writer and coding educator specially for the PyCRAM toolbox. Given the search query, write a detailed, structured, and comprehensive coding documentation for this question and the topic based on all the important information from the following context from the PyCRAM documentation:
+prompt_docs = """You are an experienced technical writer and coding educator, specializing in creating comprehensive guides for implementing specific tasks and workflows using the PyCram framework. 
+Your task is to thoroughly explain how to accomplish the given task within PyCram, based on the provided context. 
+You should research and extract all relevant information, summarizing and organizing it in a way that enables another LLM agent to efficiently implement the workflow in code.
+
+Context:
 {context}
---- Context End ---
+--- End of Context ---
 
-Search query: {task}
+Task:
+{task}
 
-Use at 4000 tokens for the output and adhere to the provided information. Incorporate important 
-code examples in their entirety. Think step by step and make sure the a other llm agent can produce correct code based on your output.
+Task Overview and Objectives: Start by clearly defining the task or workflow in question. Explain the goal of the task and its relevance within the PyCram framework. Discuss any prerequisites or necessary setup steps.
+
+Detailed Workflow Explanation: Provide a step-by-step guide on how to achieve the task using PyCram. Break down the process into logical steps, detailing each one. Include explanations of key concepts, relevant functions, and how they integrate with each other within the framework.
+
+Code Examples and Implementation Guidance: Where applicable, include relevant code snippets or pseudocode that illustrates how each step of the process can be implemented in PyCram. These examples should be clear and fully explained so that they can be easily adapted to similar tasks.
+
+Framework Integration and Concepts: Discuss how the task fits within the broader PyCram framework. Explain any essential concepts, components, or tools within PyCram that are crucial for understanding and completing the task.
+
+Best Practices and Considerations: Provide best practices for implementing the task, including any potential challenges or common pitfalls. Offer recommendations on how to overcome these challenges and ensure optimal implementation.
+
+Extensions and Alternatives: Explore possible extensions or variations of the task. Suggest alternative approaches if applicable, especially if the standard method may not suit all scenarios.
+
+Important Notes:
+
+Use up to 4000 tokens for your explanation.
+Ensure that all necessary code examples are complete and well-explained.
+Organize the information in a clear, logical order to facilitate implementation by another LLM agent.
 """
 prompt_retriever_chain = ChatPromptTemplate.from_template(prompt_docs)
 
@@ -164,17 +170,34 @@ chain_docs_gpt = (
 )
 
 # PyCram Code Retriever
-prompt_code = """You are an professional tutorial writer and coding educator specially for the PyCRAM toolbox. You get a function, 
-your task is to search for it in the provided context code and write a tutorial for the function and likewise and near other functions.
-Provide the full code of the provided function in your output.
-Explain also the general functioning of PyCram in relation to this function with the Context Code.
-Context: {context}
---- Context End ---
+prompt_code = """You are an experienced technical writer and coding educator, specializing in creating detailed and precise tutorials.
+Your task is to craft a comprehensive guide on how to use the provided function within an PyCram framework, based on the given documentation and code context. 
+You should not only explain the function itself but also describe its relationship with other relevant functions and components within the context.
 
-Function: {task} 
+Context:
+{context}
+--- End of Context ---
 
-Use at 4000 tokens for the output and adhere to the provided information. Incorporate important 
-code examples in their entirety. Think step by step and make sure the a other llm agent can produce correct code based on your output."""
+Task:
+Function: {task}
+
+Function Explanation and Contextualization: Begin with a detailed description of the function, including its syntax, parameters, and return values. Explain how this function is integrated into the framework and what role it plays within the overall context.
+
+Code Examples and Implementation: Provide the full code of the function. Include relevant code snippets from the context that demonstrate the function in action. Explain step-by-step how the code works and how it can be adapted to solve similar tasks.
+
+General Framework Functionality: Explain the fundamental functionality of the framework in relation to the given function. Discuss key concepts and principles of the framework that are necessary to understand the function and its application.
+
+Best Practices and Recommendations: Provide guidance and best practices for effectively using the function and the framework. Mention potential pitfalls and how to avoid them.
+
+Planning and Implementation for Developers: Design a clear plan for developers on how to implement the function in their own projects. Outline the necessary steps to correctly integrate and customize the function.
+
+Extensions and Alternatives: Discuss possible extensions of the function as well as alternatives if the given function does not meet all requirements.
+
+Important Notes:
+
+Use up to 4000 tokens for the tutorial.
+Incorporate all essential code examples in their entirety.
+Think systematically and ensure that another LLM agent can produce correct code based on your output."""
 prompt_retriever_code = ChatPromptTemplate.from_template(prompt_code)
 
 retriever_code = get_retriever(1, 6)
