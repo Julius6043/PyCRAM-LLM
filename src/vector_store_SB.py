@@ -17,6 +17,7 @@ from bs4 import BeautifulSoup as Soup
 import os
 import re
 import httpx
+from pathlib import Path
 from langchain.docstore.document import Document
 
 # Initialize environment variables.
@@ -96,6 +97,28 @@ def load_website(link, max_depth=20):
     return d_reversed
 
 
+# Funktion zum Splitten der Dokumentation txt
+def split_and_extract_words(file_path):
+    # Liste zur Speicherung der gesplitteten Teile
+    split_parts = []
+
+    # Datei öffnen und Inhalt einlesen
+    with open(file_path, "r", encoding="utf-8") as file:
+        content = file.read()
+
+    # Nach "|------\n" splitten
+    parts = content.split("|------\n")
+
+    for part in parts:
+        # Gesplitteten Teil zur Liste hinzufügen
+        split_parts.append(part.strip())
+
+    # Erstes Wort in jedem Teil speichern
+    first_words = [part.split("\n")[0] if part.split() else "" for part in split_parts]
+
+    return first_words, split_parts
+
+
 # Function to load and split text from a PDF file using PyMuPDFLoader.
 def load_pdf(file_name):
     path = f"pdf\{file_name}"
@@ -144,11 +167,19 @@ def load_in_vector_store(source, vectore_store_id=1, metadata=None):
             print(f"Error reading file {source}: {e}")
 
     elif vectore_store_id == 2:
-        chunks_temp = load_website(source)
+        # chunks_temp = load_website(source)
+        words, split_parts = split_and_extract_words(source)
+        chunks_temp = list(zip(words, split_parts))
         chunks = []
-        for chunk in chunks_temp:
-            chunk.metadata.update(metadata)
-            chunks.append(Document(page_content=chunk.page_content, metadata=chunk.metadata))
+        for chunk_temp in chunks_temp:
+            content = chunk_temp[1]
+            metadata_temp = {"source": chunk_temp[0]}
+            if chunk_temp[0].startswith("pycram."):
+                metadata_temp.update({"doc_type": "api"})
+            else:
+                metadata_temp.update({"doc_type": "tutorial"})
+            metadata_temp.update(metadata)
+            chunks.append(Document(page_content=content, metadata=metadata_temp))
         vector_store_large = SupabaseVectorStore.from_documents(
             chunks,
             embeddings_large,
@@ -181,9 +212,7 @@ def load_in_vector_store(source, vectore_store_id=1, metadata=None):
             for chunk in chunks_temp:
                 metadata_temp = {"source": meta_data[i]}
                 metadata_temp.update(metadata)
-                chunks.append(
-                    Document(page_content=chunk, metadata=metadata_temp)
-                )
+                chunks.append(Document(page_content=chunk, metadata=metadata_temp))
                 i += 1
             vector_store_urdf = SupabaseVectorStore.from_documents(
                 chunks,
@@ -250,6 +279,28 @@ def get_retriever(vector_store_id=1, num=5, filter={}):
 
 
 # delete_from_vectorstore(table="documents", num=-1)
-# load_in_vector_store("/home/julius/ros/ros_ws/src/pycram/src/llm/llm_pyCram_plans/output_urdf.txt", 4)
+# load_in_vector_store("output_urdf_new.txt", 4)
+load_in_vector_store("output_code_new.txt", 1)
 # print(result)
-# load_in_vector_store("https://pycram.readthedocs.io/en/latest/", 2)
+# load_in_vector_store("Documentation_important.txt", 2)
+""" 
+file_path = "Documentation_important.txt"
+first_words, split_parts = split_and_extract_words(file_path)
+
+print("Erste Wörter:", first_words)
+print("Gesplittete Teile:", split_parts)
+"""
+"""
+chunks_temp = load_website("https://pycram.readthedocs.io/en/latest/")
+chunks = []
+for chunk in chunks_temp:
+    chunk.metadata.update({})
+    chunks.append(Document(page_content=chunk.page_content, metadata=chunk.metadata))
+
+output_file = Path("documents_output.txt")
+with output_file.open("w", encoding="utf-8") as f:
+    for chunk in chunks:
+        f.write(
+            chunk.page_content + "\n\n-----\n\n"
+        )  # Writing content with double line breaks between chunks
+"""

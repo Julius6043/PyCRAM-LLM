@@ -1,0 +1,2284 @@
+{
+    "frameworkName": "PyCRAM",
+    "version": "0.2.0",
+    "description": "PyCRAM is a powerful and versatile Python 3 framework designed for the development, implementation, and deployment of sophisticated software systems on autonomous robots. As a re-implementation of the original CRAM framework, PyCRAM offers a comprehensive set of tools and libraries that streamline the process of creating robust and adaptable robot control programs. PyCRAM's modular architecture and Python-based implementation make it accessible to a wide range of users, from researchers to developers, enabling them to build complex robotic applications with ease. The framework's emphasis on symbolic reasoning, geometric planning, and seamless integration with ROS (Robot Operating System) empowers users to create intelligent robots capable of operating autonomously in dynamic environments.",
+    "keyConcepts": [
+        {
+            "name": "Designators",
+            "description": "Designators are a fundamental concept in PyCRAM, serving as symbolic representations of actions, motions, objects, and locations within the robot's world. They act as abstract placeholders for concrete entities, allowing for flexible and adaptable planning. Designators consist of two parts: a description and a specified element. The description defines a set of possible entities that meet certain criteria, while the specified element refers to a particular instance within that set. For example, a 'Grasp' designator might describe all possible grasp configurations for an object, while the specified element would indicate the chosen grasp to be executed. This symbolic representation enables PyCRAM to reason about tasks and goals at a high level, deferring the selection of specific parameters until runtime. This approach promotes modularity and reusability in robot control programs.",
+            "documentationLink": null
+        },
+        {
+            "name": "BulletWorld",
+            "description": "The BulletWorld is PyCRAM's integrated physics simulation environment, powered by the Bullet Physics Engine. It provides a virtual playground for developing and testing robot control programs without the need for a physical robot. Within the BulletWorld, users can spawn objects, define their physical properties, simulate their interactions, and control the robot's movements. This virtual environment allows for rapid prototyping and experimentation, enabling developers to iterate on their designs and validate their algorithms before deploying them on a real robot. The BulletWorld supports various object formats, including URDF (Unified Robot Description Format), OBJ, and STL, providing flexibility in representing robots and their surroundings.",
+            "documentationLink": null
+        },
+        {
+            "name": "Costmaps",
+            "description": "Costmaps are two-dimensional representations of the robot's environment, encoding information about obstacles, free space, and other relevant features. They are used by location designators to find suitable positions for the robot to perform tasks. Each cell in a costmap represents a specific area in the environment, and its value indicates the cost or difficulty associated with the robot occupying that area. For example, cells representing obstacles would have high costs, while cells representing free space would have low costs. PyCRAM supports various types of costmaps, including occupancy costmaps, visibility costmaps, and reachability costmaps, each tailored to specific planning criteria. By combining and analyzing these costmaps, PyCRAM can efficiently find optimal positions for the robot to navigate and interact with its surroundings.",
+            "documentationLink": null
+        },
+        {
+            "name": "Process Modules",
+            "description": "Process modules act as the bridge between PyCRAM's high-level designators and the low-level control interfaces of real or simulated robots. They provide a standardized way to execute designators on different robot platforms, abstracting away the platform-specific details. This abstraction allows PyCRAM plans to be platform-independent and easily transferable between different robots. For instance, a 'MoveTCPMotion' designator, which commands the robot's tool center point to move to a specific pose, would be executed by a process module that translates this high-level command into the appropriate low-level control signals for the specific robot being used. This modular approach promotes code reusability and simplifies the development process by separating the planning logic from the robot-specific control implementation.",
+            "documentationLink": null
+        },
+        {
+            "name": "Task Trees",
+            "description": "Task trees provide a hierarchical representation of the actions involved in a PyCRAM plan, capturing the execution flow and dependencies between actions. Each node in the task tree represents an action, and the tree structure reflects the order in which actions are executed. This hierarchical view allows for easy inspection and analysis of the plan's structure, facilitating debugging and optimization. Task trees can be used to visualize the plan's execution, identify potential bottlenecks, and restructure the plan to improve efficiency or robustness. PyCRAM's task tree implementation leverages the 'anytree' library, providing a user-friendly interface for manipulating and visualizing task trees.",
+            "documentationLink": null
+        },
+        {
+            "name": "ORM (Object Relational Mapping)",
+            "description": "Object Relational Mapping (ORM) in PyCRAM provides a mechanism for serializing and storing plan data in a database, enabling persistent storage and retrieval of plan execution information. ORM allows PyCRAM to log various aspects of the plan, including designator parameters, robot states, and task tree structures, in a structured and organized manner. This logged data can be used for a variety of purposes, such as debugging, analyzing plan performance, learning from past executions, and generating training data for machine learning algorithms. PyCRAM's ORM implementation leverages the 'SQLAlchemy' library, providing a powerful and flexible interface for interacting with databases.",
+            "documentationLink": null
+        }
+    ],
+    "components": [
+        {
+            "name": "NavigateAction",
+            "description": "Action designator for navigating the robot to a specific pose.",
+            "props": [
+                "target_locations"
+            ],
+            "example": "NavigateAction(target_locations=[Pose([1, 0, 0], [0, 0, 0, 1])]).resolve().perform()"
+        },
+        {
+            "name": "MoveTorsoAction",
+            "description": "Action designator for moving the robot's torso to a specific height.",
+            "props": [
+                "positions"
+            ],
+            "example": "MoveTorsoAction([0.2]).resolve().perform()"
+        },
+        {
+            "name": "SetGripperAction",
+            "description": "Action designator for setting the gripper state (open or close).",
+            "props": [
+                "grippers",
+                "motions"
+            ],
+            "example": "SetGripperAction(grippers=[Arms.RIGHT], motions=[GripperState.OPEN]).resolve().perform()"
+        },
+        {
+            "name": "ParkArmsAction",
+            "description": "Action designator for parking the robot's arms in a default position.",
+            "props": [
+                "arms"
+            ],
+            "example": "ParkArmsAction([Arms.BOTH]).resolve().perform()"
+        },
+        {
+            "name": "PickUpAction",
+            "description": "Action designator for picking up an object.",
+            "props": [
+                "object_designator_description",
+                "arms",
+                "grasps"
+            ],
+            "example": "PickUpAction(object_designator_description=milk_desig, arms=[Arms.RIGHT], grasps=[Grasp.FRONT]).resolve().perform()"
+        },
+        {
+            "name": "PlaceAction",
+            "description": "Action designator for placing an object at a specific pose.",
+            "props": [
+                "object_designator_description",
+                "target_locations",
+                "arms"
+            ],
+            "example": "PlaceAction(object_designator_description=milk_desig, target_locations=[Pose([1, 0, 0], [0, 0, 0, 1])], arms=[Arms.RIGHT]).resolve().perform()"
+        },
+        {
+            "name": "LookAtAction",
+            "description": "Action designator for making the robot look at a specific point.",
+            "props": [
+                "targets"
+            ],
+            "example": "LookAtAction(targets=[Pose([1, 0, 0], [0, 0, 0, 1])]).resolve().perform()"
+        },
+        {
+            "name": "DetectAction",
+            "description": "Action designator for detecting an object in the robot's field of view.",
+            "props": [
+                "object_designator_description"
+            ],
+            "example": "DetectAction(object_designator_description=milk_desig).resolve().perform()"
+        },
+        {
+            "name": "TransportAction",
+            "description": "Action designator for transporting an object to a specific pose.",
+            "props": [
+                "object_designator_description",
+                "arms",
+                "target_locations"
+            ],
+            "example": "TransportAction(object_designator_description=milk_desig, arms=[Arms.RIGHT], target_locations=[Pose([1, 0, 0], [0, 0, 0, 1])]).resolve().perform()"
+        },
+        {
+            "name": "OpenAction",
+            "description": "Action designator for opening a container-like object.",
+            "props": [
+                "object_designator_description",
+                "arms"
+            ],
+            "example": "OpenAction(object_designator_description=drawer_handle_desig, arms=[Arms.RIGHT]).resolve().perform()"
+        },
+        {
+            "name": "CloseAction",
+            "description": "Action designator for closing a container-like object.",
+            "props": [
+                "object_designator_description",
+                "arms"
+            ],
+            "example": "CloseAction(object_designator_description=drawer_handle_desig, arms=[Arms.RIGHT]).resolve().perform()"
+        },
+        {
+            "name": "MoveMotion",
+            "description": "Motion designator for moving the robot base to a specific pose.",
+            "props": [
+                "target"
+            ],
+            "example": "MoveMotion(target=Pose([1, 0, 0], [0, 0, 0, 1])).perform()"
+        },
+        {
+            "name": "MoveTCPMotion",
+            "description": "Motion designator for moving the robot's tool center point to a specific pose.",
+            "props": [
+                "target",
+                "arm"
+            ],
+            "example": "MoveTCPMotion(target=Pose([1, 0, 0], [0, 0, 0, 1]), arm=Arms.RIGHT).perform()"
+        },
+        {
+            "name": "LookingMotion",
+            "description": "Motion designator for making the robot look at a specific point.",
+            "props": [
+                "target"
+            ],
+            "example": "LookingMotion(target=Pose([1, 0, 0], [0, 0, 0, 1])).perform()"
+        },
+        {
+            "name": "MoveGripperMotion",
+            "description": "Motion designator for opening or closing the robot's gripper.",
+            "props": [
+                "motion",
+                "gripper"
+            ],
+            "example": "MoveGripperMotion(motion=GripperState.OPEN, gripper=Arms.RIGHT).perform()"
+        },
+        {
+            "name": "DetectingMotion",
+            "description": "Motion designator for detecting an object in the robot's field of view.",
+            "props": [
+                "object_type"
+            ],
+            "example": "DetectingMotion(object_type=ObjectType.MILK).perform()"
+        },
+        {
+            "name": "MoveArmJointsMotion",
+            "description": "Motion designator for moving the robot's arm joints to specific positions.",
+            "props": [
+                "left_arm_poses",
+                "right_arm_poses"
+            ],
+            "example": "MoveArmJointsMotion(right_arm_poses={'r_shoulder_pan_joint': -0.7}).perform()"
+        },
+        {
+            "name": "WorldStateDetectingMotion",
+            "description": "Motion designator for detecting an object based on the world state.",
+            "props": [
+                "object_type"
+            ],
+            "example": "WorldStateDetectingMotion(object_type=ObjectType.MILK).perform()"
+        },
+        {
+            "name": "MoveJointsMotion",
+            "description": "Motion designator for moving any joint of the robot.",
+            "props": [
+                "names",
+                "positions"
+            ],
+            "example": "MoveJointsMotion(names=['torso_lift_joint', 'r_shoulder_pan_joint'], positions=[0.2, -1.2]).perform()"
+        },
+        {
+            "name": "OpeningMotion",
+            "description": "Motion designator for opening a container-like object.",
+            "props": [
+                "object_part",
+                "arm"
+            ],
+            "example": "OpeningMotion(object_part=drawer_handle_desig, arm=Arms.RIGHT).perform()"
+        },
+        {
+            "name": "ClosingMotion",
+            "description": "Motion designator for closing a container-like object.",
+            "props": [
+                "object_part",
+                "arm"
+            ],
+            "example": "ClosingMotion(object_part=drawer_handle_desig, arm=Arms.RIGHT).perform()"
+        },
+        {
+            "name": "CostmapLocation",
+            "description": "Location designator for finding poses based on costmaps.",
+            "props": [
+                "target",
+                "reachable_for",
+                "visible_for"
+            ],
+            "example": "CostmapLocation(target=milk_desig, reachable_for=robot_desig).resolve()"
+        },
+        {
+            "name": "SemanticCostmapLocation",
+            "description": "Location designator for finding poses on semantic entities (e.g., tables).",
+            "props": [
+                "urdf_link_name",
+                "part_of",
+                "for_object"
+            ],
+            "example": "SemanticCostmapLocation(urdf_link_name='kitchen_island_surface', part_of=kitchen_desig, for_object=milk_desig).resolve()"
+        },
+        {
+            "name": "AccessingLocation",
+            "description": "Location designator for finding poses from which the robot can open a drawer.",
+            "props": [
+                "handle_desig",
+                "robot_desig"
+            ],
+            "example": "AccessingLocation(handle_desig.resolve(), robot_desig.resolve()).resolve()"
+        },
+        {
+            "name": "BelieveObject",
+            "description": "Object designator for describing objects in the BulletWorld.",
+            "props": [
+                "names",
+                "types"
+            ],
+            "example": "BelieveObject(names=['milk']).resolve()"
+        },
+        {
+            "name": "ObjectPart",
+            "description": "Object designator for describing parts of other objects.",
+            "props": [
+                "names",
+                "part_of",
+                "type"
+            ],
+            "example": "ObjectPart(names=['drawer_handle'], part_of=kitchen_desig).resolve()"
+        }
+    ],
+    "api": [
+        {
+            "category": "World",
+            "methods": [
+                {
+                    "name": "load_object_and_get_id",
+                    "description": "Loads an object into the world from a given path and pose.",
+                    "parameters": [
+                        {
+                            "name": "path",
+                            "type": "str",
+                            "description": "Path to the object file (URDF, OBJ, or STL)."
+                        },
+                        {
+                            "name": "pose",
+                            "type": "Pose",
+                            "description": "Pose at which the object should be spawned (optional)."
+                        }
+                    ],
+                    "returns": "int",
+                    "returnDescription": "Unique ID of the loaded object."
+                },
+                {
+                    "name": "remove_object",
+                    "description": "Removes an object from the world.",
+                    "parameters": [
+                        {
+                            "name": "obj",
+                            "type": "Object",
+                            "description": "Object to be removed."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_object_by_name",
+                    "description": "Returns the object with the given name.",
+                    "parameters": [
+                        {
+                            "name": "name",
+                            "type": "str",
+                            "description": "Name of the object."
+                        }
+                    ],
+                    "returns": "Object",
+                    "returnDescription": "Object with the given name, or None if not found."
+                },
+                {
+                    "name": "get_object_by_type",
+                    "description": "Returns a list of objects of the given type.",
+                    "parameters": [
+                        {
+                            "name": "obj_type",
+                            "type": "ObjectType",
+                            "description": "Type of the objects."
+                        }
+                    ],
+                    "returns": "List[Object]",
+                    "returnDescription": "List of objects of the given type."
+                },
+                {
+                    "name": "get_object_by_id",
+                    "description": "Returns the object with the given ID.",
+                    "parameters": [
+                        {
+                            "name": "obj_id",
+                            "type": "int",
+                            "description": "ID of the object."
+                        }
+                    ],
+                    "returns": "Object",
+                    "returnDescription": "Object with the given ID."
+                },
+                {
+                    "name": "simulate",
+                    "description": "Simulates the world for a given amount of time.",
+                    "parameters": [
+                        {
+                            "name": "seconds",
+                            "type": "float",
+                            "description": "Duration of the simulation in seconds."
+                        },
+                        {
+                            "name": "real_time",
+                            "type": "bool",
+                            "description": "Whether to simulate in real-time (optional)."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "reset_world",
+                    "description": "Resets the world to its initial state.",
+                    "parameters": [],
+                    "returns": "None"
+                },
+                {
+                    "name": "add_fixed_constraint",
+                    "description": "Adds a fixed constraint between two links.",
+                    "parameters": [
+                        {
+                            "name": "parent_link",
+                            "type": "Link",
+                            "description": "Parent link of the constraint."
+                        },
+                        {
+                            "name": "child_link",
+                            "type": "Link",
+                            "description": "Child link of the constraint."
+                        },
+                        {
+                            "name": "child_to_parent_transform",
+                            "type": "Transform",
+                            "description": "Transform from the child link to the parent link."
+                        }
+                    ],
+                    "returns": "int",
+                    "returnDescription": "Unique ID of the created constraint."
+                },
+                {
+                    "name": "remove_constraint",
+                    "description": "Removes a constraint by its ID.",
+                    "parameters": [
+                        {
+                            "name": "constraint_id",
+                            "type": "int",
+                            "description": "ID of the constraint."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_joint_position",
+                    "description": "Returns the position of a joint.",
+                    "parameters": [
+                        {
+                            "name": "joint",
+                            "type": "Joint",
+                            "description": "Joint object."
+                        }
+                    ],
+                    "returns": "float",
+                    "returnDescription": "Joint position."
+                },
+                {
+                    "name": "reset_joint_position",
+                    "description": "Resets the position of a joint.",
+                    "parameters": [
+                        {
+                            "name": "joint",
+                            "type": "Joint",
+                            "description": "Joint object."
+                        },
+                        {
+                            "name": "joint_position",
+                            "type": "float",
+                            "description": "New joint position."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_link_pose",
+                    "description": "Returns the pose of a link.",
+                    "parameters": [
+                        {
+                            "name": "link",
+                            "type": "Link",
+                            "description": "Link object."
+                        }
+                    ],
+                    "returns": "Pose",
+                    "returnDescription": "Link pose."
+                },
+                {
+                    "name": "set_link_color",
+                    "description": "Sets the color of a link.",
+                    "parameters": [
+                        {
+                            "name": "link",
+                            "type": "Link",
+                            "description": "Link object."
+                        },
+                        {
+                            "name": "rgba_color",
+                            "type": "Color",
+                            "description": "New color of the link."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_link_color",
+                    "description": "Returns the color of a link.",
+                    "parameters": [
+                        {
+                            "name": "link",
+                            "type": "Link",
+                            "description": "Link object."
+                        }
+                    ],
+                    "returns": "Color",
+                    "returnDescription": "Link color."
+                },
+                {
+                    "name": "get_object_axis_aligned_bounding_box",
+                    "description": "Returns the axis-aligned bounding box of an object.",
+                    "parameters": [
+                        {
+                            "name": "obj",
+                            "type": "Object",
+                            "description": "Object object."
+                        }
+                    ],
+                    "returns": "AxisAlignedBoundingBox",
+                    "returnDescription": "Axis-aligned bounding box of the object."
+                },
+                {
+                    "name": "get_link_axis_aligned_bounding_box",
+                    "description": "Returns the axis-aligned bounding box of a link.",
+                    "parameters": [
+                        {
+                            "name": "link",
+                            "type": "Link",
+                            "description": "Link object."
+                        }
+                    ],
+                    "returns": "AxisAlignedBoundingBox",
+                    "returnDescription": "Axis-aligned bounding box of the link."
+                },
+                {
+                    "name": "set_realtime",
+                    "description": "Enables or disables real-time simulation.",
+                    "parameters": [
+                        {
+                            "name": "real_time",
+                            "type": "bool",
+                            "description": "Whether to enable real-time simulation."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "set_gravity",
+                    "description": "Sets the gravity vector of the world.",
+                    "parameters": [
+                        {
+                            "name": "gravity_vector",
+                            "type": "List[float]",
+                            "description": "Gravity vector as a list of [x, y, z]."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "ray_test",
+                    "description": "Performs a ray test and returns the ID of the first object hit.",
+                    "parameters": [
+                        {
+                            "name": "from_position",
+                            "type": "List[float]",
+                            "description": "Starting position of the ray."
+                        },
+                        {
+                            "name": "to_position",
+                            "type": "List[float]",
+                            "description": "Ending position of the ray."
+                        }
+                    ],
+                    "returns": "int",
+                    "returnDescription": "ID of the first object hit, or -1 if no object was hit."
+                },
+                {
+                    "name": "ray_test_batch",
+                    "description": "Performs a batch of ray tests and returns a list of hit object IDs.",
+                    "parameters": [
+                        {
+                            "name": "from_positions",
+                            "type": "List[List[float]]",
+                            "description": "List of starting positions for the rays."
+                        },
+                        {
+                            "name": "to_positions",
+                            "type": "List[List[float]]",
+                            "description": "List of ending positions for the rays."
+                        },
+                        {
+                            "name": "num_threads",
+                            "type": "int",
+                            "description": "Number of threads to use for the ray tests (optional)."
+                        }
+                    ],
+                    "returns": "List[int]",
+                    "returnDescription": "List of object IDs hit by the rays."
+                },
+                {
+                    "name": "get_images_for_target",
+                    "description": "Renders images (RGB, depth, segmentation mask) for a given target pose and camera pose.",
+                    "parameters": [
+                        {
+                            "name": "target_pose",
+                            "type": "Pose",
+                            "description": "Pose of the target to look at."
+                        },
+                        {
+                            "name": "cam_pose",
+                            "type": "Pose",
+                            "description": "Pose of the camera."
+                        },
+                        {
+                            "name": "size",
+                            "type": "int",
+                            "description": "Size of the rendered images (optional)."
+                        }
+                    ],
+                    "returns": "List[np.ndarray]",
+                    "returnDescription": "List of rendered images: [RGB, depth, segmentation mask]."
+                },
+                {
+                    "name": "add_text",
+                    "description": "Adds text to the world.",
+                    "parameters": [
+                        {
+                            "name": "text",
+                            "type": "str",
+                            "description": "The text to be added."
+                        },
+                        {
+                            "name": "position",
+                            "type": "List[float]",
+                            "description": "The position of the text in the world."
+                        },
+                        {
+                            "name": "orientation",
+                            "type": "List[float]",
+                            "description": "The orientation of the text in the world (optional)."
+                        },
+                        {
+                            "name": "size",
+                            "type": "float",
+                            "description": "The size of the text (optional)."
+                        },
+                        {
+                            "name": "color",
+                            "type": "Color",
+                            "description": "The color of the text (optional)."
+                        },
+                        {
+                            "name": "life_time",
+                            "type": "float",
+                            "description": "The lifetime of the text in seconds (optional)."
+                        },
+                        {
+                            "name": "parent_object_id",
+                            "type": "int",
+                            "description": "The ID of the parent object (optional)."
+                        },
+                        {
+                            "name": "parent_link_id",
+                            "type": "int",
+                            "description": "The ID of the parent link (optional)."
+                        }
+                    ],
+                    "returns": "int",
+                    "returnDescription": "The ID of the added text."
+                },
+                {
+                    "name": "remove_text",
+                    "description": "Removes text from the world.",
+                    "parameters": [
+                        {
+                            "name": "text_id",
+                            "type": "int",
+                            "description": "The ID of the text to remove (optional)."
+                        }
+                    ],
+                    "returns": "None"
+                }
+            ]
+        },
+        {
+            "category": "Object",
+            "methods": [
+                {
+                    "name": "set_pose",
+                    "description": "Sets the pose of the object.",
+                    "parameters": [
+                        {
+                            "name": "pose",
+                            "type": "Pose",
+                            "description": "New pose of the object."
+                        },
+                        {
+                            "name": "set_attachments",
+                            "type": "bool",
+                            "description": "Whether to update the poses of attached objects (optional)."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_pose",
+                    "description": "Returns the current pose of the object.",
+                    "parameters": [],
+                    "returns": "Pose",
+                    "returnDescription": "Current pose of the object."
+                },
+                {
+                    "name": "set_position",
+                    "description": "Sets the position of the object.",
+                    "parameters": [
+                        {
+                            "name": "position",
+                            "type": "Union[Pose, Point, List[float]]",
+                            "description": "New position of the object."
+                        },
+                        {
+                            "name": "base",
+                            "type": "bool",
+                            "description": "Whether to place the object base at the given position (optional)."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_position",
+                    "description": "Returns the current position of the object.",
+                    "parameters": [],
+                    "returns": "Point",
+                    "returnDescription": "Current position of the object."
+                },
+                {
+                    "name": "set_orientation",
+                    "description": "Sets the orientation of the object.",
+                    "parameters": [
+                        {
+                            "name": "orientation",
+                            "type": "Union[Pose, Quaternion, List[float]]",
+                            "description": "New orientation of the object."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_orientation",
+                    "description": "Returns the current orientation of the object.",
+                    "parameters": [],
+                    "returns": "Quaternion",
+                    "returnDescription": "Current orientation of the object."
+                },
+                {
+                    "name": "attach",
+                    "description": "Attaches another object to this object.",
+                    "parameters": [
+                        {
+                            "name": "child_object",
+                            "type": "Object",
+                            "description": "Object to be attached."
+                        },
+                        {
+                            "name": "parent_link",
+                            "type": "str",
+                            "description": "Name of the parent link (optional)."
+                        },
+                        {
+                            "name": "child_link",
+                            "type": "str",
+                            "description": "Name of the child link (optional)."
+                        },
+                        {
+                            "name": "bidirectional",
+                            "type": "bool",
+                            "description": "Whether the attachment should be bidirectional (optional)."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "detach",
+                    "description": "Detaches another object from this object.",
+                    "parameters": [
+                        {
+                            "name": "child_object",
+                            "type": "Object",
+                            "description": "Object to be detached."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_link_pose",
+                    "description": "Returns the pose of a link.",
+                    "parameters": [
+                        {
+                            "name": "link_name",
+                            "type": "str",
+                            "description": "Name of the link."
+                        }
+                    ],
+                    "returns": "Pose",
+                    "returnDescription": "Pose of the link."
+                },
+                {
+                    "name": "get_joint_position",
+                    "description": "Returns the position of a joint.",
+                    "parameters": [
+                        {
+                            "name": "joint_name",
+                            "type": "str",
+                            "description": "Name of the joint."
+                        }
+                    ],
+                    "returns": "float",
+                    "returnDescription": "Joint position."
+                },
+                {
+                    "name": "set_joint_position",
+                    "description": "Sets the position of a joint.",
+                    "parameters": [
+                        {
+                            "name": "joint_name",
+                            "type": "str",
+                            "description": "Name of the joint."
+                        },
+                        {
+                            "name": "joint_position",
+                            "type": "float",
+                            "description": "New joint position."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "set_joint_positions",
+                    "description": "Sets the positions of multiple joints.",
+                    "parameters": [
+                        {
+                            "name": "joint_poses",
+                            "type": "Dict[str, float]",
+                            "description": "Dictionary of joint names and their target positions."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_axis_aligned_bounding_box",
+                    "description": "Returns the axis-aligned bounding box of the object.",
+                    "parameters": [],
+                    "returns": "AxisAlignedBoundingBox",
+                    "returnDescription": "Axis-aligned bounding box of the object."
+                },
+                {
+                    "name": "get_link_geometry",
+                    "description": "Returns the geometry of the link with the given name.",
+                    "parameters": [
+                        {
+                            "name": "link_name",
+                            "type": "str",
+                            "description": "The name of the link."
+                        }
+                    ],
+                    "returns": "Union[VisualShape, None]",
+                    "returnDescription": "The geometry of the link."
+                },
+                {
+                    "name": "get_link_transform",
+                    "description": "Returns the transform of the link with the given name.",
+                    "parameters": [
+                        {
+                            "name": "link_name",
+                            "type": "str",
+                            "description": "The name of the link."
+                        }
+                    ],
+                    "returns": "Transform",
+                    "returnDescription": "The transform of the link."
+                },
+                {
+                    "name": "get_link_origin",
+                    "description": "Returns the origin of the link with the given name.",
+                    "parameters": [
+                        {
+                            "name": "link_name",
+                            "type": "str",
+                            "description": "The name of the link."
+                        }
+                    ],
+                    "returns": "Pose",
+                    "returnDescription": "The origin of the link as a 'Pose'."
+                },
+                {
+                    "name": "get_link_origin_transform",
+                    "description": "Returns the origin transform of the link with the given name.",
+                    "parameters": [
+                        {
+                            "name": "link_name",
+                            "type": "str",
+                            "description": "The name of the link."
+                        }
+                    ],
+                    "returns": "Transform",
+                    "returnDescription": "The origin transform of the link."
+                },
+                {
+                    "name": "get_joint_id",
+                    "description": "Returns the unique id for a joint name. As used by the world/simulator.",
+                    "parameters": [
+                        {
+                            "name": "name",
+                            "type": "str",
+                            "description": "The joint name"
+                        }
+                    ],
+                    "returns": "int",
+                    "returnDescription": "The unique id"
+                },
+                {
+                    "name": "get_root_link_description",
+                    "description": "Returns the root link of the URDF of this object.",
+                    "parameters": [],
+                    "returns": "LinkDescription",
+                    "returnDescription": "The root link as defined in the URDF of this object."
+                },
+                {
+                    "name": "get_root_link_id",
+                    "description": "Returns the unique id of the root link of this object.",
+                    "parameters": [],
+                    "returns": "int",
+                    "returnDescription": "The unique id of the root link of this object."
+                },
+                {
+                    "name": "get_link_id",
+                    "description": "Returns a unique id for a link name.",
+                    "parameters": [
+                        {
+                            "name": "link_name",
+                            "type": "str",
+                            "description": "The name of the link."
+                        }
+                    ],
+                    "returns": "int",
+                    "returnDescription": "The unique id of the link."
+                },
+                {
+                    "name": "get_link_by_id",
+                    "description": "Returns the link for a given unique link id",
+                    "parameters": [
+                        {
+                            "name": "link_id",
+                            "type": "int",
+                            "description": "The unique id of the link."
+                        }
+                    ],
+                    "returns": "ObjectDescription.Link",
+                    "returnDescription": "The link object."
+                },
+                {
+                    "name": "reset_all_joints_positions",
+                    "description": "Sets the current position of all joints to 0. This is useful if the joints should be reset to their default",
+                    "parameters": [],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_joint_damping",
+                    "description": "Returns the damping of the given joint",
+                    "parameters": [
+                        {
+                            "name": "joint_name",
+                            "type": "str",
+                            "description": "The name of the joint"
+                        }
+                    ],
+                    "returns": "float",
+                    "returnDescription": "The damping of the given joint"
+                },
+                {
+                    "name": "get_joint_upper_limit",
+                    "description": "Returns the upper limit of the given joint",
+                    "parameters": [
+                        {
+                            "name": "joint_name",
+                            "type": "str",
+                            "description": "The name of the joint"
+                        }
+                    ],
+                    "returns": "float",
+                    "returnDescription": "The upper limit of the given joint"
+                },
+                {
+                    "name": "get_joint_lower_limit",
+                    "description": "Returns the lower limit of the given joint",
+                    "parameters": [
+                        {
+                            "name": "joint_name",
+                            "type": "str",
+                            "description": "The name of the joint"
+                        }
+                    ],
+                    "returns": "float",
+                    "returnDescription": "The lower limit of the given joint"
+                },
+                {
+                    "name": "get_joint_axis",
+                    "description": "Returns the axis of the given joint",
+                    "parameters": [
+                        {
+                            "name": "joint_name",
+                            "type": "str",
+                            "description": "The name of the joint"
+                        }
+                    ],
+                    "returns": "Point",
+                    "returnDescription": "The axis of the given joint"
+                },
+                {
+                    "name": "get_joint_type",
+                    "description": "Returns the type of the given joint",
+                    "parameters": [
+                        {
+                            "name": "joint_name",
+                            "type": "str",
+                            "description": "The name of the joint"
+                        }
+                    ],
+                    "returns": "JointType",
+                    "returnDescription": "The type of the given joint"
+                },
+                {
+                    "name": "get_joint_limits",
+                    "description": "Returns the lower and upper limits of the given joint",
+                    "parameters": [
+                        {
+                            "name": "joint_name",
+                            "type": "str",
+                            "description": "The name of the joint"
+                        }
+                    ],
+                    "returns": "Tuple[float, float]",
+                    "returnDescription": "The lower and upper limits of the given joint"
+                },
+                {
+                    "name": "get_joint_child_link",
+                    "description": "Returns the child link of the given joint",
+                    "parameters": [
+                        {
+                            "name": "joint_name",
+                            "type": "str",
+                            "description": "The name of the joint"
+                        }
+                    ],
+                    "returns": "ObjectDescription.Link",
+                    "returnDescription": "The child link of the given joint"
+                },
+                {
+                    "name": "get_joint_parent_link",
+                    "description": "Returns the parent link of the given joint",
+                    "parameters": [
+                        {
+                            "name": "joint_name",
+                            "type": "str",
+                            "description": "The name of the joint"
+                        }
+                    ],
+                    "returns": "ObjectDescription.Link",
+                    "returnDescription": "The parent link of the given joint"
+                },
+                {
+                    "name": "find_joint_above_link",
+                    "description": "Traverses the chain from 'link' to the URDF origin and returns the first joint that is of type 'joint_type'.",
+                    "parameters": [
+                        {
+                            "name": "link_name",
+                            "type": "AbstractLink name",
+                            "description": "above which the joint should be found"
+                        },
+                        {
+                            "name": "joint_type",
+                            "type": "Joint type",
+                            "description": "that should be searched for"
+                        }
+                    ],
+                    "returns": "str",
+                    "returnDescription": "Name of the first joint which has the given type"
+                },
+                {
+                    "name": "get_positions_of_all_joints",
+                    "description": "Returns the positions of all joints of the object as a dictionary of joint names and joint positions.",
+                    "parameters": [],
+                    "returns": "Dict[str, float]",
+                    "returnDescription": "A dictionary with all joints positions'."
+                },
+                {
+                    "name": "update_link_transforms",
+                    "description": "Updates the transforms of all links of this object using time 'transform_time' or the current ros time.",
+                    "parameters": [
+                        {
+                            "name": "transform_time",
+                            "type": "rospy.Time",
+                            "description": "The time at which the transformation should be updated (optional)."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "contact_points",
+                    "description": "Returns a list of contact points of this Object with other Objects.",
+                    "parameters": [],
+                    "returns": "List",
+                    "returnDescription": "A list of all contact points with other objects"
+                },
+                {
+                    "name": "contact_points_simulated",
+                    "description": "Returns a list of all contact points between this Object and other Objects after stepping the simulation once.",
+                    "parameters": [],
+                    "returns": "List",
+                    "returnDescription": "A list of contact points between this Object and other Objects"
+                },
+                {
+                    "name": "set_color",
+                    "description": "Changes the color of this object, the color has to be given as a list\nof RGBA values.",
+                    "parameters": [
+                        {
+                            "name": "rgba_color",
+                            "type": "Color",
+                            "description": "The color as Color object with RGBA values between 0 and 1"
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_color",
+                    "description": "This method returns the color of this object. The return is either:\n\n    1. A Color object with RGBA values, this is the case if the object only has one link (this\n        happens for example if the object is spawned from a .obj or .stl file)\n    2. A dict with the link name as key and the color as value. The color is given as a Color Object.\n        Please keep in mind that not every link may have a color. This is dependent on the URDF from which\n         the object is spawned.\n\n:return: The color as Color object with RGBA values between 0 and 1 or a dict with the link name as key and the color as value.",
+                    "parameters": [],
+                    "returns": "Union[Color, Dict[str, Color]]",
+                    "returnDescription": "The color as Color object with RGBA values between 0 and 1 or a dict with the link name as key and the color as value."
+                },
+                {
+                    "name": "get_base_origin",
+                    "description": "Returns the origin of the base/bottom of this object.",
+                    "parameters": [],
+                    "returns": "Pose",
+                    "returnDescription": "the origin of the base/bottom of this object."
+                },
+                {
+                    "name": "get_joint_by_id",
+                    "description": "Returns the joint object with the given id.",
+                    "parameters": [
+                        {
+                            "name": "joint_id",
+                            "type": "int",
+                            "description": "The unique id of the joint."
+                        }
+                    ],
+                    "returns": "Joint",
+                    "returnDescription": "The joint object."
+                },
+                {
+                    "name": "copy_to_prospection",
+                    "description": "Copies this object to the prospection world.",
+                    "parameters": [],
+                    "returns": "Object",
+                    "returnDescription": "The copied object in the prospection world."
+                },
+                {
+                    "name": "get_link_for_attached_objects",
+                    "description": "Returns a dictionary which maps attached object to the link of this object to which the given object is attached.",
+                    "parameters": [],
+                    "returns": "Dict[Object, ObjectDescription.Link]",
+                    "returnDescription": "The link of this object to which the given object is attached."
+                }
+            ]
+        },
+        {
+            "category": "Designators",
+            "methods": [
+                {
+                    "name": "resolve",
+                    "description": "Resolves the designator description to a specific designator instance.",
+                    "parameters": [],
+                    "returns": "Designator",
+                    "returnDescription": "Resolved designator instance."
+                },
+                {
+                    "name": "perform",
+                    "description": "Executes the resolved designator.",
+                    "parameters": [],
+                    "returns": "Any",
+                    "returnDescription": "Result of the designator execution."
+                },
+                {
+                    "name": "make_effective",
+                    "description": "Create a new effective designator of the same type as this one. If no properties are specified, this ones are used.",
+                    "parameters": [
+                        {
+                            "name": "new_properties",
+                            "type": "List",
+                            "description": "a list of properties (default is None)."
+                        },
+                        {
+                            "name": "data",
+                            "type": "Any",
+                            "description": "the low-level data structure the new designator describes (default is None)."
+                        },
+                        {
+                            "name": "timestamp",
+                            "type": "float",
+                            "description": "the timestamp of creation of reference (default is the current)."
+                        }
+                    ],
+                    "returns": "Designator",
+                    "returnDescription": "The newly created effective designator."
+                },
+                {
+                    "name": "newest_effective",
+                    "description": "Return the newest effective designator.",
+                    "parameters": [],
+                    "returns": "Designator",
+                    "returnDescription": "The newest effective designator."
+                },
+                {
+                    "name": "prop_value",
+                    "description": "Return the first value matching the specified property key.",
+                    "parameters": [
+                        {
+                            "name": "key",
+                            "type": "str",
+                            "description": "the key to return the value of."
+                        }
+                    ],
+                    "returns": "Any",
+                    "returnDescription": "The value of the key."
+                },
+                {
+                    "name": "check_constraints",
+                    "description": "Return True if all the given properties match, False otherwise.",
+                    "parameters": [
+                        {
+                            "name": "properties",
+                            "type": "List",
+                            "description": "the properties which have to match. A property can be a tuple in which case its first value is the\n        key of a property which must equal the second value. Otherwise it's simply the key of a property which must be\n        not None."
+                        }
+                    ],
+                    "returns": "bool",
+                    "returnDescription": "True if all properties match, False otherwise."
+                },
+                {
+                    "name": "make_dictionary",
+                    "description": "DEPRECATED, Moved to the description. Function only keept because of\n        backward compatability.\n        Return the given properties as dictionary.",
+                    "parameters": [
+                        {
+                            "name": "properties",
+                            "type": "List",
+                            "description": "the properties to create a dictionary of. A property can be a tuple in which case its first value\n        is the dictionary key and the second value is the dictionary value. Otherwise it's simply the dictionary key\n        and the key of a property which is the dictionary value."
+                        }
+                    ],
+                    "returns": "Dict",
+                    "returnDescription": "The dictionary with the given properties."
+                },
+                {
+                    "name": "rename_prop",
+                    "description": "Renames a property of the designator.",
+                    "parameters": [
+                        {
+                            "name": "old",
+                            "type": "str",
+                            "description": "Name of the old property."
+                        },
+                        {
+                            "name": "new",
+                            "type": "str",
+                            "description": "Name of the new property."
+                        }
+                    ],
+                    "returns": "Designator",
+                    "returnDescription": "The designator with the renamed property."
+                }
+            ]
+        },
+        {
+            "category": "Costmaps",
+            "methods": [
+                {
+                    "name": "visualize",
+                    "description": "Visualizes the costmap in the BulletWorld.",
+                    "parameters": [],
+                    "returns": "None"
+                },
+                {
+                    "name": "close_visualization",
+                    "description": "Removes the costmap visualization from the BulletWorld.",
+                    "parameters": [],
+                    "returns": "None"
+                },
+                {
+                    "name": "merge",
+                    "description": "Merges the values of two costmaps and returns a new costmap with the merged values of both inputs. To merge two costmaps, they must fulfill three constraints:\n        1. Same size.\n        2. Same x and y coordinates in the origin.\n        3. Same resolution.",
+                    "parameters": [
+                        {
+                            "name": "other_cm",
+                            "type": "Costmap",
+                            "description": "The other costmap to be merged."
+                        }
+                    ],
+                    "returns": "Costmap",
+                    "returnDescription": "A new costmap with merged values"
+                },
+                {
+                    "name": "partitioning_rectangles",
+                    "description": "Partition the map attached to this costmap into rectangles. The rectangles are axis aligned, exhaustive and\n        disjoint sets.",
+                    "parameters": [],
+                    "returns": "List[Rectangle]",
+                    "returnDescription": "A list containing the partitioning rectangles"
+                }
+            ]
+        },
+        {
+            "category": "Process Modules",
+            "methods": [
+                {
+                    "name": "execute",
+                    "description": "Executes a motion designator using the appropriate process module.",
+                    "parameters": [
+                        {
+                            "name": "designator",
+                            "type": "MotionDesignator",
+                            "description": "Motion designator to be executed."
+                        }
+                    ],
+                    "returns": "Any",
+                    "returnDescription": "Result of the motion designator execution."
+                }
+            ]
+        },
+        {
+            "category": "Task Trees",
+            "methods": [
+                {
+                    "name": "insert",
+                    "description": "Inserts the task tree into the database.",
+                    "parameters": [
+                        {
+                            "name": "session",
+                            "type": "sqlalchemy.orm.session.Session",
+                            "description": "Database session object."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "to_sql",
+                    "description": "Convert this object to the corresponding object in the pycram.orm package.",
+                    "parameters": [],
+                    "returns": "ORMTaskTreeNode",
+                    "returnDescription": "corresponding pycram.orm.task.TaskTreeNode object"
+                }
+            ]
+        },
+        {
+            "category": "ORM",
+            "methods": [
+                {
+                    "name": "create_engine",
+                    "description": "Creates a new database engine.",
+                    "parameters": [
+                        {
+                            "name": "url",
+                            "type": "str",
+                            "description": "Database connection URL."
+                        }
+                    ],
+                    "returns": "sqlalchemy.engine.Engine",
+                    "returnDescription": "Database engine object."
+                },
+                {
+                    "name": "Session",
+                    "description": "Creates a new database session.",
+                    "parameters": [
+                        {
+                            "name": "bind",
+                            "type": "sqlalchemy.engine.Engine",
+                            "description": "Database engine object."
+                        }
+                    ],
+                    "returns": "sqlalchemy.orm.session.Session",
+                    "returnDescription": "Database session object."
+                },
+                {
+                    "name": "select",
+                    "description": "Creates a new SELECT statement.",
+                    "parameters": [
+                        {
+                            "name": "entities",
+                            "type": "Any",
+                            "description": "Entities to select."
+                        }
+                    ],
+                    "returns": "sqlalchemy.sql.selectable.Select",
+                    "returnDescription": "SELECT statement object."
+                }
+            ]
+        },
+        {
+            "category": "Robot Description",
+            "methods": [
+                {
+                    "name": "add_kinematic_chain_description",
+                    "description": "Adds a KinematicChainDescription object to the RobotDescription. The chain is stored with the name of the chain\n        as key.",
+                    "parameters": [
+                        {
+                            "name": "chain",
+                            "type": "KinematicChainDescription",
+                            "description": "KinematicChainDescription object to add"
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "add_kinematic_chain",
+                    "description": "Creates and adds a KinematicChainDescription object to the RobotDescription.",
+                    "parameters": [
+                        {
+                            "name": "name",
+                            "type": "str",
+                            "description": "Name of the KinematicChainDescription object"
+                        },
+                        {
+                            "name": "start_link",
+                            "type": "str",
+                            "description": "First link of the chain"
+                        },
+                        {
+                            "name": "end_link",
+                            "type": "str",
+                            "description": "Last link of the chain"
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "add_camera_description",
+                    "description": "Adds a CameraDescription object to the RobotDescription. The camera is stored with the name of the camera as key.",
+                    "parameters": [
+                        {
+                            "name": "camera",
+                            "type": "CameraDescription",
+                            "description": "The CameraDescription object to add"
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "add_camera",
+                    "description": "Creates and adds a CameraDescription object to the RobotDescription. Minimal and maximal height of the camera are\n        relevant if the robot has a moveable torso or the camera is mounted on a moveable part of the robot. Otherwise\n        both values can be the same.",
+                    "parameters": [
+                        {
+                            "name": "name",
+                            "type": "str",
+                            "description": "Name of the CameraDescription object"
+                        },
+                        {
+                            "name": "camera_link",
+                            "type": "str",
+                            "description": "Link of the camera in the URDF"
+                        },
+                        {
+                            "name": "minimal_height",
+                            "type": "float",
+                            "description": "Minimal height of the camera"
+                        },
+                        {
+                            "name": "maximal_height",
+                            "type": "float",
+                            "description": "Maximal height of the camera"
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "add_grasp_orientation",
+                    "description": "Adds a grasp orientation to the robot description. This is used to define the orientation of the end effector\n        when grasping an object.",
+                    "parameters": [
+                        {
+                            "name": "grasp",
+                            "type": "Grasp",
+                            "description": "Gasp from the Grasp enum which should be added"
+                        },
+                        {
+                            "name": "orientation",
+                            "type": "List[float]",
+                            "description": "List of floats representing the orientation"
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "add_grasp_orientations",
+                    "description": "Adds multiple grasp orientations to the robot description. This is used to define the orientation of the end effector\n        when grasping an object.",
+                    "parameters": [
+                        {
+                            "name": "orientations",
+                            "type": "Dict[Grasp, List[float]]",
+                            "description": "Dictionary of grasp orientations"
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_manipulator_chains",
+                    "description": "Returns a list of all manipulator chains of the robot which posses an end effector.",
+                    "parameters": [],
+                    "returns": "List[KinematicChainDescription]",
+                    "returnDescription": "A list of KinematicChainDescription objects"
+                },
+                {
+                    "name": "get_camera_frame",
+                    "description": "Quick method to get the name of a link of a camera. Uses the first camera in the list of cameras.",
+                    "parameters": [],
+                    "returns": "str",
+                    "returnDescription": "A name of the link of a camera"
+                },
+                {
+                    "name": "get_default_camera",
+                    "description": "Returns the first camera in the list of cameras.",
+                    "parameters": [],
+                    "returns": "CameraDescription",
+                    "returnDescription": "A CameraDescription object"
+                },
+                {
+                    "name": "get_static_joint_chain",
+                    "description": "Returns the static joint states of a kinematic chain for a specific configuration. When trying to access one of\n        the robot arms the function `:func: get_arm_chain` should be used.",
+                    "parameters": [
+                        {
+                            "name": "kinematic_chain_name",
+                            "type": "str",
+                            "description": "Name of the kinematic chain"
+                        },
+                        {
+                            "name": "configuration_name",
+                            "type": "str",
+                            "description": "Name of the configuration"
+                        }
+                    ],
+                    "returns": "Dict[str, float]",
+                    "returnDescription": "Dictionary of joint names and their values"
+                },
+                {
+                    "name": "get_parent",
+                    "description": "Returns the parent of a link or joint in the URDF. Always returns the imeadiate parent, for a link this is a joint\n        and vice versa.",
+                    "parameters": [
+                        {
+                            "name": "name",
+                            "type": "str",
+                            "description": "Name of the link or joint in the URDF"
+                        }
+                    ],
+                    "returns": "str",
+                    "returnDescription": "Name of the parent link or joint"
+                },
+                {
+                    "name": "get_child",
+                    "description": "Returns the child of a link or joint in the URDF. Always returns the immediate child, for a link this is a joint\n        and vice versa. Since a link can have multiple children, the return_multiple_children parameter can be set to\n        True to get a list of all children.",
+                    "parameters": [
+                        {
+                            "name": "name",
+                            "type": "str",
+                            "description": "Name of the link or joint in the URDF"
+                        },
+                        {
+                            "name": "return_multiple_children",
+                            "type": "bool",
+                            "description": "If True, a list of all children is returned"
+                        }
+                    ],
+                    "returns": "Union[str, List[str]]",
+                    "returnDescription": "Name of the child link or joint or a list of all children"
+                },
+                {
+                    "name": "get_arm_chain",
+                    "description": "Returns the kinematic chain of a specific arm. If the arm is set to BOTH, all kinematic chains are returned.",
+                    "parameters": [
+                        {
+                            "name": "arm",
+                            "type": "Arms",
+                            "description": "Arm for which the chain should be returned"
+                        }
+                    ],
+                    "returns": "Union[KinematicChainDescription, List[KinematicChainDescription]]",
+                    "returnDescription": "KinematicChainDescription object of the arm"
+                }
+            ]
+        },
+        {
+            "category": "Kinematic Chain Description",
+            "methods": [
+                {
+                    "name": "get_joints",
+                    "description": "Returns a list of all joints of the chain.",
+                    "parameters": [],
+                    "returns": "List[str]",
+                    "returnDescription": "List of joint names"
+                },
+                {
+                    "name": "get_links",
+                    "description": "Returns a list of all links of the chain.",
+                    "parameters": [],
+                    "returns": "List[str]",
+                    "returnDescription": "List of link names"
+                },
+                {
+                    "name": "add_static_joint_states",
+                    "description": "Adds static joint states to the chain. These define a specific configuration of the chain.",
+                    "parameters": [
+                        {
+                            "name": "name",
+                            "type": "str",
+                            "description": "Name of the static joint states"
+                        },
+                        {
+                            "name": "states",
+                            "type": "dict",
+                            "description": "Dictionary of joint names and their values"
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_static_joint_states",
+                    "description": "Returns the dictionary of static joint states for a given name of the static joint states.",
+                    "parameters": [
+                        {
+                            "name": "name",
+                            "type": "str",
+                            "description": "Name of the static joint states"
+                        }
+                    ],
+                    "returns": "Dict[str, float]",
+                    "returnDescription": "Dictionary of joint names and their values"
+                },
+                {
+                    "name": "get_tool_frame",
+                    "description": "Returns the name of the tool frame of the end effector of this chain, if it has an end effector.",
+                    "parameters": [],
+                    "returns": "str",
+                    "returnDescription": "The name of the link of the tool frame in the URDF."
+                },
+                {
+                    "name": "get_static_gripper_state",
+                    "description": "Returns the static joint states for the gripper of the chain.",
+                    "parameters": [
+                        {
+                            "name": "state",
+                            "type": "GripperState",
+                            "description": "Name of the static joint states"
+                        }
+                    ],
+                    "returns": "Dict[str, float]",
+                    "returnDescription": "Dictionary of joint names and their values"
+                }
+            ]
+        },
+        {
+            "category": "End Effector Description",
+            "methods": [
+                {
+                    "name": "add_static_joint_states",
+                    "description": "Adds static joint states to the end effector. These define a specific configuration of the end effector. Like\n        open and close configurations of a gripper.",
+                    "parameters": [
+                        {
+                            "name": "name",
+                            "type": "GripperState",
+                            "description": "Name of the static joint states"
+                        },
+                        {
+                            "name": "states",
+                            "type": "dict",
+                            "description": "Dictionary of joint names and their values"
+                        }
+                    ],
+                    "returns": "None"
+                }
+            ]
+        },
+        {
+            "category": "Pose",
+            "methods": [
+                {
+                    "name": "from_pose_stamped",
+                    "description": "Converts a geometry_msgs/PoseStamped message to a Pose object. Should be used for compatability with ROS.",
+                    "parameters": [
+                        {
+                            "name": "pose_stamped",
+                            "type": "PoseStamped",
+                            "description": "The pose stamped message which should be converted"
+                        }
+                    ],
+                    "returns": "Pose",
+                    "returnDescription": "A Pose object with the same information as the given message"
+                },
+                {
+                    "name": "to_list",
+                    "description": "Returns the position and orientation of this pose as a list containing two list.",
+                    "parameters": [],
+                    "returns": "List[List[float]]",
+                    "returnDescription": "The position and orientation as lists"
+                },
+                {
+                    "name": "to_transform",
+                    "description": "Converts this pose to a Transform from the TF frame of the pose to the given child_frame",
+                    "parameters": [
+                        {
+                            "name": "child_frame",
+                            "type": "str",
+                            "description": "Child frame id to which the Transform points"
+                        }
+                    ],
+                    "returns": "Transform",
+                    "returnDescription": "A new Transform"
+                },
+                {
+                    "name": "copy",
+                    "description": "Creates a deep copy of this pose.",
+                    "parameters": [],
+                    "returns": "Pose",
+                    "returnDescription": "A copy of this pose"
+                },
+                {
+                    "name": "position_as_list",
+                    "description": "Returns only the position as a list of xyz.",
+                    "parameters": [],
+                    "returns": "List[float]",
+                    "returnDescription": "The position as a list"
+                },
+                {
+                    "name": "orientation_as_list",
+                    "description": "Returns only the orientation as a list of a quaternion",
+                    "parameters": [],
+                    "returns": "List[float]",
+                    "returnDescription": "The orientation as a quaternion with xyzw"
+                },
+                {
+                    "name": "dist",
+                    "description": "Calculates the euclidian distance between this Pose and the given one. For distance calculation only the\n        position is used.",
+                    "parameters": [
+                        {
+                            "name": "other_pose",
+                            "type": "Pose",
+                            "description": "Pose to which the distance should be calculated"
+                        }
+                    ],
+                    "returns": "float",
+                    "returnDescription": "The distance between the Poses"
+                },
+                {
+                    "name": "set_position",
+                    "description": "Sets the position of this Pose to the given position. Position has to be given as a vector in cartesian space.",
+                    "parameters": [
+                        {
+                            "name": "new_position",
+                            "type": "List[float]",
+                            "description": "New position as a vector of xyz"
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "set_orientation",
+                    "description": "Sets the orientation to the given quaternion. The new orientation has to be given as a quaternion.",
+                    "parameters": [
+                        {
+                            "name": "new_orientation",
+                            "type": "List[float]",
+                            "description": "New orientation as a quaternion with xyzw"
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "to_sql",
+                    "description": "Converts this pose to a ORMPose object.",
+                    "parameters": [],
+                    "returns": "ORMPose",
+                    "returnDescription": "The ORMPose object."
+                },
+                {
+                    "name": "insert",
+                    "description": "Inserts this pose into the given session.",
+                    "parameters": [
+                        {
+                            "name": "session",
+                            "type": "sqlalchemy.orm.Session",
+                            "description": "The session to insert the pose into."
+                        }
+                    ],
+                    "returns": "ORMPose",
+                    "returnDescription": "The inserted ORMPose object."
+                },
+                {
+                    "name": "multiply_quaternions",
+                    "description": "Multiply the quaternion of this Pose with the given quaternion, the result will be the new orientation of this\n        Pose.",
+                    "parameters": [
+                        {
+                            "name": "quaternion",
+                            "type": "List",
+                            "description": "The quaternion by which the orientation of this Pose should be multiplied"
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "set_orientation_from_euler",
+                    "description": "Convert axis-angle to quaternion.",
+                    "parameters": [
+                        {
+                            "name": "axis",
+                            "type": "List",
+                            "description": "(x, y, z) tuple representing rotation axis."
+                        },
+                        {
+                            "name": "euler_angles",
+                            "type": "List[float]",
+                            "description": "rotation angle in degree"
+                        }
+                    ],
+                    "returns": "Tuple",
+                    "returnDescription": "The quaternion representing the axis angle"
+                }
+            ]
+        },
+        {
+            "category": "Transform",
+            "methods": [
+                {
+                    "name": "from_pose_and_child_frame",
+                    "description": "Creates a new Transform from a given Pose and child frame name.",
+                    "parameters": [
+                        {
+                            "name": "pose",
+                            "type": "Pose",
+                            "description": "The pose from which the transform should be created."
+                        },
+                        {
+                            "name": "child_frame_name",
+                            "type": "str",
+                            "description": "The name of the child frame."
+                        }
+                    ],
+                    "returns": "Transform",
+                    "returnDescription": "The newly created Transform."
+                },
+                {
+                    "name": "from_transform_stamped",
+                    "description": "Creates a Transform instance from a geometry_msgs/TransformStamped message. Should be used for compatibility with\n        ROS.",
+                    "parameters": [
+                        {
+                            "name": "transform_stamped",
+                            "type": "TransformStamped",
+                            "description": "The transform stamped message that should be converted"
+                        }
+                    ],
+                    "returns": "Transform",
+                    "returnDescription": "An Transform with the same information as the transform stamped message"
+                },
+                {
+                    "name": "copy",
+                    "description": "Creates a deep copy of this pose.",
+                    "parameters": [],
+                    "returns": "Transform",
+                    "returnDescription": "A copy of this pose"
+                },
+                {
+                    "name": "translation_as_list",
+                    "description": "Returns the translation of this Transform as a list.",
+                    "parameters": [],
+                    "returns": "List[float]",
+                    "returnDescription": "The translation as a list of xyz"
+                },
+                {
+                    "name": "rotation_as_list",
+                    "description": "Returns the rotation of this Transform as a list representing a quaternion.",
+                    "parameters": [],
+                    "returns": "List[float]",
+                    "returnDescription": "The rotation of this Transform as a list with xyzw"
+                },
+                {
+                    "name": "to_pose",
+                    "description": "Converts this Transform to a Pose, in this process the child_frame_id is lost.",
+                    "parameters": [],
+                    "returns": "Pose",
+                    "returnDescription": "A new pose with same translation as position and rotation as orientation"
+                },
+                {
+                    "name": "invert",
+                    "description": "Inverts this Transform, the new Transform points from the child_frame_id to the frame_id",
+                    "parameters": [],
+                    "returns": "Transform",
+                    "returnDescription": "A new inverted Transform"
+                },
+                {
+                    "name": "inverse_times",
+                    "description": "Like a 'minus' for Transforms, subtracts the other_transform from this one.",
+                    "parameters": [
+                        {
+                            "name": "other_transform",
+                            "type": "Transform",
+                            "description": "Transform which should be subtracted from this one"
+                        }
+                    ],
+                    "returns": "Transform",
+                    "returnDescription": "The resulting Transform form the calculation"
+                },
+                {
+                    "name": "set_translation",
+                    "description": "Sets the translation of this Transform to the newly given one. Translation has to be a vector in cartesian space",
+                    "parameters": [
+                        {
+                            "name": "new_translation",
+                            "type": "List[float]",
+                            "description": "The new translation as a vector with xyz."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "set_rotation",
+                    "description": "Sets the rotation of this Transform to the newly given one. Rotation has to be a quaternion.",
+                    "parameters": [
+                        {
+                            "name": "new_rotation",
+                            "type": "List[float]",
+                            "description": "The new rotation as a quaternion with xyzw"
+                        }
+                    ],
+                    "returns": "None"
+                }
+            ]
+        },
+        {
+            "category": "Local Transformer",
+            "methods": [
+                {
+                    "name": "transform_to_object_frame",
+                    "description": "Transforms the given pose to the coordinate frame of the given World object. If no link name is given the\n        base frame of the Object is used, otherwise the link frame is used as target for the transformation.",
+                    "parameters": [
+                        {
+                            "name": "pose",
+                            "type": "Pose",
+                            "description": "Pose that should be transformed"
+                        },
+                        {
+                            "name": "world_object",
+                            "type": "world_concepts.world_object.Object",
+                            "description": "BulletWorld Object in which frame the pose should be transformed"
+                        },
+                        {
+                            "name": "link_name",
+                            "type": "str",
+                            "description": "A link of the BulletWorld Object which will be used as target coordinate frame instead"
+                        }
+                    ],
+                    "returns": "Union[\n        Pose, None]",
+                    "returnDescription": "The new pose the in coordinate frame of the object"
+                },
+                {
+                    "name": "update_transforms_for_objects",
+                    "description": "Updates the transforms for objects affected by the transformation. The objects are identified by their names.",
+                    "parameters": [
+                        {
+                            "name": "source_object_name",
+                            "type": "str",
+                            "description": "Name of the object of the source frame"
+                        },
+                        {
+                            "name": "target_object_name",
+                            "type": "str",
+                            "description": "Name of the object of the target frame"
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "transform_pose",
+                    "description": "Transforms a given pose to the target frame after updating the transforms for all objects in the current world.",
+                    "parameters": [
+                        {
+                            "name": "pose",
+                            "type": "Pose",
+                            "description": "Pose that should be transformed"
+                        },
+                        {
+                            "name": "target_frame",
+                            "type": "str",
+                            "description": "Name of the TF frame into which the Pose should be transformed"
+                        }
+                    ],
+                    "returns": "Optional[Pose]",
+                    "returnDescription": "A transformed pose in the target frame"
+                },
+                {
+                    "name": "get_object_name_for_frame",
+                    "description": "Returns the name of the object that is associated with the given frame.",
+                    "parameters": [
+                        {
+                            "name": "frame",
+                            "type": "str",
+                            "description": "The frame for which the object name should be returned"
+                        }
+                    ],
+                    "returns": "str",
+                    "returnDescription": "The name of the object associated with the frame"
+                },
+                {
+                    "name": "lookup_transform_from_source_to_target_frame",
+                    "description": "Update the transforms for all world objects then Look up for the latest known transform that transforms a point\n         from source frame to target frame. If no time is given the last common time between the two frames is used.",
+                    "parameters": [
+                        {
+                            "name": "source_frame",
+                            "type": "str",
+                            "description": "The frame in which the point is currently represented"
+                        },
+                        {
+                            "name": "target_frame",
+                            "type": "str",
+                            "description": "The frame in which the point should be represented"
+                        },
+                        {
+                            "name": "time",
+                            "type": "Optional[rospy.rostime.Time]",
+                            "description": "Time at which the transform should be looked up"
+                        }
+                    ],
+                    "returns": "Transform",
+                    "returnDescription": "The transform from source_frame to target_frame"
+                },
+                {
+                    "name": "update_transforms",
+                    "description": "Updates transforms by updating the time stamps of the header of each transform. If no time is given the current\n        time is used.",
+                    "parameters": [
+                        {
+                            "name": "transforms",
+                            "type": "Iterable[Transform]",
+                            "description": "The transforms to update."
+                        },
+                        {
+                            "name": "time",
+                            "type": "rospy.Time",
+                            "description": "The time to set for the transforms (optional)."
+                        }
+                    ],
+                    "returns": "None"
+                },
+                {
+                    "name": "get_all_frames",
+                    "description": "Returns all know coordinate frames as a list with human-readable entries.",
+                    "parameters": [],
+                    "returns": "List[str]",
+                    "returnDescription": "A list of all know coordinate frames."
+                }
+            ]
+        },
+        {
+            "category": "Object Description",
+            "methods": [
+                {
+                    "name": "load_description",
+                    "description": "Loads the description from the file at the given path.",
+                    "parameters": [
+                        {
+                            "name": "path",
+                            "type": "str",
+                            "description": "The path to the source file, if only a filename is provided then the resources directories will be\n         searched."
+                        }
+                    ],
+                    "returns": "Any",
+                    "returnDescription": "The loaded description."
+                },
+                {
+                    "name": "generate_description_from_file",
+                    "description": "Generates and preprocesses the description from the file at the given path and returns the preprocessed\n        description as a string.",
+                    "parameters": [
+                        {
+                            "name": "path",
+                            "type": "str",
+                            "description": "The path of the file to preprocess."
+                        },
+                        {
+                            "name": "name",
+                            "type": "str",
+                            "description": "The name of the object."
+                        },
+                        {
+                            "name": "extension",
+                            "type": "str",
+                            "description": "The file extension of the file to preprocess."
+                        }
+                    ],
+                    "returns": "str",
+                    "returnDescription": "The processed description string."
+                },
+                {
+                    "name": "get_file_name",
+                    "description": "Returns the file name of the description file.",
+                    "parameters": [
+                        {
+                            "name": "path_object",
+                            "type": "pathlib.Path",
+                            "description": "The path object of the description file or the mesh file."
+                        },
+                        {
+                            "name": "extension",
+                            "type": "str",
+                            "description": "The file extension of the description file or the mesh file."
+                        },
+                        {
+                            "name": "object_name",
+                            "type": "str",
+                            "description": "The name of the object."
+                        }
+                    ],
+                    "returns": "str",
+                    "returnDescription": "The file name of the description file."
+                },
+                {
+                    "name": "generate_from_mesh_file",
+                    "description": "Generates a description file from one of the mesh types defined in the mesh_extensions and\n        returns the path of the generated file.",
+                    "parameters": [
+                        {
+                            "name": "path",
+                            "type": "str",
+                            "description": "The path to the .obj file."
+                        },
+                        {
+                            "name": "name",
+                            "type": "str",
+                            "description": "The name of the object."
+                        }
+                    ],
+                    "returns": "str",
+                    "returnDescription": "The path of the generated description file."
+                },
+                {
+                    "name": "generate_from_description_file",
+                    "description": "Preprocesses the given file and returns the preprocessed description string.",
+                    "parameters": [
+                        {
+                            "name": "path",
+                            "type": "str",
+                            "description": "The path of the file to preprocess."
+                        }
+                    ],
+                    "returns": "str",
+                    "returnDescription": "The preprocessed description string."
+                },
+                {
+                    "name": "generate_from_parameter_server",
+                    "description": "Preprocesses the description from the ROS parameter server and returns the preprocessed description string.",
+                    "parameters": [
+                        {
+                            "name": "name",
+                            "type": "str",
+                            "description": "The name of the description on the parameter server."
+                        }
+                    ],
+                    "returns": "str",
+                    "returnDescription": "The preprocessed description string."
+                },
+                {
+                    "name": "get_link_by_name",
+                    "description": "Returns the link description with the given name.",
+                    "parameters": [
+                        {
+                            "name": "link_name",
+                            "type": "str",
+                            "description": "The name of the link."
+                        }
+                    ],
+                    "returns": "LinkDescription",
+                    "returnDescription": "The link description with the given name."
+                },
+                {
+                    "name": "get_joint_by_name",
+                    "description": "Returns the joint description with the given name.",
+                    "parameters": [
+                        {
+                            "name": "joint_name",
+                            "type": "str",
+                            "description": "The name of the joint."
+                        }
+                    ],
+                    "returns": "JointDescription",
+                    "returnDescription": "The joint description with the given name."
+                },
+                {
+                    "name": "get_root",
+                    "description": "Returns the name of the root link of this object.",
+                    "parameters": [],
+                    "returns": "str",
+                    "returnDescription": "the name of the root link of this object."
+                },
+                {
+                    "name": "get_chain",
+                    "description": "Returns the chain of links from 'start_link_name' to 'end_link_name'.",
+                    "parameters": [
+                        {
+                            "name": "start_link_name",
+                            "type": "str",
+                            "description": "The name of the start link."
+                        },
+                        {
+                            "name": "end_link_name",
+                            "type": "str",
+                            "description": "The name of the end link."
+                        }
+                    ],
+                    "returns": "List[str]",
+                    "returnDescription": "the chain of links from 'start_link_name' to 'end_link_name'."
+                }
+            ]
+        },
+        {
+            "category": "Link Description",
+            "methods": [
+                {
+                    "name": "get_geometry",
+                    "description": "Returns the geometry type of the URDF collision element of this link.",
+                    "parameters": [],
+                    "returns": "Union[VisualShape, None]",
+                    "returnDescription": "The geometry type of the URDF collision element of this link."
+                }
+            ]
+        },
+        {
+            "category": "Joint Description",
+            "methods": [
+                {
+                    "name": "get_type",
+                    "description": "Returns the type of this joint.",
+                    "parameters": [],
+                    "returns": "JointType",
+                    "returnDescription": "The type of this joint."
+                },
+                {
+                    "name": "get_axis",
+                    "description": "Returns the axis of this joint, for example the rotation axis for a revolute joint.",
+                    "parameters": [],
+                    "returns": "Point",
+                    "returnDescription": "The axis of this joint, for example the rotation axis for a revolute joint."
+                },
+                {
+                    "name": "get_has_limits",
+                    "description": "Checks if this joint has limits.",
+                    "parameters": [],
+                    "returns": "bool",
+                    "returnDescription": "True if the joint has limits, False otherwise."
+                },
+                {
+                    "name": "get_limits",
+                    "description": "Returns the lower and upper limits of this joint.",
+                    "parameters": [],
+                    "returns": "Tuple[float, float]",
+                    "returnDescription": "The lower and upper limits of this joint."
+                },
+                {
+                    "name": "get_lower_limit",
+                    "description": "Returns the lower limit of this joint, or None if the joint has no limits.",
+                    "parameters": [],
+                    "returns": "Union[float, None]",
+                    "returnDescription": "The lower limit of this joint, or None if the joint has no limits."
+                },
+                {
+                    "name": "get_upper_limit",
+                    "description": "Returns the upper limit of this joint, or None if the joint has no limits.",
+                    "parameters": [],
+                    "returns": "Union[float, None]",
+                    "returnDescription": "The upper limit of this joint, or None if the joint has no limits."
+                },
+                {
+                    "name": "get_parent_link_name",
+                    "description": "Returns the name of the parent link of this joint.",
+                    "parameters": [],
+                    "returns": "str",
+                    "returnDescription": "The name of the parent link of this joint."
+                },
+                {
+                    "name": "get_child_link_name",
+                    "description": "Returns the name of the child link of this joint.",
+                    "parameters": [],
+                    "returns": "str",
+                    "returnDescription": "The name of the child link of this joint."
+                },
+                {
+                    "name": "get_damping",
+                    "description": "Returns the damping of this joint.",
+                    "parameters": [],
+                    "returns": "float",
+                    "returnDescription": "The damping of this joint."
+                },
+                {
+                    "name": "get_friction",
+                    "description": "Returns the friction of this joint.",
+                    "parameters": [],
+                    "returns": "float",
+                    "returnDescription": "The friction of this joint."
+                }
+            ]
+        }
+    ],
+    "examples": [
+        {
+            "name": "Simple Pick and Place Plan",
+            "description": "A simple plan that demonstrates how to use PyCRAM to pick up an object and place it on a table.",
+            "code": "from pycram.world.bullet_world import BulletWorld\nfrom pycram.world_concepts.world_object import Object\nfrom pycram.process_module import simulated_robot\nfrom pycram.designators.motion_designator import *\nfrom pycram.designators.location_designator import *\nfrom pycram.designators.action_designator import *\nfrom pycram.designators.object_designator import *\nfrom pycram.datastructures.enums import ObjectType, Arms, Grasp\n\nworld = BulletWorld()\nkitchen = Object(\"kitchen\", ObjectType.ENVIRONMENT, \"kitchen.urdf\")\nrobot = Object(\"pr2\", ObjectType.ROBOT, \"pr2.urdf\")\ncereal = Object(\"cereal\", ObjectType.BREAKFAST_CEREAL, \"breakfast_cereal.stl\", position=[1.4, 1, 0.95])\n\ncereal_desig = ObjectDesignatorDescription(names=[\"cereal\"])\nkitchen_desig = ObjectDesignatorDescription(names=[\"kitchen\"])\nrobot_desig = ObjectDesignatorDescription(names=[\"pr2\"])\n\nwith simulated_robot:\n    ParkArmsAction([Arms.BOTH]).resolve().perform()\n\n    MoveTorsoAction([0.3]).resolve().perform()\n\n    pickup_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot_desig).resolve()\n    pickup_arm = pickup_pose.reachable_arms[0]\n\n    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()\n\n    PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=[Grasp.FRONT]).resolve().perform()\n\n    ParkArmsAction([Arms.BOTH]).resolve().perform()\n\n    place_island = SemanticCostmapLocation(\"kitchen_island_surface\", kitchen_desig.resolve(), cereal_desig.resolve()).resolve()\n\n    place_stand = CostmapLocation(place_island.pose, reachable_for=robot_desig, reachable_arm=pickup_arm).resolve()\n\n    NavigateAction(target_locations=[place_stand.pose]).resolve().perform()\n\n    PlaceAction(cereal_desig, target_locations=[place_island.pose], arms=[pickup_arm]).resolve().perform()\n\n    ParkArmsAction([Arms.BOTH]).resolve().perform()\n\nworld.exit()"
+        }
+    ],
+    "bestPractices": []
+}

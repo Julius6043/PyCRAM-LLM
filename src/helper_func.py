@@ -6,12 +6,29 @@ import tiktoken
 
 
 llm = ChatOpenAI(model="gpt-4o-2024-08-06", temperature=0)
-llm_o = ChatOpenAI(model="chatgpt-4o-latest", temperature=0,)
+llm_o = ChatOpenAI(
+    model="chatgpt-4o-latest",
+    temperature=0,
+)
+llm_pycram = ChatOpenAI(
+    model="ft:gpt-4o-2024-08-06:personal:pycram-4o:A3LeNNIO",
+    temperature=0,
+)
 llm_mini = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
 llm_AO = ChatAnthropic(model="claude-3-opus-20240229", temperature=0)
 llm_AS = ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0)
 llm_GP = ChatGoogleGenerativeAI(model="gemini-1.5-pro-exp-0801", temperature=0)
+llm_json = ChatOpenAI(
+    model="gpt-4o",
+    temperature=0,
+    model_kwargs={"response_format": {"type": "json_object"}},
+)
+llm_mini_json = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0,
+    model_kwargs={"response_format": {"type": "json_object"}},
+)
 # llm_llama3 = ChatOllama(model="llama3")
 
 
@@ -42,6 +59,7 @@ def format_example(example):
     text = example[0].page_content
     code_example = text.split("The corresponding plan")[0]
     return code_example
+
 
 # Count the Tokens in a string
 def count_tokens(model_name, text):

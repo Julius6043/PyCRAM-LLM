@@ -15,7 +15,15 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain.output_parsers.openai_tools import PydanticToolsParser
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_community.chat_models import ChatOllama
-from helper_func import format_docs, format_code, format_examples, format_example, llm, llm_GP, llm_mini
+from helper_func import (
+    format_docs,
+    format_code,
+    format_examples,
+    format_example,
+    llm,
+    llm_GP,
+    llm_mini,
+)
 
 # from run_llm_local import run_llama3_remote
 import sys
@@ -41,7 +49,9 @@ class code(BaseModel):
 
     prefix: str = Field(description="Description of the problem and approach")
     imports: str = Field(description="Import statements of the code")
-    code: str = Field(description="Just the Code block without including import statements")
+    code: str = Field(
+        description="Just the Code block without including import statements"
+    )
     description = "Schema for code solutions for robot tasks."
 
 
@@ -123,7 +133,6 @@ def _get_current_task(state: ReWOO):
         return len(state["results"]) + 1
 
 
-
 # More complex template for tutorial writing, generating comprehensive documentation
 prompt_docs = """You are an experienced technical writer and coding educator, specializing in creating comprehensive guides for implementing specific tasks and workflows using the PyCram framework. 
 Your task is to thoroughly explain how to accomplish the given task within PyCram, based on the provided context. 
@@ -150,7 +159,7 @@ Extensions and Alternatives: Explore possible extensions or variations of the ta
 
 Important Notes:
 
-Use up to 4000 tokens for your explanation.
+Use 4000 tokens for your explanation.
 Ensure that all necessary code examples are complete and well-explained.
 Organize the information in a clear, logical order to facilitate implementation by another LLM agent.
 """
@@ -364,6 +373,6 @@ world_test = """
 ##result = chain_docs.invoke("PyCram Grundlagen")
 # result = chain_docs.invoke("PyCram Grundlagen")
 # result = re_chain_example_solve.invoke(task_test)
-#result = stream_rewoo(task_test, world_test)
+# result = stream_rewoo(task_test, world_test)
 # result = count_tokens("gpt-4", task_test)
-#print(result)
+# print(result)
