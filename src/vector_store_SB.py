@@ -152,7 +152,7 @@ def load_in_vector_store(source, vectore_store_id=1, metadata=None):
         try:
             with open(source, "r") as file:
                 content = file.read()
-            chunks_temp = content.split("##New ")
+            chunks_temp = content.split("##New ")[1:]
             chunks = []
             for chunk in chunks_temp:
                 chunks.append(Document(page_content=chunk, metadata=metadata))
@@ -280,7 +280,7 @@ def get_retriever(vector_store_id=1, num=5, filter={}):
 
 # delete_from_vectorstore(table="documents", num=-1)
 # load_in_vector_store("output_urdf_new.txt", 4)
-load_in_vector_store("output_code_new.txt", 1)
+# load_in_vector_store("../output_code_new.txt", 1)
 # print(result)
 # load_in_vector_store("Documentation_important.txt", 2)
 """ 

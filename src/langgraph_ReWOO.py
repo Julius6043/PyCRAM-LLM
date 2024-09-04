@@ -41,6 +41,7 @@ class ReWOO(TypedDict):
     steps: List
     results: dict
     result: any
+    result_plan: str
 
 
 ###PyDanticToolParser
@@ -311,7 +312,7 @@ def solve(state: ReWOO):
     result_chain = llm_with_tool
     # result_chain = llm_GP
     result = result_chain.invoke(prompt_solve)
-    return {"result": result}
+    return {"result": result, "result_plan": plan}
 
 
 # Function to route the graph based on the current state
@@ -358,11 +359,13 @@ def stream_rewoo(task, world):
     if "plan_string" in s and "result" in s:
         final_result = s["result"]
         plan = s["plan_string"]
+        filled_plan = s["result_plan"]
     else:
         final_result = s["solve"]["result"]
+        filled_plan = s["solve"]["result_plan"]
     result_print = final_result.imports + "\n" + final_result.code
     print(result_print)
-    return final_result, plan
+    return final_result, plan, filled_plan
 
 
 # Example task and world knowledge strings...

@@ -1,6 +1,9 @@
 from typing import Dict, TypedDict
 from langgraph.graph import END, StateGraph
 from operator import itemgetter
+
+from numpy.ma.core import filled
+
 from vector_store_SB import get_retriever, load_in_vector_store
 from langgraph_ReWOO import stream_rewoo
 from ReWOO_codeCheck import stream_rewoo_check
@@ -41,9 +44,14 @@ def generate(state: GraphState):
     world = state_dict["world"]
     iter = state_dict["iterations"]
     max_iter = state_dict["max_iter"]
-    plan = ""
+    if "filled_plan" in state_dict:
+        filled_plan = state_dict["filled_plan"]
+    else:
+        filled_plan = ""
     if "plan" in state_dict:
         plan = state_dict["plan"]
+    else:
+        plan = ""
 
     # Generation
     if "error" in state_dict:
@@ -58,7 +66,7 @@ def generate(state: GraphState):
     else:
 
         print("---GENERATE SOLUTION---")
-        code_solution, plan = stream_rewoo(question, world)
+        code_solution, plan, filled_plan = stream_rewoo(question, world)
         print("----CodePlan Versuch 1----")
         print(code_solution)
 
@@ -69,6 +77,7 @@ def generate(state: GraphState):
             "question": question,
             "world": world,
             "plan": plan,
+            "filled_plan": filled_plan,
             "iterations": iter,
             "max_iter" : max_iter
         }
@@ -94,6 +103,7 @@ def check_code_imports(state: GraphState):
     code_solution = state_dict["generation"]
     imports = code_solution.imports
     plan = state_dict["plan"]
+    filled_plan = state_dict["filled_plan"]
     iter = state_dict["iterations"]
     max_iter = state_dict["max_iter"]
     # Code Execution
@@ -118,6 +128,7 @@ def check_code_imports(state: GraphState):
             "world": world,
             "error": error,
             "plan": plan,
+            "filled_plan": filled_plan,
             "iterations": iter,
             "max_iter": max_iter,
         }
@@ -145,8 +156,23 @@ def check_code_execution(state: GraphState):
     code = code_solution.code
     code_block = imports + "\n" + code
     plan = state_dict["plan"]
+    filled_plan = state_dict["filled_plan"]
     iter = state_dict["iterations"]
     max_iter = state_dict["max_iter"]
+    full_result = (
+            "Task:"
+            + question
+            + "\nPyCramPlanCode:\n"
+            + "<code>\n"
+            + code_block
+            + "\n</code>\n"
+            + "World Knowledge:\n"
+            + "<world_knowledge>\n"
+            + world
+            + "\n</world_knowledge>\n"
+            + "\n This is the corresponding plan:\n"
+            + plan
+    )
 
     exec_result = execute_code_in_process(code_block)
     print(exec_result)
@@ -155,20 +181,7 @@ def check_code_execution(state: GraphState):
         # No errors occurred
         error = "None"
         # Load the result as a new example in the database
-        full_result = (
-                "Task:"
-                + question
-                + "\nPyCramPlanCode:\n"
-                + "<code>\n"
-                + code_block
-                + "\n</code>\n"
-                + "World Knowledge:\n"
-                + "<world_knowledge>\n"
-                + world
-                + "\n</world_knowledge>\n"
-                + "\n This is the corresponding plan:\n"
-                + plan
-        )
+
         load_in_vector_store([full_result], 3)
     else:
         print("---CODE BLOCK CHECK: FAILED---")
@@ -185,9 +198,12 @@ def check_code_execution(state: GraphState):
             "error": error,
             "imports": imports,
             "iterations": iter,
+            "plan": plan,
+            "filled_plan": filled_plan,
             "code": code,
             "world": world,
             "max_iter": max_iter,
+            "full_result": full_result,
         }
     }
 
@@ -293,7 +309,9 @@ def generate_plan(question, world, max_iterations=3):
     )
     result_code = result_dic["keys"]["generation"]
     result_plan = result_code.imports + "\n\n" + result_code.code
-    return result_plan
+    full_result = result_dic["keys"]["full_result"]
+    filled_plan = result_dic["keys"]["filled_plan"]
+    return result_plan, full_result, filled_plan
 
 
 task_test = """Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?"""

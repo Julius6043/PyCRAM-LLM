@@ -155,8 +155,13 @@ def chunk_api_category(api_category):
 
 # Code to Finetune data
 def code_to_jsonl_finetuning(code, jsonl_path, prompt):
-    first_words, split_parts = split_and_extract_words(code)
+    with open(code, "r", encoding="utf-8") as file:
+        content = file.read()
+    split_parts = content.split("##New ")[1:]
+    first_words = [part.split("\n")[0] if part.split() else "" for part in split_parts]
     parts = list(zip(first_words, split_parts))
+    print(parts)
+    print("\n----\n")
     finetune_prompt = ChatPromptTemplate.from_template(
         """Given the following context, generate a relevant user question that could be used to fine-tune a language model. The question should be directly related to the context provided and be realistic in terms of what a user might ask.
 
@@ -178,33 +183,96 @@ Example: {instruction}"""
         | llm_mini
         | StrOutputParser()
     )
-    list_for_jsonl = []
-    for part in parts:
-        result = finetune_chain.invoke({"context": part[0], "instruction": prompt})
-        finetuning_example = {
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a coding expert and know how to write PyCRAM Plan Code.",
-                },
-                {"role": "user", "content": result},
-                {
-                    "role": "assistant",
-                    "content": part[1],
-                },
-            ]
+
+    # Open the JSONL file for writing
+    with open(jsonl_path, 'w') as jsonl_file:
+        for part in parts:
+            # Generate the fine-tuning result for each code part
+            result = finetune_chain.invoke({"context": part[0], "instruction": prompt})
+            finetuning_example = {
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a coding expert and know how to write PyCRAM Plan Code.",
+                    },
+                    {"role": "user", "content": result},
+                    {
+                        "role": "assistant",
+                        "content": part[1],
+                    },
+                ]
+            }
+
+            # Write the example directly to the JSONL file as a new line
+            json_line = json.dumps(finetuning_example, ensure_ascii=False)
+            jsonl_file.write(json_line + '\n')
+
+# Code to Finetune data
+def docu_to_jsonl_finetuning(docu, jsonl_path, prompt):
+    first_words, split_parts = split_and_extract_words(docu)
+    parts = list(zip(first_words, split_parts))
+    print(parts)
+    print("\n----\n")
+    finetune_prompt = ChatPromptTemplate.from_template(
+        """Given the following context, generate a relevant user question that could be used to fine-tune a language model. The question should be directly related to the context provided and be realistic in terms of what a user might ask.
+
+**Context:**
+{context}
+
+**Request:**
+Please write a user question that aligns with the context above. The output should be a single question.
+Example: {instruction}"""
+    )
+
+    # More complex template for tutorial writing, generating comprehensive documentation
+    finetune_chain = (
+        {
+            "context": itemgetter("context"),
+            "instruction": itemgetter("instruction"),
         }
-        list_for_jsonl.append(finetuning_example)
-    # Save the list of fine-tuning examples to a JSONL file
-    with open(jsonl_path, "w") as jsonl_file:
-        for example in list_for_jsonl:
-            jsonl_file.write(json.dumps(example) + "\n")
+        | finetune_prompt
+        | llm_mini
+        | StrOutputParser()
+    )
 
+    # Open the JSONL file for writing
+    with open(jsonl_path, 'w') as jsonl_file:
+        for part in parts:
+            # Generate the fine-tuning result for each code part
+            context = part[0]
+            if context.startswith("pycram."):
+                context = "API Seite der PyCRAM Dokumentation:\n" + context
+            else:
+                context = "Tutorial Seite der PyCRAM Dokumentation:\n" + context
+            result = finetune_chain.invoke({"context": {context}, "instruction": prompt})
+            finetuning_example = {
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a coding expert and know how to write PyCRAM Plan Code.",
+                    },
+                    {"role": "user", "content": result},
+                    {
+                        "role": "assistant",
+                        "content": part[1],
+                    },
+                ]
+            }
 
-code_to_jsonl_finetuning(
+            # Write the example directly to the JSONL file as a new line
+            json_line = json.dumps(finetuning_example, ensure_ascii=False)
+            jsonl_file.write(json_line + '\n')
+
+"""code_to_jsonl_finetuning(
     "output_code_new.txt",
     "finetune_code_new.jsonl",
     "What is written in the cache_manager.py file in the PyCRAM Framework code?",
+)"""
+
+docu_to_jsonl_finetuning(
+    "Documentation_important.txt",
+    "finetune_docu.jsonl",
+    "What is written in the Designator Tutorial Site in the PyCRAM Documentation?",
 )
 # scrape_python_files_to_text("d:/Git/Repository/pycram/src/pycram", "output_code_new.txt")
 # scrape_udrf_files_to_text("d:/Git/Repository/pycram/resources", "output_urdf_new.txt")
