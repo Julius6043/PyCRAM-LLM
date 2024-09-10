@@ -27,14 +27,42 @@ def scrape_python_files_to_text(directory, output_file):
                 if f.endswith(".py") and not f.endswith("__init__.py")
             ]:
                 filepath = os.path.join(dirpath, filename)
+                filepath_cut ="src/" + filepath.split("pycram/src/")[-1]
                 try:
                     with open(filepath, "r") as file:
                         content = file.read()
-                        outfile.write(f"##New # Content from: #<{filename}>#\n")
+                        outfile.write(f"##New # Content from: #<{filepath_cut}>#\n")
                         outfile.write(content + "\n\n")
                 except IOError as e:
                     print(f"Error reading file {filepath}: {e}")
 
+def scrape_docu_files_to_text(directory, output_file):
+    """
+    Recursively scrapes all Python files in a specified directory and its subdirectories,
+    then writes their contents into a single text file.
+
+    Args:
+    directory (str): The root directory from which to start scraping Python files.
+    output_file (str): The path to the text file where the content of all Python files will be written.
+    """
+    with open(output_file, "w") as outfile:
+        # Walk through the directory
+        for dirpath, dirnames, filenames in os.walk(directory):
+            # Filter and process each Python file
+            for filename in [
+                f
+                for f in filenames
+                if f.endswith(".md") and not f.endswith("README.md")
+            ]:
+                filepath = os.path.join(dirpath, filename)
+                filename_cut = filename.split(".md")[0]
+                try:
+                    with open(filepath, "r") as file:
+                        content = file.read()
+                        outfile.write(f"##New # Content from: #<{filename_cut}>#\n")
+                        outfile.write(content.split("---")[-1] + "\n\n")
+                except IOError as e:
+                    print(f"Error reading file {filepath}: {e}")
 
 def scrape_udrf_files_to_text(directory, output_file):
     """
@@ -58,99 +86,6 @@ def scrape_udrf_files_to_text(directory, output_file):
                         outfile.write(content + "\n\n")
                 except IOError as e:
                     print(f"Error reading file {filepath}: {e}")
-
-
-### Json in Vektorstore
-def chunk_json_for_llm(json_path):
-    """
-    This function takes a JSON file describing a framework and chunks it into smaller, meaningful pieces for LLM consumption,
-    specifically tailored to the structure of the provided JSON, without using a chunk size limit.
-
-    Args:
-        json_path (str): Path to the JSON file.
-
-    Returns:
-        list: A list of strings, each representing a meaningful chunk of the JSON data.
-    """
-
-    with open(json_path, "r") as f:
-        framework_data = json.load(f)
-
-    chunks = []
-
-    # Chunk frameworkName, version, and description
-    initial_chunk = f"Framework: {framework_data['frameworkName']}\nVersion: {framework_data['version']}\nDescription: {framework_data['description']}"
-    chunks.append(initial_chunk)
-
-    # Chunk keyConcepts
-    chunks.extend(chunk_list_section(framework_data["keyConcepts"], "Key Concepts"))
-
-    # Chunk components
-    chunks.extend(chunk_list_section(framework_data["components"], "Components"))
-
-    # Chunk api
-    for api_category in framework_data["api"]:
-        chunks.append(chunk_api_category(api_category))
-
-    # Chunk examples
-    chunks.extend(chunk_list_section(framework_data["examples"], "Examples"))
-
-    # Chunk bestPractices
-    chunks.extend(chunk_list_section(framework_data["bestPractices"], "Best Practices"))
-
-    return chunks
-
-
-def chunk_list_section(data_list, section_name):
-    """
-    Chunks a list section (like keyConcepts, components, examples, bestPractices) into individual items.
-
-    Args:
-        data_list (list): The list of data to be chunked.
-        section_name (str): The name of the section.
-
-    Returns:
-        list: A list of strings, each representing an item from the data_list.
-    """
-
-    chunks = []
-    for item in data_list:
-        item_str = f"## {section_name}: {item['name']}\n{item['description']}\n"
-        if "props" in item:
-            item_str += f"Properties: {', '.join(item['props'])}\n"
-        if "example" in item:
-            item_str += f"Example: {item['example']}\n"
-        chunks.append(item_str)
-
-    return chunks
-
-
-def chunk_api_category(api_category):
-    """
-    Creates a single chunk for an API category, including all its methods.
-
-    Args:
-        api_category (dict): The API category dictionary.
-
-    Returns:
-        str: A string representing the entire API category.
-    """
-
-    chunk = f"## API: {api_category['category']}\n"
-    for method in api_category["methods"]:
-        chunk += f"- {method['name']}: {method['description']}\n"
-        if "parameters" in method:
-            chunk += "  - Parameters:\n"
-            for param in method["parameters"]:
-                chunk += (
-                    f"    - {param['name']} ({param['type']}): {param['description']}\n"
-                )
-        if "returns" in method:
-            chunk += f"  - Returns: {method['returns']}\n"
-        if "returnDescription" in method:
-            chunk += f"    - {method['returnDescription']}\n"
-
-    return chunk
 
 
 # Code to Finetune data
@@ -268,14 +203,15 @@ Example: {instruction}"""
     "finetune_code_new.jsonl",
     "What is written in the cache_manager.py file in the PyCRAM Framework code?",
 )"""
-
+"""
 docu_to_jsonl_finetuning(
     "Documentation_important.txt",
     "finetune_docu.jsonl",
     "What is written in the Designator Tutorial Site in the PyCRAM Documentation?",
-)
-# scrape_python_files_to_text("d:/Git/Repository/pycram/src/pycram", "output_code_new.txt")
+)"""
+# scrape_python_files_to_text("/home/julius/ros/ros_ws/src/pycram/src/pycram", "output_code_new.txt")
 # scrape_udrf_files_to_text("d:/Git/Repository/pycram/resources", "output_urdf_new.txt")
+# scrape_docu_files_to_text("/home/julius/ros/ros_ws/src/pycram/examples", "output_doku.txt")
 """
 result = chunk_json_for_llm("doc_code.json")
 print(result)

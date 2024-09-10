@@ -1,0 +1,4141 @@
+##New # Content from: #<robot_description>#
+
+
+# Robot Description
+
+(robot_description_header)=
+The robot description contains semantic information about the robot which can not be extracted from the URDF in a
+general way. This inludes kinematic chains, end-effectors, cameras and their parameter, etc.
+
+In genral a Robot Description consists a number of different descriptions, these are:
+
+* RobotDescription
+* KinematicChainDescription
+* EndEffectorDescription
+* CameraDescription
+
+In this example we will create a robot description step-by-step and describe the different components on the way. The
+robot we will use as an example will be the PR2, the complete PR2 description can also be seen in
+{meth}`pycram.robot_descriptions.pr2_description`.
+
+## Robot Description Class
+
+We start by creating an instance of the {class}`~pycram.robot_description.RobotDescription` class, this will serve as a
+the main component to which all other descriptions will be added.
+
+To initialize a {class}`~pycram.robot_description.RobotDescription` we need a few parameter which are:
+
+* Name
+* base_link
+* torso_link
+* torso_joint
+* Path to a URDF file
+
+```python
+from pycram.robot_description import RobotDescription
+import rospkg
+
+rospack = rospkg.RosPack()
+filename = rospack.get_path('pycram') + '/resources/robots/' + "pr2" + '.urdf'
+
+pr2_description = RobotDescription("pr2", "base_link", "torso_lift_link", "torso_lift_joint", filename)
+```
+
+## Kinematic Chain Description
+
+The kinematic chain description describes a chain of links and joints of the robot which might be interesting when
+working with the robot. An example of such a chain would be the arm of the robot, when programming for the robot it is
+important to know which links and joints exactly make up the arm, however, these can not be extracted from the URDF
+automatically.
+
+The kinematic chain is based upon the URDF, meaning when initializing the description one only needs to specify the
+first and last link of the chain.
+
+We will now create the kinematic chain description for the right arm of the PR2. For initializing
+the {class}`~pycram.robot_description.KinematicChainDescription` the following parameter are needed:
+
+* Name
+* first link
+* last link
+* URDF object
+* Arm type
+
+The arm type specifies which arm this kinematic chain describes, this is needed when one wants to access only the arms
+of the robot.
+
+```python
+from pycram.robot_description import KinematicChainDescription
+from pycram.datastructures.enums import Arms
+
+right_arm = KinematicChainDescription("right", "torso_lift_link", "r_wrist_roll_link",
+                                      pr2_description.urdf_object, arm_type=Arms.RIGHT)
+```
+
+The created {class}`~pycram.robot_description.KinematicChainDescription` can now be added to the robot description.
+
+```python
+pr2_description.add_kinematic_chain_description(right_arm)
+```
+
+## End Effector Description
+
+Since kinematic chains only describe a moveable chain of links and joints like arms these do not represent end-effectors
+which can be used to do manipulation tasks.
+
+To represent end-effectors we will create an {class}`~pycram.robot_description.EndEffectorDescription` which contains the information of the respective
+end-effector. When creating an {class}`~pycram.robot_description.EndEffectorDescription` we need the following parameter:
+
+* Name
+* first link
+* tool_frame
+* URDF object
+
+You might have noticed that the end-efftor only has a first link but no last link, this is the case since end-effectors
+are at the end of the arms. Therefore, all links and joints below a certain link can be seen as part of the
+end-effector.
+
+```python
+from pycram.robot_description import EndEffectorDescription
+
+right_gripper = EndEffectorDescription("right_gripper", "r_gripper_palm_link", "r_gripper_tool_frame",
+                                       pr2_description.urdf_object)
+```
+
+The gripper can no be added to the previously created {class}`~pycram.robot_description.KinematicChainDescription`.
+
+```python
+right_arm.end_effector = right_gripper
+```
+
+## Camera Description
+
+The camera description contains all parameters of a camera, which is mounted on the robot. The parameter for
+the {class}`~pycram.robot_description.CameraDescription` are:
+
+* Name
+* Link name
+* minimal height
+* maximal height
+* horizontal angle
+* vertical angle
+
+```python
+from pycram.robot_description import CameraDescription
+from pycram.datastructures.enums import Grasp
+
+camera = CameraDescription("kinect_camera", "wide_stereo_optical_frame", 1.27,
+                           1.60, 0.99483, 0.75049)
+```
+
+The finished camera description can now be added to the robot description.
+
+```python
+pr2_description.add_camera_description(camera)
+```
+
+## Grasps
+
+Grasps define how a robot interacts with objects. The grasps defined in the robot description define for each grasp (
+right, left, top, front) the orientation of the end-effector, relative to the base_frame of the robot, to achieve the
+respective grasp.
+
+```python
+pr2_description.add_grasp_orientations({Grasp.FRONT: [0, 0, 0, 1],
+                                        Grasp.LEFT: [0, 0, -1, 1],
+                                        Grasp.RIGHT: [0, 0, 1, 1],
+                                        Grasp.TOP: [0, 1, 0, 1]})
+```
+
+## Register Robot Description
+
+Lastly, you need to register the robot description to the {class}`~pycram.robot_description.RobotDescriptionManager`. As you can see the code to
+register the robot description has to be executed at the start of PyCRAM, if you put your file with the robot
+description in the {class}`pycram.robot_descriptions` directory it will be executed upon the start of PyCRAM.
+
+```python
+from pycram.robot_description import RobotDescriptionManager
+
+rdm = RobotDescriptionManager()
+rdm.register_description(pr2_description)
+```
+
+
+##New # Content from: #<migrate_neems>#
+
+
+# Migrate NEEMs
+
+In this tutorial we will go through the process of migrating locally stored PyCRORM NEEMs to an already existing 
+PyCRORM NEEM-Hub.
+
+In some cases it my occur that you want to record data from a pycram controlled robot locally and perform some local 
+actions before migrating your data to a big database server. In such cases, you can easily make a local database and
+connect your pycram process to it. 
+
+After you recorded your data locally you can migrate the data using the `migrate_neems` function.
+
+First, lets create an in memory database engine called `source_engine` where we record our current process.
+
+```python
+import sqlalchemy.orm
+import pycram
+
+source_engine: sqlalchemy.engine.Engine
+source_engine = sqlalchemy.create_engine("sqlite+pysqlite:///:memory:", echo=False)
+source_session_maker = sqlalchemy.orm.sessionmaker(bind=source_engine)
+pycram.orm.base.Base.metadata.create_all(source_engine) #create all Tables
+```
+
+Next, create an engine called `destination_engine` for the destination database where you want to migrate your NEEMs to.
+`Note:` This is just an example configuration.
+
+```python
+destination_engine: sqlalchemy.engine.Engine
+destination_engine = sqlalchemy.create_engine("postgresql+psycopg2://alice:alice123@localhost:5433/pycram", echo=False) # example values
+destination_session_maker = sqlalchemy.orm.sessionmaker(bind=destination_engine)
+```
+
+If you already have some data in your local database you can skip the next block, otherwise we will quickly create 
+some example data
+
+```python
+from pycram.datastructures.enums import Arms, ObjectType
+from pycram.designators.action_designator import *
+from pycram.designators.location_designator import *
+from pycram.process_module import simulated_robot
+from pycram.tasktree import with_tree
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.designators.object_designator import *
+
+
+class ExamplePlans:
+    def __init__(self):
+        self.world = BulletWorld("DIRECT")
+        self.pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+        self.kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+        self.milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+        self.cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.3, 0.7, 0.95]))
+        self.milk_desig = ObjectDesignatorDescription(names=["milk"])
+        self.cereal_desig = ObjectDesignatorDescription(names=["cereal"])
+        self.robot_desig = ObjectDesignatorDescription(names=["pr2"]).resolve()
+        self.kitchen_desig = ObjectDesignatorDescription(names=["kitchen"])
+
+    @with_tree
+    def pick_and_place_plan(self):
+        with simulated_robot:
+            ParkArmsAction([Arms.BOTH]).resolve().perform()
+            MoveTorsoAction([0.3]).resolve().perform()
+            pickup_pose = CostmapLocation(target=self.cereal_desig.resolve(), reachable_for=self.robot_desig).resolve()
+            pickup_arm = pickup_pose.reachable_arms[0]
+            NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+            PickUpAction(object_designator_description=self.cereal_desig, arms=[pickup_arm],
+                         grasps=["front"]).resolve().perform()
+            ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+            place_island = SemanticCostmapLocation("kitchen_island_surface", self.kitchen_desig.resolve(),
+                                                   self.cereal_desig.resolve()).resolve()
+
+            place_stand = CostmapLocation(place_island.pose, reachable_for=self.robot_desig,
+                                          reachable_arm=pickup_arm).resolve()
+
+            NavigateAction(target_locations=[place_stand.pose]).resolve().perform()
+
+            PlaceAction(self.cereal_desig, target_locations=[place_island.pose], arms=[pickup_arm]).resolve().perform()
+
+            ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+```
+
+```python
+import pycram.orm.utils           
+import pycram.tasktree
+            
+with source_session_maker() as session:
+    example_plans = ExamplePlans()
+    for i in range(3):
+        try:
+            print("ExamplePlans run {}".format(i))
+            example_plans.pick_and_place_plan()
+            example_plans.world.reset_bullet_world()
+            process_meta_data = pycram.orm.base.ProcessMetaData()
+            process_meta_data.description = "Example Plan {}".format(i)
+            process_meta_data.insert(session)
+            pycram.tasktree.task_tree.root.insert(session)
+            process_meta_data.reset()
+        except Exception as e:
+            print("Error: {}\n{}".format(type(e).__name__, e))
+    session.commit()
+    example_plans.world.exit()
+```
+
+Now that we have some example data or already had some example data all we need to do it migrate it over to
+the already existing PyCRORM NEEM-Hub.
+
+```python
+pycram.orm.utils.migrate_neems(source_session_maker,destination_session_maker)
+```
+
+If the command ran successful the content of the source database should now be copied within the destination database. For example if we query for all the different meta_data, the previously defined instance come up.
+
+```python
+with destination_session_maker() as session:
+    statement = sqlalchemy.select('*').select_from(pycram.orm.base.ProcessMetaData)
+    result = session.execute(statement).all()
+    for item in result:
+        print(item)
+```
+
+Looking at all the output, we can clearly see that the PyCRORM NEEM-Hub now contains our Example Plans 0 - 2. 
+
+
+##New # Content from: #<pose>#
+
+
+# Pose
+
+Poses in PyCRAM are represented by the Pose class which inherits from the PoseStamped message of ROS. This makes PyCRAMs
+poses compatible with everything in ROS like services, topics or TF.
+
+This notebook will provide an overview about poses, how to use them and what they can do. We will start by simply
+creating a pose.
+
+Before we start a few words about naming convention of Poses in PyCRAM. Naming convention is similar to the PoseStamped
+message so if you are familiar with that this should be easy.
+
+* **Position:** A position means the position in cartesian space, so the x, y, and z coordinates.
+* **Orientation:** An orientation is the rotation in all three axes represented as a quaternion with x, y, z, w.
+* **Pose:** A pose is the combination of a position and an orientation. Poses in PyCRAM also contain a frame of
+  reference to which the position and orientation are relative.
+
+```python
+from pycram.datastructures.pose import Pose
+
+example_pose = Pose([1, 2, 3], [0, 0, 0, 1], "map")
+print(example_pose)
+```
+
+As you can see we created the ```example_pose``` with a position of ```[1, 2, 3]``` and an orientation
+of ```[0, 0, 0, 1]``` in the frame ```map```. But we don't need to provide all these parameters for a Pose, in case
+there is no parameter the Pose will use default parameter.
+
+```python
+from pycram.datastructures.pose import Pose
+
+default_pose = Pose()
+print(default_pose)
+```
+
+In case no parameter is provided the defualt parameter are:
+
+* position: ```[0, 0, 0]```
+* orientation: ```[o, 0, 0, 1]```
+* frame: ```map```
+
+The following example will show how to access the data stored in a pose.
+
+```python
+from pycram.datastructures.pose import Pose
+
+example_pose = Pose([1, 2, 3], [0, 0, 0, 1], "map")
+
+print(f"Access to a component of the position: {example_pose.position.y}")
+
+print(f"Access to a component of the rotation: {example_pose.orientation.x}")
+
+print(f"Get the whole position as geometry_msgs/Pose:\n{example_pose.position}")
+
+print(f"You can also get position or orientation as a list: {example_pose.position_as_list()}")
+
+print(f"Same with the whole pose: {example_pose.to_list()}")
+
+print(f"Access the reference frame: {example_pose.frame}")
+```
+
+## Editing a pose
+
+You can also edit the data saved in a Pose, similar to how you access it.
+
+```python
+from pycram.datastructures.pose import Pose
+
+example_pose = Pose([1, 2, 3], [0, 0, 0, 1], "map")
+
+# Edit a single component of the position 
+example_pose.position.x = 3
+print(f"Edit only one component:\n{example_pose.position}", "\n")
+
+# Edit the whole position
+example_pose.position = [0, 0, 1]
+print(f"Edit the whole position:\n{example_pose.position}", "\n")
+
+example_pose.frame = "new_frame"
+print(f"Set a new frame:\n{example_pose.frame}", "\n")
+
+example_pose.set_position([3, 2, 1])
+print(f"Set the position via method:\n{example_pose.position}", "\n")
+```
+
+## Copy Poses
+
+You can also copy Poses to create a new Pose with the same data. This can be useful if you have a method which would
+need to alter the Pose, since poses are passed by reference to a method every change done to the Pose in the method
+would affect the instanced passed to the method.
+
+```python
+from pycram.datastructures.pose import Pose
+
+example_pose = Pose([1, 2, 3], [0, 0, 0, 1], "map")
+
+copy_pose = example_pose.copy()
+
+print(example_pose, "\n")
+print(copy_pose)
+```
+
+## Convert to Transform
+
+PyCRAM also has its own transform at which we will take a look in the next section. However, here we will take a look at
+how to convert a Pose into a Transform.
+
+For this example we will take a Pose which represents the current pose of a milk object and convert it into a Transform
+which represents the transformation from the ```map``` frame to the ```milk``` frame.
+
+```python
+from pycram.datastructures.pose import Pose
+
+milk_pose = Pose([3, 4, 1], [1, 0, 0, 1], "map")
+
+milk_transform = milk_pose.to_transform("milk")
+
+print(milk_transform)
+```
+
+# Transforms
+
+Transforms are similar to Poses but instead of representing a Pose in a frame of reference they represent a
+transformation from one frame of reference to another. For this purpose Transforms have an additional parameter
+called ```child_frame_id``` which is the frame of reference to which the Transform is pointing.
+
+Transforms in PyCRAM inherit from the TransformStamped message of ROS which makes them, like Poses, compatible to ROS
+services and topics that expect a TransformStamped message. Therefore, the naming conventions of Transforms are the same
+as of TransformStamped which.
+
+* **Translation:** The vector describing the transformation in cartesian space.
+* **Rotation:** The quaternion describing the transformation of rotation.
+* **Transform:** The combination of translation and rotation
+
+```python
+from pycram.datastructures.pose import Transform
+
+example_transform = Transform([1, 2, 2], [0, 0, 0, 1], "map", "object")
+
+print(example_transform)
+```
+
+Transforms have the same methods to get and set values as Poses have, therefore only a short showcase will be given. For
+more details please look at the Pose example or the API documentation.
+
+```python
+from pycram.datastructures.pose import Transform
+
+example_transform = Transform([2, 5, 1], [0, 0, 1, 1], "map", "object")
+
+print(f"Access the rotation:\n{example_transform.rotation}", "\n")
+
+print(f"Access the child_frane: {example_transform.child_frame_id}", "\n")
+
+# changing translation and rotation is exactly like with Poses.
+
+example_transform.translation = [1, 1, 1]
+print(f"New translation:\n{example_transform.translation}")
+```
+
+## Convert to Pose and Copy
+
+Analog to Poses Transforms have a method that converts a Transform to a Pose, in this process the ```child_frame_id```
+will be lost.
+
+Also like in Poses Transforms have a ```copy``` method which creates an exact copy of this Transform.
+
+```python
+from pycram.datastructures.pose import Transform
+
+milk_transform = Transform([1, 1, 1], [0, 0, 0, 1], "map", "milk")
+
+milk_pose = milk_transform.to_pose()
+
+print(f"The converted pose:\n{milk_pose}", "\n")
+
+example_transform = Transform([1, 1, 1], [0, 0, 0, 1], "map", "milk")
+
+copy_transform = example_transform.copy()
+
+print(f"The copied transform:\n{copy_transform}")
+```
+
+## Operations on Transforms
+
+Transforms have, unlike Poses, operations that can be done. These operations are:
+
+* Multiplication
+* Invert
+* InverseTimes
+
+### Multiplication
+
+We will first take a look at the multiplication of Transforms. We will use an example were we have two Transforms, the
+first from ```map``` to a ```hand``` frame and the second from the ```hand``` to a ```milk``` frame. By multiplying
+these two we get the Transform from ```map``` to ```milk``` frame.
+
+```python
+from pycram.datastructures.pose import Transform
+
+map_to_hand = Transform([1, 1, 1], [0, 0, 0, 1], "map", "hand")
+
+hand_to_milk = Transform([0.1, 0.05, 0], [0, 0, 0, 1], "hand", "milk")
+
+map_to_milk = map_to_hand * hand_to_milk
+
+print(map_to_milk)
+```
+
+### Invert
+
+This inverts a Transform, so in we have a transform from ```map``` to ```milk``` then inverting it results in a
+Transform from ```milk``` to ```map``` .
+
+```python
+from pycram.datastructures.pose import Transform
+
+map_to_milk = Transform([1, 1, 0.5], [0, 0, 0, 1], "map", "milk")
+
+milk_to_map = map_to_milk.invert()
+
+print(milk_to_map)
+```
+
+### Inverse Times
+
+Inverse times combines the inverting and multiplication of Transforms, this results in a 'minus' for Transforms. We will
+again use the example of a hand holding a milk, but this time we have the Transforms from ```map``` to ```milk```
+and ```hand``` to ```milk```.
+
+```python
+from pycram.datastructures.pose import Transform
+
+map_to_milk = Transform([1.1, 1.05, 1], [0, 0, 0, 1], "map", "milk")
+
+hand_to_milk = Transform([0.1, 0.05, 0], [0, 0, 0, 1], "hand", "milk")
+
+map_to_milk = map_to_milk.inverse_times(hand_to_milk)
+
+print(map_to_milk)
+```
+
+
+##New # Content from: #<location_designator>#
+
+
+# Location Designator
+
+This example will show you what location designators are, how to use them and what they are capable of.
+
+Location Designators are used to semantically describe locations in the world. You could, for example, create a location
+designator that describes every position where a robot can be placed without colliding with the environment. Location
+designator can describe locations for:
+
+* Visibility
+* Reachability
+* Occupancy
+* URDF Links (for example a table)
+
+To find locations that fit the given constrains, location designator create Costmaps. Costmaps are a 2D distribution
+that have a value greater than 0 for every position that fits the costmap criteria.
+
+Location designators work similar to other designators, meaning you have to create a location designator description
+which describes the location. This description can then be resolved to the actual 6D pose on runtime.
+
+## Occupancy
+
+We will start with a simple location designator that describes a location where the robot can be placed without
+colliding with the environment. To do this we need a BulletWorld since the costmaps are mostly created from the current
+state of the BulletWorld.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+from pycram.datastructures.pose import Pose
+
+world = BulletWorld()
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+```
+
+Next up we will create the location designator description, the {meth}`~pycram.designators.location_designator.CostmapLocation` that we will be using needs a
+target as a parameter. This target describes what the location designator is for, this could either be a pose or object
+that the robot should be able to see or reach.
+
+In this case we only want poses where the robot can be placed, this is the default behaviour of the location designator
+which we will be extending later.
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+
+target = kitchen.get_pose()
+
+location_description = CostmapLocation(target)
+
+pose = location_description.resolve()
+
+print(pose)
+```
+
+## Reachable
+
+Next we want to locations from where the robot can reach a specific point, like an object the robot should pick up. This
+can also be done with the {meth}`~pycram.designators.location_designator.CostmapLocation` description, but this time we need to provide an additional argument.
+The additional argument is the robo which should be able to reach the pose.
+
+Since a robot is needed we will use the PR2 and use a milk as a target point for the robot to reach. The torso of the
+PR2 will be set to 0.2 since otherwise the arms of the robot will be too low to reach on the countertop.
+
+```python
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+pr2.set_joint_state("torso_lift_joint", 0.2)
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+
+```
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+target = BelieveObject(names=["milk"]).resolve()
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+
+location_description = CostmapLocation(target=target, reachable_for=robot_desig)
+
+print(location_description.resolve())
+```
+
+As you can see we get a pose near the countertop where the robot can be placed without colliding with it. Furthermore,
+we get a list of arms with which the robot can reach the given object.
+
+## Visibile
+
+The {meth}`~pycram.designators.location_designator.CostmapLocation` can also find position from which the robot can see a given object or location. This is very
+similar to how reachable locations are described, meaning we provide a object designator or a pose and a robot
+designator but this time we use the ```visible_for``` parameter.
+
+For this example we need the milk as well as the PR2, so if you did not spawn them during the previous location
+designator you can spawn them with the following cell.
+
+```python
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+```
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+target = BelieveObject(names=["milk"]).resolve()
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+
+location_description = CostmapLocation(target=target, visible_for=robot_desig)
+
+print(location_description.resolve())
+```
+
+## Semantic
+
+Semantic location designator are used to create location descriptions for semantic entities, like a table. An example of
+this is: You have a robot that picked up an object and should place it on a table. Semantic location designator then
+allows to find poses that are on this table.
+
+Semantic location designator need an object from which the target entity is a part and the URDF link representing the
+entity. In this case we want a position on the kitchen island, so we have to provide the kitchen object designator since
+the island is a part of the kitchen and the link name of the island surface.
+
+For this example we need the kitchen as well as the milk. If you spawned them in one of the previous examples you don't
+need to execute the following cell.
+
+```python
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl")
+```
+
+```python
+from pycram.designators.location_designator import SemanticCostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+milk_desig = BelieveObject(names=["milk"]).resolve()
+
+location_description = SemanticCostmapLocation(urdf_link_name="kitchen_island_surface",
+                                               part_of=kitchen_desig,
+                                               for_object=milk_desig)
+
+print(location_description.resolve())
+```
+
+## Location Designator as Generator
+
+Location designator descriptions implement an iter method, so they can be used as generators which generate valid poses
+for the location described in the description. This can be useful if the first pose does not work for some reason.
+
+We will see this at the example of a location designator for visibility. For this example we need the milk, if you
+already have a milk spawned in you world you can ignore the following cell.
+
+```python
+milk = Object("milk", ObjectType.MILK, "milk.stl")
+```
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+target = BelieveObject(names=["milk"]).resolve()
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+
+location_description = CostmapLocation(target=target, visible_for=robot_desig)
+
+for pose in location_description:
+    print(pose.pose)
+```
+
+## Accessing Locations
+
+Accessing describes a location from which the robot can open a drawer. The drawer is specified by a ObjetcPart
+designator which describes the handle of the drawer.
+
+At the moment this location designator only works in the apartment environment, so please remove the kitchen if you
+spawned it in a previous example. Furthermore, we need a robot, so we also spawn the PR2 if it isn't spawned already.
+
+```python
+kitchen.remove()
+```
+
+```python
+apartment = Object("apartment", ObjectType.ENVIRONMENT, "apartment.urdf")
+```
+
+```python
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+pr2.set_joint_state("torso_lift_joint", 0.25)
+```
+
+```python
+from pycram.designators.object_designator import *
+from pycram.designators.location_designator import *
+
+apartment_desig = BelieveObject(names=["apartment"])
+handle_desig = ObjectPart(names=["handle_cab10_t"], part_of=apartment_desig.resolve())
+robot_desig = BelieveObject(names=["pr2"])
+
+access_location = AccessingLocation(handle_desig.resolve(), robot_desig.resolve()).resolve()
+print(access_location.pose)
+```
+
+## Giskard Location
+
+Some robots like the HSR or the Stretch2 need a full-body ik solver to utilize the whole body. For this case robots
+the {meth}`~pycram.designators.specialized_designators.location.giskard_location.GiskardLocation` can be used. This location designator uses giskard as an ik solver to find a pose for the
+robot to reach a target pose.
+
+**Note:** The GiskardLocation relies on Giskard, therefore Giskard needs to run in order for this Location Designator to
+work.
+
+```python
+from pycram.designators.specialized_designators.location.giskard_location import GiskardLocation
+
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+
+loc = GiskardLocation(target=Pose([1, 1, 1]), reachable_for=robot_desig).resolve()
+print(loc.pose)
+```
+
+If you are finished with this example you can close the world with the following cell:
+
+```python
+world.exit()
+```
+
+
+##New # Content from: #<local_transformer>#
+-")
+new_pose = l.transform_pose(transformed_pose, "map")
+print(new_pose)
+```
+
+In the above code, we first transformed a pose to the object frame of the milk object, and then we transformed it back
+to the map frame. This demonstrates how we can easily manipulate poses relative to objects in our environment.
+You can also transform poses relative to other poses. by using the transform_pose method. Further you can set a
+Transform.
+
+```python
+from pycram.datastructures.pose import Transform
+
+l.setTransform(Transform([1, 1, 1], [0, 0, 0, 1], "map", "test_frame"))
+p = Pose()
+
+transformed_pose = l.transform_pose(p, "test_frame")
+```
+
+## Transformation frames
+
+Links of an Object are represented by the Object frame_id + '/' + link name. Since link names need to be
+unique for an URDF this is no problem.
+
+These frames need to be used in whenever you are transforming something with the local transformer. To get the base
+frame of an Object, meaning the frame name without any link, there is the attribute tf_frame and for the frame of a link
+there is a method which returns the frame name of a link given the link name.
+
+```python
+print(milk.tf_frame)
+
+print(kitchen.get_link_tf_frame("kitchen_island_surface"))
+```
+
+You can use the cell below to exit the simulation.
+
+```python
+world.exit()
+```
+
+
+##New # Content from: #<ontology>#
+
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+# Ontology interface
+
+This tutorial demonstrates basic usages of __owlready2__ API for ontology manipulation. Notably, new ontology concept
+triple classes (subject, predicate, object) will be dynamically created, with optional existing ontology parent classes
+that are loaded from an OWL ontology. Then through the interconnected relations specified in triples, designators and
+their corresponding ontology concepts can be double-way queried for input information in certain tasks, eg. making a
+robot motion plan.
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+from pathlib import Path
+from typing import Type
+from pycram.designator import ObjectDesignatorDescription
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+# Owlready2
+
+[Owlready2](https://owlready2.readthedocs.io/en/latest/intro.html) is a Python package providing a transparent access to
+OWL ontologies. It supports various manipulation operations, including but not limited to loading, modification, saving
+ontologies. Built-in supported reasoners include [HermiT](http://www.hermit-reasoner.com)
+and [Pellet](https://github.com/stardog-union/pellet).
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+import logging
+
+try:
+    from owlready2 import *
+except ImportError:
+    owlready2 = None
+    logging.error("Could not import owlready2, Ontology Manager could not be initialized!")
+
+logging.getLogger().setLevel(logging.INFO)
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+# Ontology Manager
+
+{class}`~pycram.ontology.ontology.OntologyManager` is the singleton class acting as the main interface between PyCram with ontologies, whereby object
+instances in the former could query relevant information based on the semantic connection with their corresponding
+ontology concepts.
+
+Such connection, as represented by triples (subject-predicate-object), could be also created on the fly if not
+pre-existing in the loaded ontology.
+
+Also new and updated concepts with their properties defined in runtime could be stored into
+an [SQLite3 file database](https://owlready2.readthedocs.io/en/latest/world.html) for reuse.
+
+Here we will use [SOMA ontology](https://ease-crc.github.io/soma) as the baseline to utilize the generalized concepts
+provided by it.
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+from pycram.ontology.ontology import OntologyManager, SOMA_HOME_ONTOLOGY_IRI
+from pycram.ontology.ontology_common import OntologyConceptHolderStore, OntologyConceptHolder
+
+ontology_manager = OntologyManager(SOMA_HOME_ONTOLOGY_IRI)
+main_ontology = ontology_manager.main_ontology
+soma = ontology_manager.soma
+dul = ontology_manager.dul
+```
+
+[General class axioms](https://owlready2.readthedocs.io/en/latest/general_class_axioms.html) of the loaded ontologies
+can be queried by
+
+```python
+print(f"{main_ontology.name}: ", ontology_manager.get_ontology_general_class_axioms(main_ontology))
+print(f"{soma.name}: ", ontology_manager.get_ontology_general_class_axioms(soma))
+print(f"{dul.name}: ", ontology_manager.get_ontology_general_class_axioms(dul))
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+## Ontology Concept Holder
+
+__OntologyConceptHolder__ class, encapsulating an __owlready2.Thing__ instance, is used primarily as the binding
+connection between the `owlready2.Thing` ontology concept to PyCram designators. We make it that way, instead of
+creating a custom concept class that inherits from `owlready2.Thing` for the reasons below:
+
+- `owlready2` API does not have very robust support for client classes to inherit from theirs with added (non-semantic)
+  attributes, particularly in our case, where classes like {class}`~pycram.designator.DesignatorDescription` have their `metaclass` as `ABCMeta`,
+  while it is `EntityClass` that is the metaclass used for basically all concepts (classes, properties) in `owlready2`.
+  Since those two metaclasses just bear no relationship, for the inheritance to work, the only way is to create a child
+  metaclass with both of those as parents, however without full support by `owlready2`, plus the second reason below
+  will point out it's not worth the effort.
+
+
+- Essentially, we will have new ontology concept classes created dynamically, if their types inherit
+  from `owlready2.Thing`, all custom non-semantic (of types known only by PyCram) attributes, which are defined by their
+  own in child classes, will apparently be not savable into the ontology by `owlready2` api. Then the next time the
+  ontology is loaded, those same dynamic classes will not be created anymore, thus without those attributes either,
+  causing running error.
+
+As such, in short, an ontology concept class, either newly created on the fly or loaded from ontologies, has to
+be `owlready2.Thing` or its pure derived class (without non-semantic attributes), so to make itself reusable upon
+reloading.
+
+Notable attributes:
+
+- `ontology_concept`: An ontology concept of `owlready2.Thing` type or its pure child class (without custom non-semantic
+  attributes), either dynamically created, or loaded from an ontology
+
+- `designators`: a list of `DesignatorDescription` instances associated with `ontology_concept`
+
+- `resolve`: a `Callable` typically returning a list of `DesignatorDescription` as specific designators,
+  like `designators` or its subset, inferred from the ontology concept. In fact, it can be resolved to anything else
+  relevant, up to the caller.
+
+<!-- #endregion -->
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+## Query ontology classes and their properties
+
+Classes in the loaded ontology can be queried based on their exact names, or part of them, or by namespace.
+Here, we can see essential info (ancestors, super/sub-classes, properties, direct instances, etc.) of the found ontology
+class.
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+ontology_designed_container_class = ontology_manager.get_ontology_class('DesignedContainer')
+ontology_manager.print_ontology_class(ontology_designed_container_class)
+classes = ontology_manager.get_ontology_classes_by_subname('PhysicalObject');
+print(classes[0])
+classes = ontology_manager.get_ontology_classes_by_namespace('SOMA');
+print(classes[:2])
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+__Descendants__ of an ontology class can be also queried by
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+ontology_manager.get_ontology_descendant_classes(ontology_designed_container_class)[:5]
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+## Create a new ontology concept class and its individual
+
+A new ontology class can be created dynamically as inheriting from an existing class in the loaded ontology.
+Here we create the class and its instance, also known as [__individual
+__](https://owlready2.readthedocs.io/en/latest/class.html#creating-equivalent-classes) in ontology terms, which is then
+wrapped inside an {class}`~pycram.ontology.ontology_common.OntologyConceptHolder`.
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+ontology_custom_container_class = ontology_manager.create_ontology_concept_class('CustomContainerConcept',
+                                                                                 ontology_designed_container_class)
+custom_container_concept_holder = OntologyConceptHolder(
+    ontology_custom_container_class(name='ontology_custom_container_concept',
+                                    namespace=main_ontology))
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+## Access ontology concept classes and individuals
+
+All ontology classes created on the fly purely inherit (without added non-semantic attributes) from `owlready2.Thing`,
+and so share the same namespace with the loaded ontology instance, `main_ontology`. They can then be accessible through
+that namespace by __main_ontology.<class_name>__.
+The same applies for individuals of those classes, accessible by __main_ontology.<class_individual_name>__
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+ontology_manager.print_ontology_class(main_ontology.CustomContainerConcept)
+print(
+    f"custom_container_concept is {main_ontology.ontology_custom_container_concept}: {custom_container_concept_holder.ontology_concept is main_ontology.ontology_custom_container_concept}")
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+For ones already existing in the ontology, they can only be accessed through their corresponding ontology, eg: `soma` as
+follows
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+ontology_manager.print_ontology_class(soma.Cup)
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+## Connect ontology class individuals with designators
+
+After creating `custom_container_concept_holder` (wrapping `custom_container_concept` as an `owlready2.Thing`), we
+connect it to a designator (say `obj_designator`) by:
+
+- Appending to `obj_designator.ontology_concept_holders` with `custom_container_concept_holder`
+
+- Appending to `custom_container_concept_holder.designators` with `obj_designator`
+
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+custom_container_designator = ObjectDesignatorDescription(names=["obj"])
+custom_container_designator.ontology_concept_holders.append(custom_container_concept_holder)
+custom_container_concept_holder.designators.append(custom_container_designator)
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+We can also automatize all the above setup with a single function call
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+another_custom_container_designator = ontology_manager.create_ontology_linked_designator(
+    object_name="another_custom_container",
+    designator_class=ObjectDesignatorDescription,
+    ontology_concept_name="AnotherCustomContainerConcept",
+    ontology_parent_class=ontology_designed_container_class)
+another_custom_container_concept = another_custom_container_designator.ontology_concept_holders[0].ontology_concept
+print(f"Ontology concept: {another_custom_container_concept.name} of class {type(another_custom_container_concept)}")
+another_custom_container_designator = OntologyConceptHolderStore().get_ontology_concept_holder_by_name(
+    main_ontology.AnotherCustomContainerConcept.instances()[0].name).get_default_designator()
+print(f"Designator: {another_custom_container_designator.names[0]} of type {type(another_custom_container_designator)}")
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+## Create new ontology triple classes
+
+Concept classes of a triple, aka [__subject, predicate, object__], can be created dynamically. Here we will make an
+example creating ones for [__handheld objects__] and [__placeholder objects__], with a pair of predicate and inverse
+predicate signifying their mutual relation.
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+PLACEABLE_ON_PREDICATE_NAME = "placeable_on"
+HOLD_OBJ_PREDICATE_NAME = "hold_obj"
+ontology_manager.create_ontology_triple_classes(ontology_subject_parent_class=soma.DesignedContainer,
+                                                subject_class_name="OntologyPlaceHolderObject",
+                                                ontology_object_parent_class=soma.Shape,
+                                                object_class_name="OntologyHandheldObject",
+                                                predicate_class_name=PLACEABLE_ON_PREDICATE_NAME,
+                                                inverse_predicate_class_name=HOLD_OBJ_PREDICATE_NAME,
+                                                ontology_property_parent_class=soma.affordsBearer,
+                                                ontology_inverse_property_parent_class=soma.isBearerAffordedBy)
+ontology_manager.print_ontology_property(main_ontology.placeable_on)
+ontology_manager.print_ontology_property(main_ontology.hold_obj)
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+There, we use `soma.DesignedContainer` & `soma.Shape`, existing concept in SOMA ontology, as the parent classes for the
+subject & object concepts respectively.
+There is also a note that those classes will have the same namespace with `main_ontology`, so later on to be accessible
+through it.
+
+Then now we define some instances of the newly created triple classes, and link them to object designators, again
+using `ontology_manager.create_ontology_linked_designator()`
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+def create_ontology_handheld_object_designator(object_name: str, ontology_parent_class: Type[owlready2.Thing]):
+    return ontology_manager.create_ontology_linked_designator(object_name=object_name,
+                                                              designator_class=ObjectDesignatorDescription,
+                                                              ontology_concept_name=f"Onto{object_name}",
+                                                              ontology_parent_class=ontology_parent_class)
+
+
+# Holdable Objects
+cookie_box = create_ontology_handheld_object_designator("cookie_box", main_ontology.OntologyHandheldObject)
+egg = create_ontology_handheld_object_designator("egg", main_ontology.OntologyHandheldObject)
+
+# Placeholder objects
+placeholders = [create_ontology_handheld_object_designator(object_name, main_ontology.OntologyPlaceHolderObject)
+                for object_name in ['table', 'stool', 'shelf']]
+
+egg_tray = create_ontology_handheld_object_designator("egg_tray", main_ontology.OntologyPlaceHolderObject)
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+### Create ontology relations
+
+Now we will create ontology relations or predicates between __placeholder objects__ and __handheld objects__
+with `ontology_manager.set_ontology_relation()`
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+for place_holder in placeholders:
+    ontology_manager.set_ontology_relation(subject_designator=cookie_box, object_designator=place_holder,
+                                           predicate_name=PLACEABLE_ON_PREDICATE_NAME)
+
+ontology_manager.set_ontology_relation(subject_designator=egg_tray, object_designator=egg,
+                                       predicate_name=HOLD_OBJ_PREDICATE_NAME)
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+## Query designators based on their ontology-concept relations
+
+Now we can make queries for designators from designators, based on the relation among their corresponding ontology
+concepts setup above
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+print(f"{cookie_box.names}'s placeholder candidates:",
+      f"""{[placeholder.names for placeholder in
+            ontology_manager.get_designators_by_subject_predicate(subject=cookie_box,
+                                                                  predicate_name=PLACEABLE_ON_PREDICATE_NAME)]}""")
+
+print(f"{egg.names}'s placeholder candidates:",
+      f"""{[placeholder.names for placeholder in
+            ontology_manager.get_designators_by_subject_predicate(subject=egg,
+                                                                  predicate_name=PLACEABLE_ON_PREDICATE_NAME)]}""")
+
+for place_holder in placeholders:
+    print(f"{place_holder.names} can hold:",
+          f"""{[placeholder.names for placeholder in
+                ontology_manager.get_designators_by_subject_predicate(subject=place_holder,
+                                                                      predicate_name=HOLD_OBJ_PREDICATE_NAME)]}""")
+
+print(f"{egg_tray.names} can hold:",
+      f"""{[placeholder.names for placeholder in
+            ontology_manager.get_designators_by_subject_predicate(subject=egg_tray,
+                                                                  predicate_name=HOLD_OBJ_PREDICATE_NAME)]}""")
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+# Practical examples
+
+## Example 1
+
+How about creating ontology concept classes encapsulating {class}`pycram.datastructures.enums.ObjectType`? We can do it by:
+<!-- #endregion -->
+
+```python jupyter={"outputs_hidden": false}
+from pycram.datastructures.enums import ObjectType
+
+# Create a generic ontology concept class for edible objects
+generic_edible_class = ontology_manager.create_ontology_concept_class('GenericEdible')
+
+# Create a list of object designators sharing the same concept class as [generic_edible_class]
+edible_obj_types = [ObjectType.MILK, ObjectType.BREAKFAST_CEREAL]
+for object_type in ObjectType:
+    if object_type in edible_obj_types:
+        # Create a designator for the edible object
+        ontology_manager.create_ontology_object_designator_from_type(object_type, generic_edible_class)
+
+print(f'{generic_edible_class.name} object types:')
+for edible_ontology_concept in generic_edible_class.direct_instances():
+    print(edible_ontology_concept,
+          [des.types for des in
+           OntologyConceptHolderStore().get_ontology_concept_holder_by_name(edible_ontology_concept.name).designators])
+
+```
+
+<!-- #region jupyter={"outputs_hidden": false} -->
+
+## Example 2
+
+We could also make use of relations between ontology concepts that designators are associated with, to enable more
+abstract inputs in robot motion plans.
+
+In a similar style to the scenario of __placeholder objects__ and __handheld objects__ above, but with a bit difference,
+we will ask the robot to query which content holders (eg. cup, pitcher, bowl) whereby a milk box could be pourable into.
+
+Basically, we will provide an ontology-based implementation for the query:
+
+`abstract_ontology_concept -> specific_objects_in_world?`
+
+To achieve it, we will create triple classes and configure a customized `resolve()` for the abstract concept, which
+returns its associated specific designators.
+These designators are then used to again resolve for the target objects of interest, which become the inputs to a robot
+motion plan.
+
+### Setup simulated environment
+
+<!-- #endregion -->
+
+```python
+from pycram.worlds.bullet_world import BulletWorld, Object
+from pycram.datastructures.pose import Pose
+
+from pycram.process_module import simulated_robot
+from pycram.designators.action_designator import *
+from pycram.designators.location_designator import *
+
+world = BulletWorld()
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+kitchen_designator = ObjectDesignatorDescription(names=["kitchen"])
+robot_designator = ObjectDesignatorDescription(names=["pr2"]).resolve()
+```
+
+### Create PourableObject-LiquidHolder triple ontology classes
+
+```python
+POURABLE_INTO_PREDICATE_NAME = "pourable_into"
+HOLD_LIQUID_PREDICATE_NAME = "hold_liquid"
+ontology_manager.create_ontology_triple_classes(ontology_subject_parent_class=soma.DesignedContainer,
+                                                subject_class_name="OntologyLiquidHolderObject",
+                                                ontology_object_parent_class=soma.Shape,
+                                                object_class_name="OntologyPourableObject",
+                                                predicate_class_name=POURABLE_INTO_PREDICATE_NAME,
+                                                inverse_predicate_class_name=HOLD_LIQUID_PREDICATE_NAME,
+                                                ontology_property_parent_class=soma.affordsBearer,
+                                                ontology_inverse_property_parent_class=soma.isBearerAffordedBy)
+```
+
+### Spawn a pourable object & liquid holders into the world and Create their designators
+
+```python
+# Holdable obj
+milk_box = Object("milk_box", ObjectType.MILK, "milk.stl")
+milk_box_designator = create_ontology_handheld_object_designator(milk_box.name, main_ontology.OntologyPourableObject)
+
+# Liquid-holders
+cup = Object("cup", ObjectType.JEROEN_CUP, "jeroen_cup.stl", pose=Pose([1.4, 1, 0.9]))
+bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 0.5, 0.9]))
+pitcher = Object("pitcher", ObjectType.GENERIC_OBJECT, "Static_MilkPitcher.stl", pose=Pose([1.4, 0, 0.9]))
+milk_holders = [cup, bowl, pitcher]
+milk_holder_designators = [
+    create_ontology_handheld_object_designator(obj.name, main_ontology.OntologyLiquidHolderObject)
+    for obj in milk_holders]
+```
+
+### Create an ontology relation between the designators of the pourable object & its liquid holders
+
+```python
+for milk_holder_desig in milk_holder_designators:
+    ontology_manager.set_ontology_relation(subject_designator=milk_box_designator, object_designator=milk_holder_desig,
+                                           predicate_name=POURABLE_INTO_PREDICATE_NAME)
+```
+
+### Set up `resolve` for the ontology concept of the pourable object
+
+```python
+milk_box_concept_holder = milk_box_designator.ontology_concept_holders[0]
+
+
+def milk_box_concept_resolve():
+    object_designator = ontology_manager.get_designators_by_subject_predicate(subject=milk_box_designator,
+                                                                              predicate_name=POURABLE_INTO_PREDICATE_NAME)[
+        0]
+    return object_designator, object_designator.resolve()
+
+
+milk_box_concept_holder.resolve = milk_box_concept_resolve
+```
+
+Here, for demonstration purpose only, we specify the resolving result by `milk_box_concept_holder` as `cup`, the
+first-registered (default) pourable-into target milk holder, utilizing the ontology relation setup above.
+
+Now, we can query the milk box's target liquid holder by resolving `milk_box_concept_holder`
+
+```python
+target_milk_holder_designator, target_milk_holder = milk_box_concept_holder.resolve()
+print(
+    f"Pickup target object: {target_milk_holder.name}, a content holder for {milk_box_designator.names} as in relation `{POURABLE_INTO_PREDICATE_NAME}`")
+```
+
+### Robot picks up the target liquid holder
+
+```python
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+    MoveTorsoAction([0.3]).resolve().perform()
+
+    pickup_pose = CostmapLocation(target=target_milk_holder, reachable_for=robot_designator).resolve()
+    pickup_arm = pickup_pose.reachable_arms[0]
+
+    print(pickup_pose, pickup_arm)
+
+    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+
+    PickUpAction(object_designator_description=target_milk_holder_designator, arms=[pickup_arm],
+                 grasps=[Grasp.FRONT]).resolve().perform()
+
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+    place_island = SemanticCostmapLocation("kitchen_island_surface", kitchen_designator.resolve(),
+                                           target_milk_holder_designator.resolve()).resolve()
+
+    place_stand = CostmapLocation(place_island.pose, reachable_for=robot_designator, reachable_arm=pickup_arm).resolve()
+
+    NavigateAction(target_locations=[place_stand.pose]).resolve().perform()
+
+    PlaceAction(target_milk_holder_designator, target_locations=[place_island.pose],
+                arms=[pickup_arm]).resolve().perform()
+
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+world.exit()
+```
+
+# Save ontologies to an OWL file
+
+After all the above operations on our ontologies, we now can save them to an OWL file on disk
+
+```python
+ontology_manager.save(f"{Path.home()}/ontologies/New{main_ontology.name}.owl")
+```
+
+# Optimize ontology loading with SQLite3
+
+Upon the initial ontology loading from OWL, an SQLite3 file is automatically created, acting as the quadstore cache for
+the loaded ontologies. This allows them to be __selectively__ reusable the next time being loaded.
+More info can be referenced [here](https://owlready2.readthedocs.io/en/latest/world.html). 
+
+
+##New # Content from: #<object_designator>#
+
+
+# Object Designator
+
+Object designators are used to describe objects located in the BulletWorld or the real environment and then resolve them
+during runtime to concrete objects.
+
+Object designators are different from the Object class in bullet_world.py in the way that they just describe an object
+and do not create objects or provide methods to manipulate them. Nevertheless, object designators contain a reference to
+the BulletWorld object.
+
+An Object designator takes two parameters, of which at least one has to be provided. These parameters are:
+
+* A list of names
+* A list of types
+
+Object Designators work similar to Location designators, they get constrains describing a set of objects and when
+resolved return a specific instance.
+
+For all following examples we need a BulletWorld, so let's create one.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+from pycram.datastructures.pose import Pose
+
+world = BulletWorld(WorldMode.GUI)
+```
+
+## Believe Object
+
+This object designator is used to describe objects that are located in the BulletWorld. So objects that are in the
+belief state, hence the name. In the future when there is a perception interface, there will be a ```RealObject```
+description which will be used to describe objects in the real world.
+
+Since {meth}`~pycram.designators.object_designator.BelieveObject` describes Objects in the BulletWorld we create a few.
+
+```python
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+cereal = Object("froot_loops", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.3, 0.9, 0.95]))
+spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([1.3, 1.1, 0.87]))
+```
+
+Now that we have objects we can create an object designator to describe them. For the start we want an object designator
+only describing the milk. Since all objects have unique names we can create an object designator using a list with only
+the name of the object.
+
+```python
+from pycram.designators.object_designator import BelieveObject
+
+object_description = BelieveObject(names=["milk"])
+
+print(object_description.resolve())
+```
+
+You can also use the type to describe objects, so now we want to have an object designator that describes every food in
+the world.
+
+```python
+from pycram.designators.object_designator import BelieveObject
+
+object_description = BelieveObject(types=[ObjectType.MILK, ObjectType.BREAKFAST_CEREAL])
+
+print(object_description.resolve())
+```
+
+## Object Part
+
+Part of object designators can be used to describe something as part of another object. For example, you could describe
+a specific drawer as part of the kitchen. This is necessary since the drawer is no single BulletWorld Object but rather
+a link of the kitchen which is a BulletWorld Object.
+
+For this example we need just need the kitchen, if you didn't spawn it in the previous example you can spawn it with the
+following cell.
+
+```python
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+```
+
+```python
+from pycram.designators.object_designator import ObjectPart, BelieveObject
+
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+
+object_description = ObjectPart(names=["sink_area_left_upper_drawer_main"], part_of=kitchen_desig)
+
+print(object_description.resolve())
+```
+
+## Object Designators as Generators
+
+Similar to location designators object designators can be used as generators to iterate through every object that they
+are describing. We will see this at the example of an object designator describing every type of food.
+
+For this we need some objects, so if you didn't already spawn them you can use the next cell for this.
+
+```python
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+cereal = Object("froot_loops", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.3, 0.9, 0.95]))
+spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([1.3, 1.1, 0.87]))
+```
+
+```python
+from pycram.designators.object_designator import BelieveObject
+
+object_description = BelieveObject(types=[ObjectType.MILK, ObjectType.BREAKFAST_CEREAL])
+
+for obj in object_description:
+    print(obj, "\n")
+```
+
+To close the world use the following exit function.
+
+```python
+world.exit()
+```
+
+
+##New # Content from: #<action_designator>#
+
+
+<!-- #region -->
+
+# Action Designator
+
+This example will show the different kinds of Action Designators that are available. We will see how to create Action
+Designators and what they do.
+
+Action Designators are high-level descriptions of actions which the robot should execute.
+
+Action Designators are created from an Action Designator Description, which describes the type of action as well as the
+parameter for this action. Parameter are given as a list of possible parameters.
+For example, if you want to describe the robot moving to a table you would need a
+{meth}`~pycram.designators.action_designator.NavigateAction` and a list of poses that are near the table. The Action
+Designator Description will then pick one of the poses and return a performable Action Designator which contains the
+picked pose.
+
+
+<!-- #endregion -->
+
+## Navigate Action
+
+We will start with a simple example of the {meth}`~pycram.designators.action_designator.NavigateAction`.
+
+First, we need a BulletWorld with a robot.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+world = BulletWorld(WorldMode.GUI)
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+To move the robot we need to create a description and resolve it to an actual Designator. The description of navigation
+only needs a list of possible poses.
+
+```python
+from pycram.designators.action_designator import NavigateAction
+from pycram.datastructures.pose import Pose
+
+pose = Pose([1, 0, 0], [0, 0, 0, 1])
+
+# This is the Designator Description
+navigate_description = NavigateAction(target_locations=[pose])
+
+# This is the performable Designator
+navigate_designator = navigate_description.resolve()
+```
+
+What we now did was: create the pose where we want to move the robot, create a description describing a navigation with
+a list of possible poses (in this case the list contains only one pose) and create an action designator from the
+description. The action designator contains the pose picked from the list of possible poses and can be performed.
+
+```python
+from pycram.process_module import simulated_robot
+
+with simulated_robot:
+    navigate_designator.perform()
+```
+
+Every designator that is performed needs to be in an environment that specifies where to perform the designator either
+on the real robot or the simulated one. This environment is called {meth}`~pycram.process_module.simulated_robot`  similar there is also
+a {meth}`~pycram.process_module.real_robot` environment.
+
+There are also decorators which do the same thing but for whole methods, they are called {meth}`~pycram.process_module.with_real_robot` 
+and {meth}`~pycram.process_module.with_simulated_robot`.
+
+## Move Torso
+
+This action designator moves the torso up or down, specifically it sets the torso joint to a given value.
+
+We start again by creating a description and resolving it to a designator. Afterwards, the designator is performed in
+a {meth}`~pycram.process_module.simulated_robot` environment.
+
+```python
+from pycram.designators.action_designator import MoveTorsoAction
+from pycram.process_module import simulated_robot
+
+torso_pose = 0.2
+
+torso_desig = MoveTorsoAction([torso_pose]).resolve()
+
+with simulated_robot:
+    torso_desig.perform()
+```
+
+## Set Gripper
+
+As the name implies, this action designator is used to open or close the gripper.
+
+The procedure is similar to the last time, but this time we will shorten it a bit.
+
+```python
+from pycram.designators.action_designator import SetGripperAction
+from pycram.process_module import simulated_robot
+from pycram.datastructures.enums import GripperState, Arms
+
+gripper = Arms.RIGHT
+motion = GripperState.OPEN
+
+with simulated_robot:
+    SetGripperAction(grippers=[gripper], motions=[motion]).resolve().perform()
+```
+
+## Park Arms
+
+Park arms is used to move one or both arms into the default parking position.
+
+```python
+from pycram.designators.action_designator import ParkArmsAction
+from pycram.process_module import simulated_robot
+from pycram.datastructures.enums import Arms
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+```
+
+## Pick Up and Place
+
+Since these two are dependent on each other, meaning you can only place something when you picked it up beforehand, they
+will be shown together.
+
+These action designators use object designators, which will not be further explained in this tutorial so please check
+the example on object designators for more details.
+
+To start we need an environment in which we can pick up and place things as well as an object to pick up.
+
+```python
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+
+world.reset_world()
+```
+
+```python
+from pycram.designators.action_designator import PickUpAction, PlaceAction, ParkArmsAction, MoveTorsoAction,
+
+NavigateAction
+from pycram.designators.object_designator import BelieveObject
+from pycram.process_module import simulated_robot
+from pycram.datastructures.enums import Arms, Grasp
+from pycram.datastructures.pose import Pose
+
+milk_desig = BelieveObject(names=["milk"])
+arm = Arms.RIGHT
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+    MoveTorsoAction([0.3]).resolve().perform()
+
+    NavigateAction([Pose([0.78, 1, 0.0],
+                         [0.0, 0.0, 0.014701099828940344, 0.9998919329926708])]).resolve().perform()
+
+    PickUpAction(object_designator_description=milk_desig,
+                 arms=[arm],
+                 grasps=[Grasp.RIGHT]).resolve().perform()
+
+    NavigateAction([Pose([-1.90, 0.78, 0.0],
+                         [0.0, 0.0, 0.16439898301071468, 0.9863939245479175])]).resolve().perform()
+
+    PlaceAction(object_designator_description=milk_desig,
+                target_locations=[Pose([-1.20, 1.0192, 0.9624],
+                                       # [0.0, 0.0, 0.6339889056055381, 0.7733421413379024])], 
+                                       [0, 0, 0, 1])],
+                arms=[arm]).resolve().perform()
+```
+
+```python
+world.reset_world()
+```
+
+## Look At
+
+Look at lets the robot look at a specific point, for example if it should look at an object for detecting.
+
+```python
+from pycram.designators.action_designator import LookAtAction
+from pycram.process_module import simulated_robot
+from pycram.datastructures.pose import Pose
+
+target_location = Pose([1, 0, 0.5], [0, 0, 0, 1])
+with simulated_robot:
+    LookAtAction(targets=[target_location]).resolve().perform()
+```
+
+## Detect
+
+Detect is used to detect objects in the field of vision (FOV) of the robot. We will use the milk used in the pick
+up/place example, if you didn't execute that example you can spawn the milk with the following cell. The detect
+designator will return a resolved instance of an ObjectDesignatorDescription.
+
+```python
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+```
+
+```python
+from pycram.designators.action_designator import DetectAction, LookAtAction, ParkArmsAction, NavigateAction
+from pycram.designators.object_designator import BelieveObject
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+from pycram.datastructures.pose import Pose
+
+milk_desig = BelieveObject(names=["milk"])
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+    NavigateAction([Pose([0, 1, 0], [0, 0, 0, 1])]).resolve().perform()
+
+    LookAtAction(targets=[milk_desig.resolve().pose]).resolve().perform()
+
+    obj_desig = DetectAction(milk_desig).resolve().perform()
+
+    print(obj_desig)
+```
+
+## Transporting
+
+Transporting can transport an object from its current position to another target position. It is similar to the Pick and
+Place plan used in the Pick-up and Place example. Since we need an Object which we can transport we spawn a milk, you
+don't need to do this if you already have spawned it in a previous example.
+
+```python
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+```
+
+```python
+from pycram.designators.action_designator import *
+from pycram.designators.object_designator import *
+from pycram.process_module import simulated_robot
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+
+milk_desig = BelieveObject(names=["milk"])
+
+description = TransportAction(milk_desig,
+                              [Arms.LEFT],
+                              [Pose([-1.35, 0.78, 0.95],
+                                    [0.0, 0.0, 0.16439898301071468, 0.9863939245479175])])
+with simulated_robot:
+    MoveTorsoAction([0.2]).resolve().perform()
+    description.resolve().perform()
+```
+
+## Opening
+
+Opening allows the robot to open a drawer, the drawer is identified by an ObjectPart designator which describes the
+handle of the drawer that should be grasped.
+
+For the moment this designator works only in the apartment environment, therefore we remove the kitchen and spawn the
+apartment.
+
+```python
+kitchen.remove()
+```
+
+```python
+apartment = Object("apartment", ObjectType.ENVIRONMENT, "apartment.urdf")
+```
+
+```python
+from pycram.designators.action_designator import *
+from pycram.designators.object_designator import *
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+from pycram.datastructures.pose import Pose
+
+apartment_desig = BelieveObject(names=["apartment"]).resolve()
+handle_deisg = ObjectPart(names=["handle_cab10_t"], part_of=apartment_desig)
+
+with simulated_robot:
+    MoveTorsoAction([0.25]).resolve().perform()
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    NavigateAction([Pose([1.7474915981292725, 2.6873629093170166, 0.0],
+                         [-0.0, 0.0, 0.5253598267689507, -0.850880163370435])]).resolve().perform()
+    OpenAction(handle_deisg, [Arms.RIGHT]).resolve().perform()
+```
+
+## Closing
+
+Closing lets the robot close an open drawer, like opening the drawer is identified by an ObjectPart designator
+describing the handle to be grasped.
+
+This action designator only works in the apartment environment for the moment, therefore we remove the kitchen and spawn
+the apartment. Additionally, we open the drawer such that we can close it with the action designator.
+
+```python
+kitchen.remove()
+```
+
+```python
+apartment = Object("apartment", ObjectType.ENVIRONMENT, "apartment.urdf")
+apartment.set_joint_state("cabinet10_drawer_top_joint", 0.4)
+```
+
+```python
+from pycram.designators.action_designator import *
+from pycram.designators.object_designator import *
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+from pycram.datastructures.pose import Pose
+
+apartment_desig = BelieveObject(names=["apartment"]).resolve()
+handle_deisg = ObjectPart(names=["handle_cab10_t"], part_of=apartment_desig)
+
+with simulated_robot:
+    MoveTorsoAction([0.25]).resolve().perform()
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    NavigateAction([Pose([1.7474915981292725, 2.8073629093170166, 0.0],
+                         [-0.0, 0.0, 0.5253598267689507, -0.850880163370435])]).resolve().perform()
+    CloseAction(handle_deisg, [Arms.RIGHT]).resolve().perform()
+```
+
+```python
+world.exit()
+```
+
+
+##New # Content from: #<bullet_world>#
+
+
+# Bullet World
+
+This Notebook will show you the basics of working with the PyCRAM BulletWorld.
+
+First we need to import and create a BulletWorld.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+world = BulletWorld(mode=WorldMode.GUI)
+```
+
+This new window is the BulletWorld, PyCRAMs internal physics simulation. You can use the mouse to move the camera
+around:
+
+* Press the left mouse button to rotate the camera
+* Press the right mouse button to move the camera
+* Press the middle mouse button (scroll wheel) and move the mouse up or down to zoom
+
+At the moment the BulletWorld only contains a floor, this is spawned by default when creating the BulletWorld.
+Furthermore, the gravity is set to 9.8 $m^2$, which is the same gravitation as the one on earth.
+
+To spawn new things in the BulletWorld we need to import the Object class and create and instance of it.
+
+```python
+from pycram.world_concepts.world_object import Object
+
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([0, 0, 1]))
+```
+
+<!-- #region -->
+As you can see this spawns a milk floating in the air. What we did here was create a new Object which has the name "
+milk" as well as the type {attr}`~pycram.datastructures.enums.ObjectType.MILK`, is spawned from the file "milk.stl" and is at the position [0, 0, 1].
+
+The type of an Object can either be from the enum ObjectType or a string. However, it is recommended to use the enum
+since this would make for a more consistent naming of types which makes it easier to work with types. But since the
+types of the enum might not fit your case you can also use strings.
+
+The first three of these parameters are required while the position is optional. As you can see it was sufficient to
+only specify the filename for PyCRAM to spawn the milk mesh. When only providing a filename, PyCRAM will search in its
+resource directory for a matching file and use it.
+
+For a complete list of all parameters that can be used to crate an Object please check the documentation.
+
+Since the Object is spawned, we can now interact with it. First we want to move it around and change its orientation
+<!-- #endregion -->
+
+```python
+milk.set_position(Pose([1, 1, 1]))
+```
+
+```python
+milk.set_orientation(Pose(orientation=[1, 0, 0, 1]))
+```
+
+```python
+milk.set_pose(Pose([0, 0, 1], [0, 0, 0, 1]))
+```
+
+In the same sense as setting the position or orientation, you can also get the position and orientation.
+
+```python
+print(f"Position: \n{milk.get_position()}")
+
+print(f"Orientation: \n{milk.get_orientation()}")
+
+print(f"Pose: \n{milk.get_pose()}")
+```
+
+## Attachments
+
+You can attach Objects to each other simply by calling the attach method on one of them and providing the other as
+parameter. Since attachments are bi-directional it doesn't matter on which Object you call the method.
+
+First we need another Object
+
+```python
+cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1, 0, 1]))
+```
+
+```python
+milk.attach(cereal)
+```
+
+Now since they are attached to each other, if we move one of them the other will move in conjunction.
+
+```python
+milk.set_position(Pose([1, 1, 1]))
+```
+
+In the same way the Object can also be detached, just call the detach method on one of the two attached Objects.
+
+```python
+cereal.detach(milk)
+```
+
+## Links and Joints
+
+Objects spawned from mesh files do not have links or joints, but if you spawn things from a URDF like a robot they will
+have a lot of links and joints. Every Object has two dictionaries as attributes, namely ```links``` and ```joints```
+which contain every link or joint as key and a unique id, used by PyBullet, as value.
+
+We will see this at the example of the PR2:
+
+```python
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+print(pr2.links)
+```
+
+For links there are similar methods available as for the pose. However, you can only **get** the position and
+orientation of a link.
+
+```python
+print(f"Position: \n{pr2.get_link_position('torso_lift_link')}")
+
+print(f"Orientation: \n{pr2.get_link_orientation('torso_lift_link')}")
+
+print(f"Pose: \n{pr2.get_link_pose('torso_lift_link')}")
+```
+
+Methods available for joints are:
+
+* {meth}`~pycram.world_concepts.world_object.Object.get_joint_position`
+* {meth}`~pycram.world_concepts.world_object.Object.set_joint_position`
+* {meth}`~pycram.world_concepts.world_object.Object.get_joint_limits`
+
+We will see how these methods work at the example of the torso_lift_joint:
+
+```python
+print(f"Joint limits: {pr2.get_joint_limits('torso_lift_joint')}")
+
+print(f"Current Joint state: {pr2.get_joint_position('torso_lift_joint')}")
+
+pr2.set_joint_position("torso_lift_joint", 0.2)
+
+print(f"New Joint state: {pr2.get_joint_position('torso_lift_joint')}")
+```
+
+## Misc Methods
+
+There are a few methods that don't fit any category but could be helpful anyway. The first two are {meth}`~pycram.description.Link.get_color`
+and {meth}`~pycram.description.Link.set_color`, as the name implies they can be used to get or set the color for specific links or the whole
+Object.
+
+```python
+print(f"Pr2 forearm color: {pr2.get_link_color('r_forearm_link')}")
+```
+
+```python
+pr2.set_link_color("r_forearm_link", [1, 0, 0])
+```
+
+Lastly, there is {meth}`~pycram.description.Link.get_axis_aligned_bounding_box`, AABB stands for *A*xis *A*ligned *B*ounding *B*ox. This method returns two points in
+world coordinates which span a rectangle representing the AABB.
+
+```python
+pr2.get_axis_aligned_bounding_box()
+```
+
+To close the BulletWorld again please use the {meth}`~pycram.datastructures.world.World.exit` method since it will also terminate threads running in the
+background
+
+```python
+world.exit()
+```
+
+
+##New # Content from: #<motion_designator>#
+
+
+# Motion Designator
+
+Motion designators are similar to action designators, but unlike action designators, motion designators represent atomic
+low-level motions. Motion designators only take the parameter that they should execute and not a list of possible
+parameters, like the other designators. Like action designators, motion designators can be performed, performing motion
+designator verifies the parameter and passes the designator to the respective process module.
+
+Since motion designators perform a motion on the robot, we need a robot which we can use. Therefore, we will create a
+BulletWorld as well as a PR2 robot.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+world = BulletWorld(WorldMode.GUI)
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+## Move
+
+Move is used to let the robot drive to the given target pose. Motion designator are used in the same way as the other
+designator, first create a description then resolve it to the actual designator and lastly, perform the resolved
+designator.
+
+```python
+from pycram.datastructures.pose import Pose
+from pycram.designators.motion_designator import MoveMotion
+from pycram.process_module import simulated_robot
+
+with simulated_robot:
+    motion_description = MoveMotion(target=Pose([1, 0, 0], [0, 0, 0, 1]))
+
+    motion_description.perform()
+```
+
+```python
+world.reset_world()
+```
+
+## MoveTCP
+
+MoveTCP is used to move the tool center point (TCP) of the given arm to the target position specified by the parameter.
+Like any designator we start by creating a description and then resolving and performing it.
+
+```python
+from pycram.designators.motion_designator import MoveTCPMotion
+from pycram.process_module import simulated_robot
+from pycram.datastructures.enums import Arms
+
+with simulated_robot:
+    motion_description = MoveTCPMotion(target=Pose([0.5, 0.6, 0.6], [0, 0, 0, 1]), arm=Arms.LEFT)
+
+    motion_description.perform()
+```
+
+## Looking
+
+Looking motion designator adjusts the robot state such that the cameras point towards the target pose. Although this
+motion designator takes the target as position and orientation, in reality only the position is used.
+
+```python
+from pycram.designators.motion_designator import LookingMotion
+from pycram.process_module import simulated_robot
+
+with simulated_robot:
+    motion_description = LookingMotion(target=Pose([1, 1, 1], [0, 0, 0, 1]))
+
+    motion_description.perform()
+```
+
+## Move Gripper
+
+Move gripper moves the gripper of an arm to one of two states. The states can be {attr}`~pycram.datastructures.enums.GripperState.OPEN`  and {attr}`~pycram.datastructures.enums.GripperState.CLOSE`, which open
+and close the gripper respectively.
+
+```python
+from pycram.designators.motion_designator import MoveGripperMotion
+from pycram.process_module import simulated_robot
+from pycram.datastructures.enums import Arms, GripperState
+
+with simulated_robot:
+    motion_description = MoveGripperMotion(motion=GripperState.OPEN, gripper=Arms.LEFT)
+
+    motion_description.perform()
+```
+
+## Detecting
+
+This is the motion designator implementation of detecting, if an object with the given object type is in the field of
+view (FOV) this motion designator will return an object designator describing the object.
+
+Since we need an object that we can detect, we will spawn a milk for this.
+
+```python
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.5, 0, 1]))
+```
+
+```python
+from pycram.designators.motion_designator import DetectingMotion, LookingMotion
+from pycram.process_module import simulated_robot
+
+with simulated_robot:
+    LookingMotion(target=Pose([1.5, 0, 1], [0, 0, 0, 1])).perform()
+
+    motion_description = DetectingMotion(object_type=ObjectType.MILK)
+
+    obj = motion_description.perform()
+
+    print(obj)
+```
+
+## Move Arm Joints
+
+This motion designator moves one or both arms. Movement targets are a dictionary with joint name as key and target pose
+as value.
+
+```python
+from pycram.designators.motion_designator import MoveArmJointsMotion
+from pycram.process_module import simulated_robot
+
+with simulated_robot:
+    motion_description = MoveArmJointsMotion(right_arm_poses={"r_shoulder_pan_joint": -0.7})
+
+    motion_description.perform()
+```
+
+## World State Detecting
+
+World state detecting is also used to detect objects, however, the object is not required to be in the FOV of the robot.
+As long as the object is somewhere in the belief state (BulletWorld) a resolved object designator will be returned.
+
+Sine we want to detect something we will spawn an object that we can detect. If you already spawned the milk from the
+previous example, you can skip this step.
+
+```python
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([-1, 0, 1]))
+```
+
+```python
+from pycram.designators.motion_designator import WorldStateDetectingMotion
+from pycram.process_module import simulated_robot
+
+with simulated_robot:
+    motion_description = WorldStateDetectingMotion(object_type=ObjectType.MILK)
+
+    obj = motion_description.perform()
+
+    print(obj)
+```
+
+## Move Joints
+
+Move joints can move any number of joints of the robot, the designator takes two lists as parameter. The first list are
+the names of all joints that should be moved and the second list are the positions to which the joints should be moved.
+
+```python
+from pycram.designators.motion_designator import MoveJointsMotion
+from pycram.process_module import simulated_robot
+
+with simulated_robot:
+    motion_description = MoveJointsMotion(names=["torso_lift_joint", "r_shoulder_pan_joint"], positions=[0.2, -1.2])
+
+    motion_description.perform()
+```
+
+The following cell can be used after testing the examples, to close the BulletWorld.
+
+```python
+world.exit()
+```
+
+##New # Content from: #<cram_plan_tutorial>#
+
+
+# TaskTree Tutorial
+
+In this tutorial we will walk through the capabilities of task trees in pycram.
+
+First we have to import the necessary functionality from pycram.
+
+```python
+from pycram.bullet_world import BulletWorld
+from pycram.robot_descriptions import robot_description
+import pycram.task
+from pycram.resolver.plans import Arms
+from pycram.designators.action_designator import *
+from pycram.designators.location_designator import *
+from pycram.process_module import simulated_robot
+from pycram.designators.object_designator import *
+import anytree
+import pycram.plan_failures
+```
+
+Next we will create a bullet world with a PR2 in a kitchen containing milk and cereal.
+
+```python
+world = BulletWorld()
+robot = Object(robot_description.name, "robot", robot_description.name + ".urdf")
+robot_desig = ObjectDesignatorDescription(names=['pr2']).resolve()
+apartment = Object("apartment", "environment", "apartment.urdf", position=[-1.5, -2.5, 0])
+apartment_desig = ObjectDesignatorDescription(names=['apartment']).resolve()
+table_top = apartment.get_link_position("cooktop")
+# milk = Object("milk", "milk", "milk.stl", position=[table_top[0]-0.15, table_top[1], table_top[2]])
+# milk.set_position(position=milk.get_position(), base=True)
+# cereal = Object("cereal", "cereal", "breakfast_cereal.stl", position=table_top)
+# cereal.set_position(position=[table_top[0]-0.1, table_top[1] + 0.5, table_top[2]], base=True)
+# milk_desig = ObjectDesignator(ObjectDesignatorDescription(name="milk", type="milk"))
+# cereal_desig = ObjectDesignator(ObjectDesignatorDescription(name="cereal", type="cereal"))
+```
+
+```python
+import numpy as np
+
+
+def get_n_random_positions(pose_list, n=4, dist=0.5, random=True):
+    positions = [pos[0] for pos in pose_list[:1000]]
+    all_indices = list(range(len(positions)))
+    print(len(all_indices))
+    pos_idx = np.random.choice(all_indices) if random else all_indices[0]
+    all_indices.remove(pos_idx)
+    n_positions = np.zeros((n, 3))
+    for i in range(n):
+        n_positions[i, :] = positions[pos_idx]
+    found_count = 1
+    found_indices = [pos_idx]
+    for i in range(len(positions) - 1):
+        pos_idx = np.random.choice(all_indices) if random else all_indices[i]
+        diff = np.absolute(np.linalg.norm(n_positions - positions[pos_idx], axis=1))
+        # print(diff)
+        min_diff = np.min(diff)
+        # print(min_diff)
+        if min_diff >= dist:
+            # print("found")
+            n_positions[found_count, :] = positions[pos_idx]
+            found_indices.append(pos_idx)
+            found_count += 1
+        all_indices.remove(pos_idx)
+        if found_count == n:
+            break
+    found_poses = [pose_list[i] for i in found_indices]
+    # found_positions = [positions[i] for i in found_indices]
+    # for i in range(len(found_positions)):
+    #     print(found_poses[i][0])
+    #     print(found_positions[i])
+    #     assert np.allclose(found_positions[i],found_poses[i][0])
+    # for i in range(len(found_poses)):
+    #     for j in range(i+1,len(found_poses)):
+    #         pos1 = np.array(found_poses[i][0])
+    #         pos2 = np.array(found_poses[j][0])
+    #         diff = np.absolute(np.linalg.norm(pos1 - pos2))
+    #         print(diff)
+    #         assert diff >= dist
+    return found_poses
+
+
+
+```
+
+```python
+from pycram.costmaps import SemanticCostmap
+from pycram.pose_generator_and_validator import pose_generator
+
+scm = SemanticCostmap(apartment, "island_countertop")
+poses_list = list(pose_generator(scm, number_of_samples=-1))
+poses_list.sort(reverse=True, key=lambda x: np.linalg.norm(x[0]))
+object_poses = get_n_random_positions(poses_list)
+object_names = ["bowl", "milk", "breakfast_cereal", "spoon"]
+objects = {}
+object_desig = {}
+for obj_name, obj_pose in zip(object_names, object_poses):
+    print(obj_name)
+    print(obj_pose)
+    objects[obj_name] = Object(obj_name, obj_name, obj_name + ".stl",
+                               position=[obj_pose[0][0], obj_pose[0][1], table_top[2]])
+    objects[obj_name].move_base_to_origin_pos()
+    objects[obj_name].original_pose = objects[obj_name].get_position_and_orientation()
+    object_desig[obj_name] = ObjectDesignatorDescription(names=[obj_name], types=[obj_name]).resolve()
+print(object_poses)
+```
+
+If You want to visualize all apartment frames
+
+```python
+import pybullet as p
+
+for link_name in apartment.links.keys():
+    world.add_vis_axis(apartment.get_link_pose(link_name))
+    p.addUserDebugText(link_name, apartment.get_link_position(link_name))
+```
+
+```python
+world.remove_vis_axis()
+p.removeAllUserDebugItems()
+```
+
+Finally, we create a plan where the robot parks his arms, walks to the kitchen counter and picks the thingy. Then we
+execute the plan.
+
+```python
+from pycram.external_interfaces.ik import IKError
+
+
+@pycram.task.with_tree
+def plan(obj, obj_desig, torso=0.2, place="countertop"):
+    world.reset_bullet_world()
+    with simulated_robot:
+        ParkArmsActionPerformable(Arms.BOTH).perform()
+
+        MoveTorsoActionPerformable(torso).perform()
+        location = CostmapLocation(target=obj_desig, reachable_for=robot_desig)
+        pose = location.resolve()
+        print()
+        NavigateActionPerformable(pose.pose).perform()
+        ParkArmsActionPerformable(Arms.BOTH).perform()
+        good_torsos.append(torso)
+        picked_up_arm = pose.reachable_arms[0]
+        PickUpActionPerformable(object_designator=obj_desig, arm=pose.reachable_arms[0], grasp="front").perform()
+
+        ParkArmsActionPerformable(Arms.BOTH).perform()
+        scm = SemanticCostmapLocation(place, apartment_desig, obj_desig)
+        pose_island = scm.resolve()
+
+        place_location = CostmapLocation(target=pose_island.pose, reachable_for=robot_desig,
+                                         reachable_arm=picked_up_arm)
+        pose = place_location.resolve()
+
+        NavigateActionPerformable(pose.pose).perform()
+
+        PlaceActionPerformable(object_designator=obj_desig, target_location=pose_island.pose,
+                               arm=picked_up_arm).perform()
+
+        ParkArmsActionPerformable(Arms.BOTH).perform()
+
+
+good_torsos = []
+for obj_name in object_names:
+    done = False
+    torso = 0.25 if len(good_torsos) == 0 else good_torsos[-1]
+    while not done:
+        try:
+            plan(objects[obj_name], object_desig[obj_name], torso=torso, place="island_countertop")
+            done = True
+            objects[obj_name].original_pose = objects[obj_name].get_position_and_orientation()
+        except (StopIteration, IKError) as e:
+            print(type(e))
+            print(e)
+            print("no solution")
+            torso += 0.05
+            if torso > 0.3:
+                break
+print(good_torsos)
+```
+
+Now we get the task tree from its module and render it. Rendering can be done with any render method described in the
+anytree package. We will use ascii rendering here for ease of displaying.
+
+```python
+tt = pycram.task.task_tree
+print(anytree.RenderTree(tt, style=anytree.render.AsciiStyle()))
+```
+
+As we see every task in the plan got recorded correctly. It is noticeable that the tree begins with a NoOperation node.
+This is done because several, not connected, plans that get executed after each other should still appear in the task
+tree. Hence, a NoOperation node is the root of any tree. If we re-execute the plan we would see them appear in the same
+tree even though they are not connected.
+
+```python
+world.reset_bullet_world()
+plan()
+print(anytree.RenderTree(tt, style=anytree.render.AsciiStyle()))
+```
+
+Projecting a plan in a new environment with its own task tree that only exists while the projected plan is running can
+be done with the ``with`` keyword. When this is done, both the bullet world and task tree are saved and new, freshly
+reset objects are available. At the end of a with block the old state is restored. The root for such things is then
+called ``simulation()``.
+
+```python
+with pycram.task.SimulatedTaskTree() as stt:
+    print(anytree.RenderTree(pycram.task.task_tree, style=anytree.render.AsciiStyle()))
+print(anytree.RenderTree(pycram.task.task_tree, style=anytree.render.AsciiStyle()))
+```
+
+Task tree can be manipulated with ordinary anytree manipulation. If we for example want to discard the second plan, we
+would write:
+
+```python
+tt.root.children = (tt.root.children[0],)
+print(anytree.RenderTree(tt, style=anytree.render.AsciiStyle()))
+```
+
+We can now re-execute this (modified) plan by executing the leaf in pre-ordering iteration using the anytree
+functionality. This will not append the re-execution to the task tree.
+
+```python
+world.reset_bullet_world()
+with simulated_robot:
+    [node.code.execute() for node in tt.root.leaves]
+print(anytree.RenderTree(pycram.task.task_tree, style=anytree.render.AsciiStyle()))
+```
+
+Nodes in the task tree contain additional information about the status and time of a task.
+
+```python
+print(pycram.task.task_tree.children[0])
+```
+
+The task tree can also be reset to an empty one by invoking:
+
+```python
+pycram.task.reset_tree()
+print(anytree.RenderTree(pycram.task.task_tree, style=anytree.render.AsciiStyle()))
+```
+
+If a plan fails using the PlanFailure exception, the plan will not stop. Instead, the error will be logged and saved in
+the task tree as a failed subtask. First let's create a simple failing plan and execute it.
+
+```python
+@pycram.task.with_tree
+def failing_plan():
+    raise pycram.plan_failures.PlanFailure("Oopsie!")
+
+
+failing_plan()
+```
+
+We can now investigate the nodes of the tree, and we will see that the tree indeed contains a failed task.
+
+```python
+print(anytree.RenderTree(pycram.task.task_tree, style=anytree.render.AsciiStyle()))
+print(pycram.task.task_tree.children[0])
+```
+
+```python
+world.exit()
+```
+
+
+##New # Content from: #<improving_actions>#
+
+
+# Improving Actions using Probabilities
+
+In this tutorial we will look at probabilistic specifications of actions and especially at an advance plan to pick up
+objects.
+After this tutorial you will know:
+
+- Why are probabilities useful for robotics
+- How to use probabilistic models to specify actions
+- How to use probabilistic machine learning to improve actions
+
+Let's start by importing all the necessary modules.
+
+```python
+import numpy as np
+import os
+import random
+
+import pandas as pd
+import sqlalchemy.orm
+
+import plotly
+
+plotly.offline.init_notebook_mode()
+import plotly.graph_objects as go
+import tqdm
+
+from probabilistic_model.learning.jpt.jpt import JPT
+from probabilistic_model.learning.jpt.variables import infer_variables_from_dataframe
+from random_events.product_algebra import Event, SimpleEvent
+
+import pycram.orm.base
+from pycram.designators.action_designator import MoveTorsoActionPerformable
+from pycram.plan_failures import PlanFailure
+from pycram.designators.object_designator import ObjectDesignatorDescription
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.robot_descriptions import robot_description
+from pycram.datastructures.enums import ObjectType, WorldMode
+from pycram.datastructures.pose import Pose
+from pycram.ros.viz_marker_publisher import VizMarkerPublisher
+from pycram.process_module import ProcessModule, simulated_robot
+from pycram.designators.specialized_designators.probabilistic.probabilistic_action import MoveAndPickUp, Arms, Grasp
+from pycram.tasktree import task_tree, reset_tree
+
+ProcessModule.execution_delay = False
+np.random.seed(69)
+random.seed(69)
+```
+
+Next, we connect to a database where we can store and load robot experiences.
+
+```python
+pycrorm_uri = os.getenv('PYCRORM_URI')
+pycrorm_uri = "mysql+pymysql://" + pycrorm_uri
+engine = sqlalchemy.create_engine('sqlite:///:memory:')
+session = sqlalchemy.orm.sessionmaker(bind=engine)()
+pycram.orm.base.Base.metadata.create_all(engine)
+```
+
+Now we construct an empty world with just a floating milk, where we can learn about PickUp actions.
+
+```python
+world = BulletWorld(WorldMode.DIRECT)
+print(world.prospection_world)
+robot = Object(robot_description.name, ObjectType.ROBOT, robot_description.name + ".urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+viz_marker_publisher = VizMarkerPublisher()
+milk_description = ObjectDesignatorDescription(types=[ObjectType.MILK]).ground()
+```
+
+Next, we create a default, probabilistic model that describes how to pick up objects. We visualize the default policy.
+The default policy tries to pick up the object by standing close to it, but not too close.
+
+```python
+fpa = MoveAndPickUp(milk_description, arms=[Arms.LEFT, Arms.RIGHT],
+                    grasps=[Grasp.FRONT.value, Grasp.LEFT.value, Grasp.RIGHT.value, Grasp.TOP.value])
+print(world.current_world)
+p_xy = fpa.policy.marginal([fpa.variables.relative_x, fpa.variables.relative_y])
+fig = go.Figure(p_xy.root.plot(), p_xy.root.plotly_layout())
+fig.update_layout(title="Marginal View of relative x and y position of the robot with respect to the object.")
+fig.show()
+```
+
+Next, we will perform pick up tasks using the default policy and observe the success rate.
+The robot will now experiment with the behaviour specified by the default policy and observe his success rate in doing
+so.
+After finishing the experiments, we insert the results into the database.
+
+```python
+pycram.orm.base.ProcessMetaData().description = "Experimenting with Pick Up Actions"
+fpa.sample_amount = 500
+print(world.current_world)
+with simulated_robot:
+    print(world.current_world)
+    fpa.batch_rollout()
+task_tree.insert(session)
+reset_tree()
+session.commit()
+```
+
+Let's query the data that is needed to learn a pick up action and have a look at it.
+
+```python
+samples = pd.read_sql(fpa.query_for_database(), engine)
+samples
+```
+
+We can now learn a probabilistic model from the data. We will use the JPT algorithm to learn a model from the data.
+
+```python
+variables = infer_variables_from_dataframe(samples, scale_continuous_types=False)
+model = JPT(variables, min_samples_leaf=25)
+model.fit(samples)
+model = model.probabilistic_circuit
+```
+
+```python
+arm, grasp, relative_x, relative_y = model.variables
+```
+
+Let's have a look at how the model looks like. We will visualize the model density when we condition on grasping the
+object from the front with the left arm.
+
+```python
+event = SimpleEvent({arm: Arms.LEFT, grasp: Grasp.FRONT}).as_composite_set()
+conditional_model, conditional_probability = model.conditional(event)
+p_xy = conditional_model.marginal([relative_x, relative_y])
+fig = go.Figure(p_xy.plot(), p_xy.plotly_layout())
+fig.show()
+```
+
+Let's make a monte carlo estimate on the success probability of the new model.
+
+```python
+fpa.policy = model
+fpa.sample_amount = 100
+with simulated_robot:
+    fpa.batch_rollout()
+```
+
+We can see, that our new and improved model has a success probability of 60% as opposed to the 30% from the standard
+policy.
+
+Next, we put the learned model to the test in a complex environment, where the milk is placed in a difficult to access
+area.
+
+```python
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "apartment.urdf")
+
+milk.set_pose(Pose([0.5, 3.15, 1.04]))
+milk_description = ObjectDesignatorDescription(types=[ObjectType.MILK]).ground()
+fpa = MoveAndPickUp(milk_description, arms=[Arms.LEFT, Arms.RIGHT],
+                    grasps=[Grasp.FRONT, Grasp.LEFT, Grasp.RIGHT, Grasp.TOP], policy=model)
+fpa.sample_amount = 200
+
+```
+
+```python
+p_xy = model.marginal([relative_x, relative_y])
+fig = go.Figure(p_xy.plot(), p_xy.plotly_layout())
+fig.show()
+```
+
+Let's look at the density of the relative x and y position of the robot with respect to the milk. We can see that he
+would like to access the object from the right front area.
+
+```python
+grounded_model = fpa.ground_model()
+p_xy = grounded_model.marginal([relative_x, relative_y]).simplify()
+fig = go.Figure(p_xy.plot(), p_xy.plotly_layout())
+fig.update_layout(title="Marginal View of relative x and y position with respect to the milk",
+                  xaxis_range=[-1, 1], yaxis_range=[-1, 1])
+fig.show()
+```
+
+Finally, we observe our improved plan in action.
+
+```python
+from pycram.designators.action_designator import ParkArmsActionPerformable
+
+world.reset_world()
+milk.set_pose(Pose([0.5, 3.15, 1.04]))
+with simulated_robot:
+    MoveTorsoActionPerformable(0.3).perform()
+    for sample in fpa:
+        try:
+            ParkArmsActionPerformable(Arms.RIGHT).perform()
+            sample.perform()
+            break
+        except PlanFailure as e:
+            continue
+```
+
+```python
+# world.exit()
+# viz_marker_publisher._stop_publishing()
+```
+
+
+##New # Content from: #<intro>#
+
+
+# PyCRAM Introduction
+
+```python
+import pycram
+```
+
+# Bullet World
+
+The BulletWorld is the internal simulation of PyCRAM. You can simulate different actions and reason about the outcome of
+different actions.
+
+It is possible to spawn objects and robots into the BulletWorld, these objects can come from URDF, OBJ or STL files.
+
+A BulletWorld can be created by simply creating an object of the BulletWorld class.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+
+world = BulletWorld()
+```
+
+The BulletWorld allows to render images from arbitrary positions. In the following example we render images with the
+camera at the position [0.3, 0, 1] and pointing towards [1, 0, 1], so we are looking upwards along the x-axis.
+
+The renderer returns 3 different kinds of images which are also shown on the left side of the BulletWorld window. (If
+these winodws are missing, click the BulletWorld window to focus it, and press "g") These images are:
+
+* An RGB image which shows everything like it is rendered in the BulletWorld window, just from another perspective.
+* A depth image which consists of distance values from the camera towards the objects in the field of view.
+* A segmentation mask image which segments the image into the different objects displayed. The segmentation is done by
+  assigning every pixel the unique id of the object that is displayed there.
+
+```python
+world.get_images_for_target(Pose([1, 0, 1], [0, 0, 0, 1]), Pose([0.3, 0, 1], [0, 0, 0, 1]))
+```
+
+## Objects
+
+Everything that is located inside the BulletWorld is an Object.
+Objects can be created from URDF, OBJ or STL files. Since everything is of type Object a robot might share the same
+methods as a milk (with some limitations).
+
+Signature:
+Object:
+
+* Name
+* Type
+* Filename or Filepath
+
+Optional:
+
+* Position
+* Orientation
+* World
+* Color
+* Ignore Cached Files
+
+If there is only a filename and no path, PyCRAM will check in the resource directory if there is a matching file.
+
+```python
+milk = Object("Milk", ObjectType.MILK, "milk.stl")
+```
+
+Objects provide methods to change the position and rotation, change the color, attach other objects, set the state of
+joints if the objects has any or get the position and orientation of a link.
+
+These methods are the same for every Object, however since some Objects may not have joints or more than one link
+methods related to these will not work.
+
+```python
+milk.set_position(Pose([1, 0, 0]))
+```
+
+To remove an Object from the BulletWorld just call the 'remove' method on the Object.
+
+```python
+milk.remove()
+```
+
+Since everything inside the BulletWorld is an Object, even a complex environment Object like the kitchen can be spawned
+in the same way as the milk.
+
+```python
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+```
+
+## Costmaps
+
+Costmaps are a way to get positions with respect to certain criterias.
+The currently available costmaps are:
+
+* {class}`~pycram.costmaps.OccupancyCostmap`
+* {class}`~pycram.costmaps.VisibilityCostmap`
+* {class}`~pycram.costmaps.SemanticCostmap`
+* {class}`~pycram.costmaps.GaussianCostmap`
+
+It is also possible to merge multiple costmaps to combine different criteria.
+
+### Visibility Costmaps
+
+Visibility costmaps determine every position, around a target position, from which the target is visible. Visibility
+Costmaps are able to work with cameras that are movable in height for example, if the robot has a movable torso.
+
+```python
+import pycram.costmaps as cm
+
+v = cm.VisibilityCostmap(1.27, 1.60, size=300, resolution=0.02, origin=Pose([0, 0, 0.1], [0, 0, 0, 1]))
+```
+
+```python
+v.visualize()
+```
+
+```python
+v.close_visualization()
+```
+
+### Occupancy Costmap
+
+Is valid for every position where the robot can be placed without colliding with an object.
+
+```python
+o = cm.OccupancyCostmap(0.2, from_ros=False, size=300, resolution=0.02, origin=Pose([0, 0, 0.1], [0, 0, 0, 1]))
+```
+
+```python
+s = cm.SemanticCostmap(kitchen, "kitchen_island_surface", size=100, resolution=0.02)
+
+g = cm.GaussianCostmap(200, 15, resolution=0.02)
+```
+
+You can visualize the costmap in the BulletWorld to get an impression what information is actually contained in the
+costmap. With this you could also check if the costmap was created correctly.
+Visualization can be done via the 'visualize' method of each costmap.
+
+```python
+o.visualize()
+```
+
+```python
+o.close_visualization()
+```
+
+It is also possible to combine two costmap, this will result in a new costmap with the same size which contains the
+information of both previous costmaps. Combination is done by checking for each position in the two costmaps if they are
+zero, in this case to same position in the new costmap will also be zero in any other case the new position will be the
+normalized product of the two combined costmaps.
+
+```python
+ov = o + v
+```
+
+```python
+ov.visualize()
+```
+
+```python
+ov.close_visualization()
+```
+
+## Bullet World Reasoning
+
+Allows for geometric reasoning in the BulletWorld. At the moment the following types of reasoning are supported:
+
+* {meth}`~pycram.world_reasoning.stable`
+* {meth}`~pycram.world_reasoning.contact`
+* {meth}`~pycram.world_reasoning.visible`
+* {meth}`~pycram.world_reasoning.occluding`
+* {meth}`~pycram.world_reasoning.reachable`
+* {meth}`~pycram.world_reasoning.blocking`
+* {meth}`~pycram.world_reasoning.supporting`
+
+To show the geometric reasoning we first spawn a robot as well as the milk Object again.
+
+```python
+import pycram.world_reasoning as btr
+
+milk = Object("Milk", ObjectType.MILK, "milk.stl", pose=Pose([1, 0, 1]))
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+We start with testing for visibility
+
+```python
+milk.set_position(Pose([1, 0, 1]))
+visible = btr.visible(milk, pr2.get_link_pose("wide_stereo_optical_frame"))
+print(f"Milk visible: {visible}")
+```
+
+```python
+milk.set_position(Pose([1, 0, 0.05]))
+
+plane = BulletWorld.current_bullet_world.objects[0]
+contact = btr.contact(milk, plane)
+print(f"Milk is in contact with the floor: {contact}")
+```
+
+```python
+milk.set_position(Pose([0.6, -0.5, 0.7]))
+
+reachable = btr.reachable(milk, pr2, "r_gripper_tool_frame")
+print(f"Milk is reachable for the PR2: {reachable}")
+```
+
+# Designators
+
+Designators are symbolic descriptions of Actions, Motions, Objects or Locations. In PyCRAM the different types of
+designators are represented by a class which takes a description, the description then tells the designator what to do.
+
+For example, let's look at a Motion Designator to move the robot to a specific location.
+
+## Motion Designators
+
+When using a Motion Designator you need to specify which Process Module needs to be used, either the Process Module for
+the real or the simulated robot. A Process Module is the interface between a real or simulated robot, and PyCRAM
+designators. By exchanging the Process Module, one can quickly change the robot the plan is executed on, allowing PyCRAM
+plans to be re-used across multiple robot platforms. This can be done either with a decorator which can be added to a
+function and then every designator executed within this function, will be executed on the specified robot. The other
+possibility is a "with" scope which wraps a code piece.
+
+These two ways can also be combined, you could write a function which should be executed on the real robot and the
+function contains a "with" scope which executes something on the simulated robot for reasoning purposes.
+
+```python
+from pycram.designators.motion_designator import *
+from pycram.process_module import simulated_robot, with_simulated_robot
+
+description = MoveMotion(target=Pose([1, 0, 0], [0, 0, 0, 1]))
+
+with simulated_robot:
+    description.perform()
+
+
+```
+
+```python
+from pycram.process_module import with_simulated_robot
+
+
+@with_simulated_robot
+def move():
+    MoveMotion(target=Pose([0, 0, 0], [0, 0, 0, 1])).perform()
+
+
+move()
+```
+
+Other implemented Motion Designator descriptions are:
+
+* Accessing
+* Move TCP
+* Looking
+* Move Gripper
+* Detecting
+* Move Arm Joint
+* World State Detecting
+
+## Object Designators
+
+An Object Designator represents objects. These objects could either be from the BulletWorld or the real world. Object
+Designators are used, for example, by the PickUpAction to know which object should be picked up.
+
+```python
+from pycram.designators.object_designator import *
+
+milk_desig = BelieveObject(names=["Milk"])
+milk_desig.resolve()
+```
+
+## Location Designator
+
+Location Designator can create a position in cartisian space from a symbolic desctiption
+
+```python
+from pycram.designators.object_designator import *
+
+milk_desig = BelieveObject(names=["Milk"])
+milk_desig.resolve()
+```
+
+## Location Designators
+
+Location Designators can create a position in cartesian space from a symbolic description.
+
+```python
+from pycram.designators.location_designator import *
+from pycram.designators.object_designator import *
+
+robot_desig = BelieveObject(types=[ObjectType.ROBOT]).resolve()
+milk_desig = BelieveObject(names=["Milk"]).resolve()
+location_desig = CostmapLocation(target=milk_desig, visible_for=robot_desig)
+
+print(f"Resolved: {location_desig.resolve()}")
+print()
+
+for pose in location_desig:
+    print(pose)
+
+```
+
+# Action Designator
+
+Action Designators are used to describe high-level actions. Action Designators are usually composed of other Designators
+to describe the high-level action in detail.
+
+```python
+from pycram.designators.action_designator import *
+from pycram.datastructures.enums import Arms
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+```
+
+# Making a simple plan
+
+To get familiar with the PyCRAM Framework we will write a simple pick and place plan. This plan will let the robot grasp
+a cereal box from the kitchen counter and place it on the kitchen island. This is a simple pick and place plan.
+
+```python
+from pycram.designators.object_designator import *
+
+cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.4, 1, 0.95]))
+
+```
+
+```python
+cereal_desig = ObjectDesignatorDescription(names=["cereal"])
+kitchen_desig = ObjectDesignatorDescription(names=["kitchen"])
+robot_desig = ObjectDesignatorDescription(names=["pr2"]).resolve()
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+    MoveTorsoAction([0.3]).resolve().perform()
+
+    pickup_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot_desig).resolve()
+    pickup_arm = pickup_pose.reachable_arms[0]
+
+    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+
+    PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=["front"]).resolve().perform()
+
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+    place_island = SemanticCostmapLocation("kitchen_island_surface", kitchen_desig.resolve(),
+                                           cereal_desig.resolve()).resolve()
+
+    place_stand = CostmapLocation(place_island.pose, reachable_for=robot_desig, reachable_arm=pickup_arm).resolve()
+
+    NavigateAction(target_locations=[place_stand.pose]).resolve().perform()
+
+    PlaceAction(cereal_desig, target_locations=[place_island.pose], arms=[pickup_arm]).resolve().perform()
+
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+
+
+```
+
+# Task Trees
+
+Task trees are a hierarchical representation of all Actions involved in a plan. The Task tree can later be used to
+inspect and restructure the execution order of Actions in the plan.
+
+```python
+import pycram.task
+import anytree
+
+tt = pycram.task.task_tree
+print(anytree.RenderTree(tt))
+```
+
+```python
+from anytree.dotexport import RenderTreeGraph, DotExporter
+
+RenderTreeGraph(tt).to_picture("tree.png")
+```
+
+# ORM
+
+```python
+import sqlalchemy.orm
+import pycram.orm.base
+import pycram.orm.action_designator
+
+# set description of what we are doing
+pycram.orm.base.ProcessMetaData().description = "Tutorial for getting familiar with the ORM."
+
+engine = sqlalchemy.create_engine("sqlite+pysqlite:///:memory:", echo=False)
+session = sqlalchemy.orm.Session(bind=engine)
+pycram.orm.base.Base.metadata.create_all(engine)
+session.commit()
+
+tt.insert(session)
+```
+
+```python
+from sqlalchemy import select
+
+navigations = session.scalars(select(pycram.orm.action_designator.NavigateAction)).all()
+print(*navigations, sep="\n")
+```
+
+```python
+navigations = (session.scalars(
+    select(pycram.orm.action_designator.NavigateAction, pycram.orm.base.Position, pycram.orm.base.Quaternion).
+    join(pycram.orm.action_designator.NavigateAction.pose).
+    join(pycram.orm.base.Pose.position).
+    join(pycram.orm.base.Pose.orientation)).all())
+print(*navigations, sep="\n")
+```
+
+The world can also be closed with the 'exit' method
+
+```python
+world.exit()
+```
+
+
+##New # Content from: #<minimal_task_tree>#
+
+
+# TaskTree Tutorial
+
+In this tutorial we will walk through the capabilities of task trees in pycram.
+
+First we have to import the necessary functionality from pycram.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.robot_description import RobotDescription
+import pycram.tasktree
+from pycram.datastructures.enums import Arms, ObjectType
+from pycram.designators.action_designator import *
+from pycram.designators.location_designator import *
+from pycram.process_module import simulated_robot
+from pycram.designators.object_designator import *
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import ObjectType, WorldMode
+import anytree
+import pycram.plan_failures
+```
+
+Next we will create a bullet world with a PR2 in a kitchen containing milk and cereal.
+
+```python
+world = BulletWorld(WorldMode.GUI)
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.3, 0.7, 0.95]))
+milk_desig = ObjectDesignatorDescription(names=["milk"])
+cereal_desig = ObjectDesignatorDescription(names=["cereal"])
+robot_desig = ObjectDesignatorDescription(names=["pr2"]).resolve()
+kitchen_desig = ObjectDesignatorDescription(names=["kitchen"])
+```
+
+Finally, we create a plan where the robot parks his arms, walks to the kitchen counter and picks the cereal and places it on the table. Then we execute the plan.
+
+```python
+@pycram.tasktree.with_tree
+def plan():
+    with simulated_robot:
+        ParkArmsActionPerformable(Arms.BOTH).perform()
+        MoveTorsoAction([0.22]).resolve().perform()
+        pickup_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot_desig).resolve()
+        pickup_arm = pickup_pose.reachable_arms[0]
+        NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+        PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=[Grasp.FRONT]).resolve().perform()
+        ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+        place_island = SemanticCostmapLocation("kitchen_island_surface", kitchen_desig.resolve(),
+                                           cereal_desig.resolve()).resolve()
+
+        place_stand = CostmapLocation(place_island.pose, reachable_for=robot_desig, reachable_arm=pickup_arm).resolve()
+
+        NavigateAction(target_locations=[place_stand.pose]).resolve().perform()
+
+        PlaceAction(cereal_desig, target_locations=[place_island.pose], arms=[pickup_arm]).resolve().perform()
+
+        ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+        ParkArmsActionPerformable(Arms.BOTH).perform()
+
+plan()
+
+```
+
+Now we get the task tree from its module and render it. Rendering can be done with any render method described in the anytree package. We will use ascii rendering here for ease of displaying.
+
+```python
+tt = pycram.task.task_tree
+print(anytree.RenderTree(tt))
+```
+
+As we see every task in the plan got recorded correctly. It is noticeable that the tree begins with a NoOperation node. This is done because several, not connected, plans that get executed after each other should still appear in the task tree. Hence, a NoOperation node is the root of any tree. If we re-execute the plan we would see them appear in the same tree even though they are not connected.
+
+```python
+world.reset_bullet_world()
+plan()
+print(anytree.RenderTree(tt))
+```
+
+Projecting a plan in a new environment with its own task tree that only exists while the projected plan is running can be done with the ``with`` keyword. When this is done, both the bullet world and task tree are saved and new, freshly reset objects are available. At the end of a with block the old state is restored. The root for such things is then called ``simulation()``.
+
+```python
+with pycram.tasktree.SimulatedTaskTree() as stt:
+    print(anytree.RenderTree(pycram.task.task_tree))
+print(anytree.RenderTree(pycram.task.task_tree))
+```
+
+Task tree can be manipulated with ordinary anytree manipulation. If we for example want to discard the second plan, we would write
+
+```python
+tt.root.children = (tt.root.children[0],)
+print(anytree.RenderTree(tt, style=anytree.render.AsciiStyle()))
+```
+
+We can now re-execute this (modified) plan by executing the leaf in pre-ordering iteration using the anytree functionality. This will not append the re-execution to the task tree.
+
+```python
+world.reset_world()
+with simulated_robot:
+    [node.code.execute() for node in tt.root.leaves]
+print(anytree.RenderTree(pycram.task.task_tree, style=anytree.render.AsciiStyle()))
+```
+
+Nodes in the task tree contain additional information about the status and time of a task.
+
+```python
+print(pycram.task.task_tree.children[0])
+```
+
+The task tree can also be reset to an empty one by invoking
+
+```python
+pycram.tasktree.reset_tree()
+print(anytree.RenderTree(pycram.task.task_tree, style=anytree.render.AsciiStyle()))
+```
+
+If a plan fails using the PlanFailure exception, the plan will not stop. Instead, the error will be logged and saved in the task tree as a failed subtask. First let's create a simple failing plan and execute it.
+
+```python
+@pycram.task.with_tree
+def failing_plan():
+    raise pycram.plan_failures.PlanFailure("Oopsie!")
+
+try:
+    failing_plan()
+except pycram.plan_failures.PlanFailure as e:
+    print(e)
+```
+
+We can now investigate the nodes of the tree, and we will see that the tree indeed contains a failed task.
+
+```python
+print(anytree.RenderTree(pycram.task.task_tree, style=anytree.render.AsciiStyle()))
+print(pycram.tasktree.task_tree.children[0])
+```
+
+```python
+world.exit()
+```
+
+
+##New # Content from: #<orm_querying_examples>#
+
+
+# ORM querying examples
+
+In this tutorial, we will get to see more examples of ORM querying. 
+
+
+First, we will gather a lot of data. In order to achieve that we will write a randomized experiment for grasping a couple of objects.
+In the experiment the robot will try to grasp a randomized object using random poses and torso heights.
+
+
+```python
+from tf import transformations
+import itertools
+import time
+from typing import Optional, List, Tuple
+
+import numpy as np
+
+import sqlalchemy.orm
+import tf
+import tqdm
+
+import pycram.orm.base
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object as BulletWorldObject
+from pycram.designators.action_designator import MoveTorsoAction, PickUpAction, NavigateAction, ParkArmsAction, ParkArmsActionPerformable, MoveTorsoActionPerformable
+from pycram.designators.object_designator import ObjectDesignatorDescription
+from pycram.plan_failures import PlanFailure
+from pycram.process_module import ProcessModule
+from pycram.datastructures.enums import Arms, ObjectType, Grasp
+
+from pycram.process_module import simulated_robot
+import sqlalchemy.orm
+import pycram.orm
+from pycram.orm.base import Position, RobotState
+from pycram.orm.tasktree import TaskTreeNode
+from pycram.orm.action_designator import PickUpAction as ORMPickUpAction
+from pycram.orm.object_designator import Object
+import sqlalchemy.sql
+import pandas as pd
+
+from pycram.datastructures.pose import Pose
+
+np.random.seed(420)
+
+ProcessModule.execution_delay = False
+pycram.orm.base.ProcessMetaData().description = "Tutorial for learning from experience in a Grasping action."
+
+
+class GraspingExplorer:
+    """Class to try randomized grasping plans."""
+
+    world: Optional[BulletWorld]
+
+    def __init__(self, robots: Optional[List[Tuple[str, str]]] = None, objects: Optional[List[Tuple[str, str]]] = None,
+                 arms: Optional[List[Arms]] = None, grasps: Optional[List[Grasp]] = None,
+                 samples_per_scenario: int = 1000):
+        """
+        Create a GraspingExplorer.
+        :param robots: The robots to use
+        :param objects: The objects to try to grasp
+        :param arms: The arms of the robot to use
+        :param grasps: The grasp orientations to use
+        :param samples_per_scenario: The number of tries per scenario.
+        """
+        # store exploration space
+        if not robots:
+            self.robots: List[Tuple[str, str]] = [("pr2", "pr2.urdf")]
+
+        if not objects:
+            self.objects: List[Tuple[str, ObjectType, str]] = [("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl"),
+                                                                            ("bowl", ObjectType.BOWL, "bowl.stl"),
+                                                                            ("milk", ObjectType.MILK, "milk.stl"),
+                                                                            ("spoon", ObjectType.SPOON, "spoon.stl")]
+
+        if not arms:
+            self.arms: List[str] = [Arms.LEFT, Arms.RIGHT]
+
+        if not grasps:
+            self.grasps: List[str] = [Grasp.LEFT, Grasp.RIGHT, Grasp.FRONT, Grasp.TOP]
+
+        # store trials per scenario
+        self.samples_per_scenario: int = samples_per_scenario
+
+        # chain hyperparameters
+        self.hyper_parameters = [self.robots, self.objects, self.arms, self.grasps]
+
+        self.total_tries = 0
+        self.total_failures = 0
+
+    def perform(self, session: sqlalchemy.orm.Session):
+        """
+        Perform all experiments.
+        :param session: The database-session to insert the samples in.
+        """
+
+        # create progress bar
+        progress_bar = tqdm.tqdm(
+            total=np.prod([len(p) for p in self.hyper_parameters]) * self.samples_per_scenario)
+
+        self.world = BulletWorld("DIRECT")
+
+        # for every robot
+        for robot, robot_urdf in self.robots:
+
+            # spawn it
+            robot = BulletWorldObject(robot, ObjectType.ROBOT, robot_urdf)
+
+            # for every obj
+            for obj, obj_type, obj_stl in self.objects:
+
+                # spawn it
+                bw_object = BulletWorldObject(obj, obj_type, obj_stl, pose=Pose([0, 0, 0.75], [0, 0, 0, 1]))
+
+                # create object designator
+                object_designator = ObjectDesignatorDescription(names=[obj])
+
+                # for every arm and grasp pose
+                for arm, grasp in itertools.product(self.arms, self.grasps):
+                    # sample positions in 2D
+                    positions = np.random.uniform([-2, -2], [2, 2], (self.samples_per_scenario, 2))
+
+                    # for every position
+                    for position in positions:
+
+                        # set z axis to 0
+                        position = [*position, 0]
+
+                        # calculate orientation for robot to face the object
+                        angle = np.arctan2(position[1], position[0]) + np.pi
+                        orientation = list(transformations.quaternion_from_euler(0, 0, angle, axes="sxyz"))
+
+                        # try to execute a grasping plan
+                        with simulated_robot:
+
+                            ParkArmsActionPerformable(Arms.BOTH).perform()
+                            # navigate to sampled position
+                            NavigateAction([Pose(position, orientation)]).resolve().perform()
+
+                            # move torso
+                            height = np.random.uniform(0., 0.33, 1)[0]
+                            MoveTorsoActionPerformable(height).perform()
+
+                            # try to pick it up
+                            try:
+                                PickUpAction(object_designator, [arm], [grasp]).resolve().perform()
+
+                            # if it fails
+                            except PlanFailure:
+
+                                # update failure stats
+                                self.total_failures += 1
+
+                            # reset BulletWorld
+                            self.world.reset_world()
+
+                            # update progress bar
+                            self.total_tries += 1
+
+                            # insert into database
+                            pycram.tasktree.task_tree.insert(session, use_progress_bar=False)
+                            pycram.tasktree.reset_tree()
+
+                            progress_bar.update()
+                            progress_bar.set_postfix(success_rate=(self.total_tries - self.total_failures) /
+                                                                  self.total_tries)
+
+                bw_object.remove()
+            robot.remove()
+
+```
+
+Next we have to establish a connection to a database and execute the experiment a couple of times. Note that the (few) number of samples we generate is only for demonstrations.
+For robust and reliable machine learning millions of samples are required.
+
+
+```python
+engine = sqlalchemy.create_engine("sqlite+pysqlite:///:memory:")
+session = sqlalchemy.orm.Session(bind=engine)
+pycram.orm.base.Base.metadata.create_all(bind=engine)
+session.commit()
+
+explorer = GraspingExplorer(samples_per_scenario=30)
+explorer.perform(session)
+```
+
+The success_rate of the output above indicates how many of our samples succeeded in trying to grasp a randomized object.
+
+
+Now that we have data to query from and a running session, we can actually start creating queries. 
+Let's say we want to select positions of robots that were able to grasp a specific object (in this case a "milk" object):
+
+```python
+from sqlalchemy import select
+from pycram.datastructures.enums import ObjectType
+
+milk = BulletWorldObject("Milk", ObjectType.MILK, "milk.stl")
+
+# query all relative robot positions in regard to an objects position
+# make sure to order the joins() correctly
+query = (select(ORMPickUpAction.arm, ORMPickUpAction.grasp, RobotState.torso_height, Position.x, Position.y)
+         .join(TaskTreeNode.code)
+         .join(Code.designator.of_type(ORMPickUpAction))
+         .join(ORMPickUpAction.robot_state)
+         .join(RobotState.pose)
+         .join(pycram.orm.base.Pose.position)
+         .join(ORMPickUpAction.object).where(Object.type == milk.type)
+                                      .where(TaskTreeNode.status == "SUCCEEDED"))
+print(query)
+
+df = pd.read_sql_query(query, session.get_bind())
+print(df)
+```
+
+If you are not familiar with sqlalchemy querying you might wonder what the of_type() function does and why we needed it in this query:
+
+In order to understand the importance of the of_type() function in the joins above it is crucial to understand the inheritance structure in the ORM package. The action necessary for this query is the PickUpAction. It inherits the Action class/table (which holds all the actions). The Action class itself on the other hand inherits Designator (which holds all the actions, but also all the motions). 
+We started our joins by joining TaskTreeNode on its relationship to Code and Code on its relationship to Designator. Next table we need is the PickUpAction table, but there is no specified relationship between Designator and PickUpAction. But we do know that a PickUpAction is actually a Designator, meaning, it inherits from Designator. So we can just "tell" the join to join Code on every Designator, that is "of_type" PickUpAction (.join(Code.designator.of_type(ORMPickUpAction))). 
+The effect of this function can also be seen in the printed query of above's output. 
+
+
+Another interesting query: Let's say we want to select the torso height and positions of robots relative to the object they were trying to grasp:
+
+```python
+from pycram.orm.base import Pose as ORMPose
+
+robot_pose = sqlalchemy.orm.aliased(ORMPose)
+object_pose = sqlalchemy.orm.aliased(ORMPose)
+robot_position = sqlalchemy.orm.aliased(Position)
+object_position = sqlalchemy.orm.aliased(Position)
+
+query = (select(TaskTreeNode.status, Object.type, 
+                       sqlalchemy.label("relative torso height", object_position.z - RobotState.torso_height),
+                       sqlalchemy.label("x", robot_position.x - object_position.x),
+                       sqlalchemy.label("y", robot_position.y - object_position.y))
+         .join(TaskTreeNode.code)
+         .join(Code.designator.of_type(ORMPickUpAction))
+         .join(ORMPickUpAction.robot_state)
+         .join(robot_pose, RobotState.pose)
+         .join(robot_position, robot_pose.position)
+         .join(ORMPickUpAction.object)
+         .join(object_pose, Object.pose)
+         .join(object_position, object_pose.position))
+print(query)
+
+df = pd.read_sql(query, session.get_bind())
+df["status"] = df["status"].apply(lambda x: str(x.name))
+print(df)
+```
+
+Obviously the query returned every row of the database since we didn't apply any filters.
+
+Why is this query interesting? This query not only required more joins and the usage of the of_type() function, but we actually needed to access two of the tables twice with different purposes, namely the Pose and Position tables. We wanted to get the position of the robot relative to the object position, meaning we had to obtain all robot positions and all object positions. If we want to access the same table twice, we have to make sure to rename (one of) the occurrences in our query in order to provide proper sql syntax. This can be done by creating aliases using the sqlalchemy.orm.aliased() function. Sqlalchemy will automatically rename all the aliased tables for you during runtime.
+
+
+##New # Content from: #<language>#
+--|
+| +          | **Sequential**   | Executes the designators one after another, if one of the designators raises an exception the execution is aborted and the state FAILED will be returned.                                                                                                                                  |
+| -          | **Try In Order** | Executes the designators one after another, if one designator raises an exception the exception is caught and saved but the execution is not interrupted and the other designators are executed. Returns the state SUCCEDED if at least one designator can be executed without exception. |
+| *          | **Repeat**       | Repeat the previous language expression a number of time. Has to be used with a language expression and an integer.                                                                                                                                                                        | 
+| \|         | **Parallel**     | Executes all designators in parallel. For each designator there will be a new thread created and the designator is executed in this thread. If one of the designators raises an exception the returned state will be FAILED.                                                               |
+| ^          | **Try All**      | Executes all designators in parallel with a designated thread for each designator. Returns the state SUCCEDED if at least one designator can be executed without an exception                                                                                                              |
+| >>         | **Monitor**      | Monitors the execution of the attached langauge expression, will interrupt the execution as soon as a given condition is fulfilled.                                                                                                                                                        | 
+
+The Sequential expression is the only one which aborts the execution once an error is raised.
+
+When using the plan language a tree structure of the plan is created where the language expressions are nodes and
+designators are leafs. This tree uses AnyTree (like the task tree) and can be rendered with the anytree Renderer.
+
+## Sequential
+
+This language expression allows to execute designators one after another, if one of the designators raises an exception
+the execution will be aborted and the state FAILED will be returned.
+
+We will start with a simple example that uses an action designator for moving the robot and parking its arms.
+
+```python
+import time
+
+from pycram.designators.action_designator import *
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+
+navigate = NavigateAction([Pose([1, 1, 0])])
+park = ParkArmsAction([Arms.BOTH])
+
+plan = navigate + park
+```
+
+With this simple plan created we can inspect it and render the created tree structure.
+
+```python
+from anytree import RenderTree
+
+print(RenderTree(plan))
+```
+
+As you can see there is the root node which is the language expression and then there are the leafs which are the
+designators. When executing this plan the Sequential node will try to execute the NavigateAction and if that is finished
+without any error the ParkArmsAction will be executed.
+
+The plan can be executed by wrapping it inside a ```with simulated_robot``` environment and calling perform on the
+plan.
+
+If you are performing a plan with a simulated robot, you need a BulletWorld.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+
+world = BulletWorld()
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+```python
+from pycram.process_module import simulated_robot
+
+world.reset_bullet_world()
+
+with simulated_robot:
+    plan.perform()
+```
+
+## Try In Order
+
+Try in order is similar to Sequential, it also executes all designators one after another but the key difference is that
+an exception in one of the designators does not terminate the whole execution. Furthermore, the state FAILED will only
+be returned if all designator executions raise an error.
+
+Besides the described difference in behaviour this language expression can be used in the same way as Sequential.
+
+```python
+from pycram.designators.action_designator import *
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+
+world.reset_bullet_world()
+
+navigate = NavigateAction([Pose([1, 1, 0])])
+park = ParkArmsAction([Arms.BOTH])
+
+plan = navigate - park
+
+with simulated_robot:
+    plan.perform()
+```
+
+## Parallel
+
+Parallel executes all designator at once in dedicated threads. The execution of other designators is not aborted when a
+exception is raised, this is the case since threads can not be killed from the outside and this would also cause
+unforeseen problems. The state returned will be SUCCEDED if all designators could be executed without an exception raised
+in any other case FAILED will be returned.
+
+Since executing designators in parallel can get chaotic especially with complex actions like PickUp or Transport. For
+this reason not all action designators can be used in parallel and try all expressions. The list of action designator
+that cannot be used in language expressions can be seen in {attr}`~pycram.language.Language.parallel_blocklist`.
+
+Designators that cannot be used in parallel and try all:
+
+* PickUpAction
+* PlaceAction
+* OpenAction
+* CloseAction
+* TransportAction
+
+Using the parallel expressions works like Sequential and TryInOrder.
+
+```python
+from pycram.designators.action_designator import *
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+
+world.reset_world()
+
+navigate = NavigateAction([Pose([1, 1, 0])])
+park = ParkArmsAction([Arms.BOTH])
+
+plan = navigate | park
+
+with simulated_robot:
+    plan.perform()
+```
+
+## Try All
+
+TryAll is to Parallel what TryInOrder is to Sequential, meaning TryAll will also execute all designators in parallel but
+will return SUCCEEDED if at least one designator is executed without raising an exception.
+
+TryAll can be used like any other language expression.
+
+```python
+from pycram.designators.action_designator import *
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+
+world.reset_bullet_world()
+
+navigate = NavigateAction([Pose([1, 1, 0])])
+park = ParkArmsAction([Arms.BOTH])
+
+plan = navigate ^ park
+
+with simulated_robot:
+    plan.perform()
+```
+
+## Combination of Expressions
+
+You can also combine different language expressions to further structure your plans. If you combine sequential and
+parallel expression please keep in mind that sequential expressions bind stringer than parallel ones. For example:
+
+```
+navigate | park + move_torso
+```
+
+In this case 'park' and 'move_torso' would form a Sequential expression and 'naviagte' would form a Parallel expression
+with Sequential. You can try this yourself in the following cell.
+
+```python
+from pycram.designators.action_designator import *
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+
+world.reset_world()
+
+navigate = NavigateAction([Pose([1, 1, 0])])
+park = ParkArmsAction([Arms.BOTH])
+move_torso = MoveTorsoAction([0.3])
+
+plan = navigate | park + move_torso
+
+with simulated_robot:
+    plan.perform()
+```
+
+## Code Objects
+
+You can not only use designators in the plan language but also python code. For this there is the {class}`~pycram.language.Code`  object
+which takes a callable and the arguments for this callable. This allows you to execute arbitrary code in a plan.
+
+The callable that is used in the {class}`~pycram.language.Code` object can either be a lambda expression or, for more complex code, a
+function. If you use a function you can provide parameters as keyword-arguments.
+
+```python
+from pycram.designators.action_designator import *
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+from pycram.language import Code
+
+
+def code_test(param):
+    print("-" * 20)
+    print(param)
+
+
+park = ParkArmsAction([Arms.BOTH])
+code = Code(lambda: print("This is from the code object"))
+code_func = Code(code_test, {"param": "Code function"})
+
+plan = park | code | code_func
+
+with simulated_robot:
+    plan.perform()
+```
+
+## Exception Handling
+
+If an exception is raised during the execution of a designator when it is used in a language expression the exception
+will be caught and saved to a dictionary. In general all designators in a language expression are executed regardless
+of exceptions raised, the only exception from this is the Sequential expression which stops after it encountered an
+exception.
+
+The language will only catch exceptions that are of type {class}`~pycram.plan_failures.PlanFailure` meaning errors that are defined in
+plan_failures.py in PyCRAM. This also means normal Python errors, such as KeyError, will interrupt the execution of your
+designators.
+
+We will see how exceptions are handled at a simple example.
+
+```python
+from pycram.designators.action_designator import *
+from pycram.process_module import simulated_robot
+from pycram.language import Code
+from pycram.plan_failures import PlanFailure
+
+
+def code_test():
+    raise PlanFailure
+
+
+navigate = NavigateAction([Pose([1, 1, 0])])
+code_func = Code(code_test)
+
+plan = navigate | code_func
+
+with simulated_robot:
+    plan.perform()
+
+print(plan.exceptions)
+```
+
+## Repeat
+
+Repeat simply repeats a language expression a number of times. As all other language expressions Repeat captures
+exceptions that occur during execution and saves them to the dictionary in the root of the plan.
+
+Since Repeat uses the \* operator you should keep in mind that it will be evaluated before any other operator, so use
+parentheses to ensure the correct structure of your plan.
+
+You can see an example of how to use Repeat below.
+
+```python
+from pycram.designators.action_designator import *
+from pycram.process_module import simulated_robot
+
+move_torso_up = MoveTorsoAction([0.3])
+move_torso_down = MoveTorsoAction([0.])
+
+plan = (move_torso_up + move_torso_down) * 5
+
+with simulated_robot:
+    plan.perform()
+```
+
+## Monitor
+
+Monitor allows to monitor the execution of a language expression and interrupt it as soon as a given condition is
+fulfilled. The condition can either be a Callable which returns a boolean or a Fluent.
+When executed the Monitor will create a separate thread which will check if the condition is satisfied with a frequency
+of 10 Hz. If the condition is satisfied the execution of the language expression will be interrupted.
+
+For the example on how Monitors work we will use the previous example with the robot moving up and down. We will use a
+Monitor to interrupt the execution after 2 seconds instead of executing the whole plan 5 times.
+
+```python
+from pycram.designators.action_designator import *
+from pycram.process_module import simulated_robot
+from pycram.language import Monitor
+import time
+
+move_torso_up = MoveTorsoAction([0.3])
+move_torso_down = MoveTorsoAction([0.])
+
+
+def monitor_func():
+    time.sleep(2)
+    return True
+
+
+plan = (move_torso_up + move_torso_down) * 5 >> Monitor(monitor_func)
+
+with simulated_robot:
+    plan.perform()
+```
+
+If you are finished with this example you can close the world with the cell below.
+
+```python
+world.exit()
+```
+
+##New # Content from: #<orm_example>#
+
+
+# Hands on Object Relational Mapping in PyCram
+
+This tutorial will walk you through the serialization of a minimal plan in pycram.
+First we will import sqlalchemy, create an in memory database and connect a session to it.
+
+```python
+import sqlalchemy
+import sqlalchemy.orm
+
+engine = sqlalchemy.create_engine("sqlite+pysqlite:///:memory:", echo=False)
+session = sqlalchemy.orm.Session(bind=engine)
+session
+```
+
+Next we create the database schema using the sqlalchemy functionality. For that we need to import the base class of pycram.orm.
+
+```python
+import pycram.orm.base
+import pycram.orm.action_designator
+pycram.orm.base.Base.metadata.create_all(engine)
+session.commit()
+```
+
+Next we will write a simple plan where the robot parks his arms and then moves somewhere. We will construct a TaskTree around it such that we can serialize it later. As usual, we first create a world and then define the plan. By doing so, we obtain the task tree.
+
+```python
+from pycram.designators.action_designator import *
+from pycram.designators.location_designator import *
+from pycram.process_module import simulated_robot
+from pycram.datastructures.enums import Arms, ObjectType, Grasp, WorldMode
+from pycram.tasktree import with_tree
+import pycram.tasktree
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.designators.object_designator import *
+from pycram.datastructures.pose import Pose
+import anytree
+
+world = BulletWorld(WorldMode.GUI)
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.3, 0.7, 0.95]))
+milk_desig = ObjectDesignatorDescription(names=["milk"])
+cereal_desig = ObjectDesignatorDescription(names=["cereal"])
+robot_desig = ObjectDesignatorDescription(names=["pr2"]).resolve()
+kitchen_desig = ObjectDesignatorDescription(names=["kitchen"])
+
+@with_tree
+def plan():
+    with simulated_robot:
+        ParkArmsActionPerformable(Arms.BOTH).perform()
+        MoveTorsoAction([0.2]).resolve().perform()
+        pickup_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot_desig).resolve()
+        pickup_arm = pickup_pose.reachable_arms[0]
+        NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+        PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=[Grasp.FRONT]).resolve().perform()
+        ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+        place_island = SemanticCostmapLocation("kitchen_island_surface", kitchen_desig.resolve(),
+                                           cereal_desig.resolve()).resolve()
+
+        place_stand = CostmapLocation(place_island.pose, reachable_for=robot_desig, reachable_arm=pickup_arm).resolve()
+
+        NavigateAction(target_locations=[place_stand.pose]).resolve().perform()
+
+        PlaceAction(cereal_desig, target_locations=[place_island.pose], arms=[pickup_arm]).resolve().perform()
+
+        ParkArmsActionPerformable(Arms.BOTH).perform()
+
+plan()
+
+# set description of what we are doing
+pycram.orm.base.ProcessMetaData().description = "Tutorial for getting familiar with the ORM."
+task_tree = pycram.tasktree.task_tree
+print(anytree.RenderTree(task_tree))
+```
+
+Next we serialize the task tree by recursively inserting from its root.
+
+```python
+task_tree.root.insert(session)
+```
+
+We can look at our experiment (Process)MetaData to get some context on the data we just created.
+
+```python
+from sqlalchemy import select
+
+print(*session.scalars(select(pycram.orm.base.ProcessMetaData)).all())
+```
+
+Lastly we can look at various table to see how the structures got logged.
+For example, we can get all the navigate actions that occurred.
+
+```python
+navigations = session.scalars(select(pycram.orm.action_designator.NavigateAction)).all()
+print(*navigations, sep="\n")
+```
+
+Due to the inheritance mapped in the ORM package, we can also obtain all executed actions with just one query. 
+
+```python
+actions = session.scalars(select(pycram.orm.action_designator.Action)).all()
+print(*actions, sep="\n")
+```
+
+Of course all relational algebra operators, such as filtering and joining also work in pycram.orm queries. Let's say we need all the poses of objects, that were picked up by a robot. Since we defined a relationship between the PickUpAction table and the Object table and between the Object table and the Pose table in the ORM class schema, we can just use the join operator without any further specification:
+
+```python
+object_actions = (session.scalars(select(pycram.orm.base.Pose)
+                  .join(pycram.orm.action_designator.PickUpAction.object)
+                  .join(pycram.orm.object_designator.Object.pose))
+                  .all())
+print(*object_actions, sep="\n")
+
+```
+
+Did you notice, that for the joins we did not join the tables together in a typical sql kind of way, but rather used the relationships defined in the ORM classes and wrote joins like PickUpAction.object or Object.pose? This is because the ORM package automatically creates the joins for us, so we only have to join on the attributes that hold the relationship. This is a huge advantage over writing sql queries by hand, since we do not have to worry about the join conditions. 
+This is a strong tool, but it is crucial to use it properly. Very important to note: The order of the joins matters! For instance, if we joined the Pose table with the Object table first, and placed the join between the PickUpAction table and the Object table second, sqlalchemy would have selected the Pose not from the join between all three tables, but rather from a join between the Pose and the Object table + from a join between the PickUpAction table and the Object table. These mistakes can lead to wrong results or even to errors (the above-mentioned example would actually lead to an error due to the Object table being accessed twice in two separate joins in the same query and therefore the column names of the Object tables would have been ambiguous and could not be used by sqlalchemy to join).
+
+Make sure to check out the other examples of ORM querying.
+
+
+If we want to filter for all successful tasks we can just add the filter operator:
+
+```python
+from pycram.orm.tasktree import TaskTreeNode
+
+successful_tasks = session.scalars(select(TaskTreeNode).where(TaskTreeNode.status == "SUCCEEDED"))
+print(*successful_tasks, sep="\n")
+```
+
+As expected all but the root node succeeded, since the root node is still running.
+
+Writing an extension to the ORM package is also done with ease. We need to create a new ActionDesignator class and its ORM equivalent, where we define our new table. Let's say we want to log all the things the robot says. We will create a new ActionDesignator class called Saying and its ORM equivalent called ORMSaying. 
+
+```python
+from sqlalchemy.orm import Mapped, mapped_column, Session
+from pycram.orm.action_designator import Action
+from dataclasses import dataclass
+
+
+# define ORM class from pattern in every pycram.orm class
+class ORMSaying(Action):
+
+    id: Mapped[int] = mapped_column(sqlalchemy.ForeignKey(f'{Action.__tablename__}.id'), primary_key=True, init=False)
+    # since we do not want to add any custom specifications to our column, we don't even need to define mapped_column, sqlalchemy does this internally.
+    text: Mapped[str] 
+
+# define brand new action designator
+
+@dataclass 
+class SayingActionPerformable(ActionDesignatorDescription.Action):
+    
+    text: str
+        
+    @with_tree
+    def perform(self) -> None:
+        print(self.text)
+
+    def to_sql(self) -> ORMSaying:
+        return ORMSaying(self.text)
+
+    def insert(self, session: Session, *args, **kwargs) -> ORMSaying:
+        action = super().insert(session)
+        session.add(action)
+        session.commit()
+        return action
+
+```
+
+Now we got our new ActionDesignator called Saying and its ORM version. Since this class got created after all other classes got inserted into the database (in the beginning of the notebook) we have to insert it manually. 
+
+```python
+ORMSaying.metadata.create_all(bind=engine)
+```
+
+Now we can create and insert a Saying action. Since this is the last part where we interact with the BulletWorld, we can also close it.
+
+```python
+# create a saying action and insert it
+SayingActionPerformable("Patchie, Patchie; Where is my Patchie?").perform()
+pycram.tasktree.task_tree.root.insert(session)
+session.commit()
+
+world.exit()
+```
+
+It is notable that committing the object to the session fills its primary key. Hence, there is no worries about assigning unique IDs manually.
+Finally, we can double-check that our object exists in the database.
+
+```python
+session.scalars(select(ORMSaying)).all()
+```
+
+
+##New # Content from: #<robokudo>#
+
+
+# Robokudo interface in PyCRAM
+
+This notebook should give you an example on how the RoboKudo interface in PyCRAM works. We will go over how to use the
+interface, how it is implemented and what can be extended.
+
+First, you need to install RoboKudo by following the installation
+instructions [here](https://robokudo.ai.uni-bremen.de/installation.html).
+
+RoboKudo depends on a pipline of so-called annotators to process images, depending on your use-case the used annotators
+will change. But for this simple example we can use the demo pipeline from
+the [tutorial](https://robokudo.ai.uni-bremen.de/tutorials/run_pipeline.html). You can start RoboKudo by calling
+
+```
+rosrun robokudo main.py _ae=query
+```
+
+To get a stream of images to process you need the test bag file,
+from [here](https://robokudo.ai.uni-bremen.de/_downloads/6cd3bff02fd0d7a3933348060faa42fc/test.bag). You can run this
+bag file with the following command in the directory where the bag file is.
+
+```
+rosbag play test.bag --loop
+```
+
+There should now be two windows which show you the result of the annotators. You switch between different annotators by
+using the arrow keys.
+
+## How to use the RoboKudo interface in PyCRAM
+
+Everything related to the RoboKudo interface can be found in the file {class}`pycram.external_interfaces.robokudo`. The
+most important method of this file is {meth}`~pycram.external_interfaces.robokudo.query` which takes a PyCRAM object designator and calls RoboKudo to try to
+find a fitting object in the camera view. The other methods are just helper for constructing messages.
+
+Since we are only working with the demo pipeline we will only see how the interface functions but not actually perceive
+objects in the images.
+
+```python
+from pycram.external_interfaces import robokudo
+from pycram.designators.object_designator import *
+from pycram.enums import ObjectType
+
+object_desig_desc = ObjectDesignatorDescription(types=[ObjectType.BOWL])
+robokudo.query(object_desig_desc)
+```
+
+There was no object detected since the pipline we are using for this example only returns an empty message. However,
+this should give you an impression on how the interface works.
+
+## How the RoboKudo interface in PyCRAM works
+
+The interface to RoboKudo is designed around the ROS service that RoboKudo provides. The interface takes an
+ObjectDesignatorDescription which is PyCRAMs symbolic representation of objects and converts it to a RoboKudo
+ObjectDesignator, the RoboKudo ObjectDesignator is then send to RoboKudo.
+
+The result from this is a list of RoboKudo ObjectDesignators which are possible matches that were found in the camera
+FOV. Each of these ObjectDesignators has a list of possible poses that are the result of different pose estimators (
+currently PyCRAM picks the pose from 'ClusterPoseBBAnnotator' from the list of possible poses).
+PyCRAM then transforms all possible poses for the found Objects to 'map' frame and returns them as a dictionary.
+
+When using the interface the decorator {meth}`~pycram.external_interfaces.robokudo.init_robokudo_interface` should be added to all methods that want to send
+queries to RoboKudo. This decorator makes sure that RoboKudo is running and creates an action client which can be used
+via the global variable {attr}`~pycram.external_interfaces.robokudo.robokudo_action_client`.
+
+## How to extend the RoboKudo interface in PyCRAM
+
+At the moment the RoboKudo interface is tailored towards a specific scenario, in which only two types of objects need to
+be detected. The distinction is mainly made by the difference in color, which is written in the RoboKudo
+ObjectDesignator depending on the ObjectType of the PyCRAM ObjectDesignator.
+
+The main point for extension would be to make the interface more universal and extend it to work with other pipelines
+for example for human detection.
+
+
+##New # Content from: #<giskard>#
+
+
+# Giskard interface in PyCRAM
+
+This notebook should provide you with an example on how to use the Giskard interface. This includes how to use the
+interface, how it actually works and how to extend it.
+
+We start by installing and launching Giskard. For the installation please follow the
+instructions [here](https://github.com/SemRoCo/giskardpy).
+After you finish the installation you should be able to launch Giskard by calling:
+
+```
+roslaunch giskardpy giskardpy_pr2_standalone.launch
+```
+
+This way you can launch Giskard for any robot that is supported:
+
+```
+roslaunch giskardpy giskardpy_hsr_standalone.launch
+```
+
+"Standalone" means that Giskard only uses a simulated robot and does not look for a real robot. If you want to use
+Giskard with a real robot you have to switch out "standalone" with "iai", e.g:
+
+```
+roslaunch giskardpy giskardpy_hsr_iai.launch
+```
+
+To see what Giskard is doing you can start RViz, there should already be a MarkerArray when starting otherwise you have
+to add this manually.
+
+## How to use the Giskard interface
+
+Everything related to the Giskard interface is located in {class}`pycram.external_interfaces.giskard`.
+The content of the file can be roughly divided into three parts:
+1. Methods to manage the belief states between PyCRAM and Giskard
+2. Motion goals that should be sent to Giskard for execution
+3. Helper methods to construct ROS messages
+
+The most useful methods are the ones for sending and executing Motion goals. These are the ones we will mostly look at.
+
+We will now start by setting up PyCRAM and then try to send some simple motion goals.
+
+```python
+from pycram.bullet_world import BulletWorld, Object
+from pycram.enums import ObjectType
+
+world = BulletWorld()
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+When you are working on the real robot you also need to initialize the RobotStateUpdater, this module updates the robot
+in the BulletWorld with the pose and joint state of the real robot.
+
+You might need to change to topic names to fit the topic names as published by your robot.
+
+```python
+from pycram.ros.robot_state_updater import RobotStateUpdater
+
+r = RobotStateUpdater("/tf", "/joint_states")
+```
+
+Now we have a PyCRAM belief state set up, belief state in this case just refers to the BulletWorld since the BulletWorld
+represents what we believe the world to look like.
+
+The next step will be to send a simple motion goal. The motion goal we will be sending is moving the torso up. For this
+we just need to move one joint, so we can use the ```achive_joint_goal```. This method takes a dictionary with the
+joints that should be moved and the target value for the joints.
+
+Look at RViz to see the robot move, since we call Giskard for movement the robot in the BulletWorld will not move.
+
+```python
+from pycram.external_interfaces import giskard
+
+giskard.achieve_joint_goal({"torso_lift_joint": 0.28})
+```
+
+For Giskard everything is connected by joints (this is called
+a [World Tree](https://github.com/SemRoCo/giskardpy/wiki/World-Tree) by Giskard) therefore we can move the robot's base
+by using motion goals between the map origin and the robot base. (e.g. by sending a "base_link" goal in the "map"
+frame).
+
+In the example below we use a cartesian goal, meaning we give Giskard a goal pose, a root link and a tip link and
+Giskard tries to move all joints between root link and tip link such that the tip link is at the goal pose.
+
+This sort of movement is fine for short distances, but keep in mind that Giskard has no collision avoidance for longer
+journeys. So using MoveBase for longer distances is a better idea.
+
+```python
+from pycram.external_interfaces import giskard
+from pycram.pose import Pose
+
+giskard.achieve_cartesian_goal(Pose([1, 0, 0]), "base_link", "map")
+```
+
+Now for the last example: we will move the gripper using full body motion control.
+
+We will again use the cartesian goal, but now between "map" and "r_gripper_tool_frame" frames. This will not only move
+the robot (because the kinematic chain between "map" and "base_link" as used in the previous example is also part of
+this chain) but also move the arm of the robot such that it reaches the goal pose.
+
+```python
+from pycram.external_interfaces import giskard
+from pycram.pose import Pose
+
+giskard.achieve_cartesian_goal(Pose([1, 0.5, 0.7]), "r_gripper_tool_frame", "map")
+```
+
+That concludes this example you can now close the BulletWorld by using the "exit" method.
+
+```python
+world.exit()
+```
+
+## How the Giskard interface works
+
+The PyCRAM interface to Giskard mostly relies on the Python interface that Giskard already
+provides ([tutorial](https://github.com/SemRoCo/giskardpy/wiki/Python-Interface) and
+the [source code](https://github.com/SemRoCo/giskardpy/blob/master/src/giskardpy/python_interface.py)). This interface
+provides methods to achieve motion goals and load things into the Giskard believe state.
+
+What PyCRAM does with this, is: Synchronize the belief state of Giskard with the one of PyCRAM by loading the
+environment URDF in Giskard, this is done before any motion goal is sent. Furthermore, the motion goals are wrapped in
+methods that use PyCRAM data types.
+
+You can also set collisions between different groups of links. By default, Giskard avoids all collisions but for things
+like grasping an object you want to allow collisions of the gripper. The interface also supports the following collision
+modes:
+* avoid_all_collisions
+* allow_self_collision
+* allow_gripper_collision
+The collision mode can be set by calling the respective method, after calling the method the collision mode is valid for
+the next motion goal. Afterwards, it defaults back to avoid_all_collisions.
+
+There is a ```init_giskard_interface``` method which can be used as a decorator. This decorator should be used on all
+methods that access the giskard_wrapper, since it assures that the interface is working and checks if Giskard died or
+the imports for the giskard_msgs failed.
+
+## Extend the Giskard interface
+
+At the moment the PyCRAM Giskard interface is mostly a wrapper around the Python interface provided by Giskard. If you
+want to extend the interface there are two ways:
+
+* Wrap more motion goals which are provided by the Python interface
+* Design new Higher-Level motion goals by combining the motion goals already provided
+
+
