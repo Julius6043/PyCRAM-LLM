@@ -12,7 +12,15 @@ from vector_store_SB import get_retriever
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.pydantic_v1 import BaseModel, Field
-from helper_func import format_docs, format_code, format_examples, format_example, llm, llm_GP, llm_mini
+from helper_func import (
+    format_docs,
+    format_code,
+    format_examples,
+    format_example,
+    llm,
+    llm_GP,
+    llm_mini,
+)
 from run_llm_local import run_llama3_remote
 
 # Load environment variables for secure access to configuration settings
@@ -37,14 +45,16 @@ class code(BaseModel):
 
     prefix: str = Field(description="Description of the problem and approach")
     imports: str = Field(description="Import statements of the code")
-    code: str = Field(description="Just the Code block without including import statements")
+    code: str = Field(
+        description="Just the Code block without including import statements"
+    )
     description = "Schema for code solutions for robot tasks."
 
 
 llm_with_tool = llm.with_structured_output(code)
 
 # Define a long and complex prompt template for generating plans...
-prompt = r"""You are a renowned AI engineer and programmer. You receive world knowledge, a task, an error-code and a 
+prompt = """You are a renowned AI engineer and programmer. You receive world knowledge, a task, an error-code and a 
 code solution. The code solution was created by another LLM Agent like you to the given task and world knowledge. The 
 code was already executed resulting in the provided error message. Your task is to develop a sequenz of plans to geather 
 resources and correct the given PyCramPlanCode. PyCramPlanCode is a plan instruction for a robot that should enable the 
@@ -54,9 +64,8 @@ tools later. (Plan, #E1, Plan, #E2, Plan, ...). Don't use **...** to highlight s
 
 The tools can be one of the following: 
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functionality. The input should be a specific search query as a detailed question. 
-(2) LLM[input]: A pre-trained LLM like yourself. Useful when you need to act with general information and common sense. Prefer it if you are confident you can solve the problem yourself. The input can be any statement.
-(3) CodeRetrieve[input]: A vector database retriever to search and look directly into the PyCram package code. As input give the exact Function and a little description.
-(4) URDF[input]: A database retriver which returns the URDF file text. Use this tool when you need information about the URDF files used in the world. Provide the URDF file name as input.
+(2) CodeRetrieve[input]: A vector database retriever to search and look directly into the PyCram package code. As input give the exact Function and a little description.
+(3) URDF[input]: A database retriver which returns the URDF file text. Use this tool when you need information about the URDF files used in the world. Provide the URDF file name as input.
 
 PyCramPlanCode follow the following structure:
 Imports
@@ -320,6 +329,11 @@ and information to write PyCramCode so use them with caution because long eviden
 information and only use the world knowledge for specific world information. Also be conscious about you 
 hallucinating and therefore use evidence and example code as strong inspiration.
 
+Example of PyCRAM Plan Code with the corresponding example plan (use this only as a example how the PyCRAM Code to a plan should look like):
+<Code_example>
+{code_example}
+</Code_example>
+
 Plan with evidence and examples:
 <Plan>
 {plan}
@@ -341,9 +355,6 @@ The 'with simulated_robot:'-Block (defines the Actions and moves of the Robot)
     SematicCostmapLocation
 BulletWorld Close
 </PyCramPlan structure>
-
-{code_example}
-
 
 Failed PyCramPlanCode: {code}
 ---

@@ -223,7 +223,27 @@ def load_in_vector_store(source, vectore_store_id=1, metadata=None):
             )
         except IOError as e:
             print(f"Error reading file {source}: {e}")
-
+    elif vectore_store_id == 5:
+        # chunks_temp = load_website(source)
+        words, split_parts = split_and_extract_words(source)
+        chunks_temp = list(zip(words, split_parts))
+        chunks = []
+        for chunk_temp in chunks_temp:
+            content = chunk_temp[1]
+            metadata_temp = {"source": chunk_temp[0]}
+            if chunk_temp[0].startswith("pycram."):
+                metadata_temp.update({"doc_type": "api"})
+            else:
+                metadata_temp.update({"doc_type": "tutorial"})
+            metadata_temp.update(metadata)
+            chunks.append(Document(page_content=content, metadata=metadata_temp))
+        vector_store_large = SupabaseVectorStore.from_documents(
+            chunks,
+            embeddings_large,
+            client=supabase,
+            table_name="docs",
+            query_name="match_docs",
+        )
     else:
         raise Exception("Invalid vector store id")
 
