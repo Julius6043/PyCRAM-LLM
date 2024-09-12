@@ -70,7 +70,7 @@ vector_store_urdf = SupabaseVectorStore(
 def get_pdf_text(file_name, path_pdf=True):
     text = ""
     if path_pdf:
-        path = f"pdf\{file_name}"
+        path = f"pdf/{file_name}"
     else:
         path = file_name
     reader = PdfReader(path)
@@ -152,10 +152,15 @@ def load_in_vector_store(source, vectore_store_id=1, metadata=None):
         try:
             with open(source, "r") as file:
                 content = file.read()
+            meta_data = re.findall(r"#<(.+?)>#", content)
             chunks_temp = content.split("##New ")[1:]
             chunks = []
+            i = 0
             for chunk in chunks_temp:
+                metadata_temp = {"source": meta_data[i]}
+                metadata_temp.update(metadata)
                 chunks.append(Document(page_content=chunk, metadata=metadata))
+                i=i+1
             vector_store_code = SupabaseVectorStore.from_documents(
                 chunks,
                 embeddings_large,
@@ -266,7 +271,7 @@ def delete_from_vectorstore(table, num=2):
 
 
 # Function to get a retriever based on the vector store ID and number of documents to retrieve.
-def get_retriever(vector_store_id=1, num=5, filter={}):
+def get_retriever(vector_store_id=1, num=5, filter=None):
     """Gibt einen Retriever zurück, der den angegebenen VectorStore verwendet.
 
     Args:
@@ -279,6 +284,8 @@ def get_retriever(vector_store_id=1, num=5, filter={}):
     Returns:
         Retriever: Ein Retriever, der den angegebenen VectorStore verwendet.
     """
+    if filter is None:
+        filter = {}
     if vector_store_id == 1:
         vector_store_temp = vector_store_code
     elif vector_store_id == 2:
@@ -303,24 +310,4 @@ def get_retriever(vector_store_id=1, num=5, filter={}):
 # load_in_vector_store("../output_code_new.txt", 1)
 # print(result)
 # load_in_vector_store("Documentation_important.txt", 2)
-""" 
-file_path = "Documentation_important.txt"
-first_words, split_parts = split_and_extract_words(file_path)
 
-print("Erste Wörter:", first_words)
-print("Gesplittete Teile:", split_parts)
-"""
-"""
-chunks_temp = load_website("https://pycram.readthedocs.io/en/latest/")
-chunks = []
-for chunk in chunks_temp:
-    chunk.metadata.update({})
-    chunks.append(Document(page_content=chunk.page_content, metadata=chunk.metadata))
-
-output_file = Path("documents_output.txt")
-with output_file.open("w", encoding="utf-8") as f:
-    for chunk in chunks:
-        f.write(
-            chunk.page_content + "\n\n-----\n\n"
-        )  # Writing content with double line breaks between chunks
-"""

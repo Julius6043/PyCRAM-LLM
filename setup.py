@@ -118,7 +118,7 @@ Plan 1: Get the URDF file of the apartment. #E1 = URDF[apartment.urdf]
 Plan 2: Get the URDF file of the pr2 robot. #E2 = URDF[pr2.urdf]
 Plan 3: Initialize the BulletWorld and load the robot and environment. #E3 = Retrieve[How do I initialize a BulletWorld and load objects?]
 Plan 4: Create the objects milk, cereal, spoon, and bowl. #E4 = Retrieve[How do I create objects in PyCram?]
-Plan 5: Create designators for the robot and environment. #E5 = Retrieve[How do I create object designators in PyCram?]
+Plan 5: Create designators for the robot, the object and environment. #E5 = Retrieve[How do I create object designators in PyCram?]
 Plan 6: Park both arms of the robot and raise the torso. #E6 = Retrieve[How do I park the arms and move the torso in PyCram?]
 Plan 7: Detect the milk and transport it. #E7 = Retrieve[How do I detect and transport objects in PyCram?]
 Plan 8: Detect the cereal and transport it. #E8 = Retrieve[How do I detect and transport objects in PyCram?]
@@ -129,7 +129,70 @@ Plan 12: Place the spoon and park the arms. #E12 = Retrieve[How do I place objec
 Plan 13: Close the BulletWorld. #E13 = Retrieve[How do I close the BulletWorld in PyCram?]
 """
 
-example2 = """
+example2 = """PyCramPlanCode:
+<code>
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.process_module import simulated_robot
+from pycram.designators.motion_designator import *
+from pycram.designators.location_designator import *
+from pycram.designators.action_designator import *
+from pycram.designators.object_designator import *
+from pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode
+
+world = BulletWorld(WorldMode.GUI)
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.4, 1, 0.95]))
+
+cereal_desig = ObjectDesignatorDescription(names=["cereal"])
+kitchen_desig = ObjectDesignatorDescription(names=["kitchen"])
+robot_desig = ObjectDesignatorDescription(names=["pr2"]).resolve()
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+    MoveTorsoAction([0.3]).resolve().perform()
+
+    pickup_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot_desig).resolve()
+    pickup_arm = pickup_pose.reachable_arms[0]
+
+    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+
+    PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=[Grasp.FRONT]).resolve().perform()
+
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+    place_island = SemanticCostmapLocation("kitchen_island_surface", kitchen_desig.resolve(), cereal_desig.resolve()).resolve()
+
+    place_stand = CostmapLocation(place_island.pose, reachable_for=robot_desig, reachable_arm=pickup_arm).resolve()
+
+    NavigateAction(target_locations=[place_stand.pose]).resolve().perform()
+
+    PlaceAction(cereal_desig, target_locations=[place_island.pose], arms=[pickup_arm]).resolve().perform()
+
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+world.exit()
+</code>
+
+World Knowledge:
+<knowledge>
+[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', pose=Pose([1.4, 1, 0.95]))]
+</knowledge>
+
+Task: Can you place the cereal on the kitchen island?
+
+The corresponding plan:
+
+Plan 1: Get the URDF file of the kitchen. #E1 = URDF[kitchen.urdf]
+Plan 2: Get the URDF file of the pr2 robot. #E2 = URDF[pr2.urdf]
+Plan 3: Create a object designator for the cereal, kitchen and the roboter object. #E3 = LLM[How to create an object designator in PyCram?]
+Plan 4: Retrieve the method for navigating the robot to the kitchen. #E4 = Retrieve[How to navigate the robot to a specific position in PyCram?]
+Plan 5:  Retrieve the method to locate and pick up an object. #E5 = Retrieve[How to locate an object and pick it up?]
+Plan 6: Retrieve the procedure for finding a suitable position to place the cereal on the kitchen island. #E6 = Retrieve[How to find a suitable position for placing an object in PyCram?]
+Plan 7: Retrieve the method for placing the cereal on the kitchen island. #E7 = Retrieve[How to place an object at a specific position in PyCram?]
+Plan 8: Close the BulletWorld. #E8 = Retrieve[How do I close the BulletWorld in PyCram?]
 """
 
 
@@ -150,4 +213,5 @@ def setup_vector_store(pycram_path, just_upload=True):
     load_in_vector_store([example1], 3)
 
 
-setup_vector_store("d:\Git\Repository\pycram")
+#setup_vector_store("d:\Git\Repository\pycram")
+load_in_vector_store([example1, example2], 3)

@@ -223,7 +223,6 @@ chain_docs_code = (
 async def async_tool_execution(state: ReWOO):
     """Worker node that executes the tools concurrently."""
     _step = _get_current_task(state)
-
     async def run_tool(step):
         _, step_name, tool, tool_input = step
         _results = state["results"] or {}
@@ -231,19 +230,23 @@ async def async_tool_execution(state: ReWOO):
             tool_input = tool_input.replace(k, v)
 
         if tool == "LLM":
-            result = await llm.invoke_async(tool_input)
+            result = await llm.ainvoke(tool_input)
         elif tool == "Retrieve":
-            result = await chain_docs_gpt.invoke_async(tool_input)
+            result = await chain_docs_gpt.ainvoke(tool_input)
         elif tool == "Code":
-            result = await chain_docs_code.invoke_async(tool_input)
+            result = await chain_docs_code.ainvoke(tool_input)
         elif tool == "URDF":
             urdf_retriever = get_retriever(4, 1)
-            result = await urdf_retriever.invoke_async(tool_input)
+            files = await urdf_retriever.ainvoke(tool_input)
+            result = ""
+            for file in files:
+                result = result + file.page_content
         else:
             raise ValueError(f"Unknown tool: {tool}")
 
         return step_name, str(result)
 
+    _results = state["results"] or {}
     tasks = [
         run_tool(step) for step in state["steps"][_step - 1 :]
     ]  # Adjust range based on the task steps.
@@ -253,9 +256,9 @@ async def async_tool_execution(state: ReWOO):
 
     # Update results in the state
     for step_name, result in results:
-        state["results"][step_name] = result
+        _results[step_name] = result
 
-    return {"results": state["results"]}
+    return {"results": _results}
 
 
 # Function to execute tools as per the generated plan
@@ -390,9 +393,9 @@ def _sanitize_output(text: str):
 
 
 # Function to stream the execution of the application
-def stream_rewoo(task, world):
+async def stream_rewoo(task, world):
     plan = ""
-    for s in app.stream({"task": task, "world": world}):
+    async for s in app.astream({"task": task, "world": world, "results": None}):
         if "plan" in s:
             plan = s["plan"]["plan_string"]
         print(s)
@@ -405,7 +408,9 @@ def stream_rewoo(task, world):
         final_result = s["solve"]["result"]
         filled_plan = s["solve"]["result_plan"]
     result_print = final_result.imports + "\n" + final_result.code
+    print("-------------")
     print(result_print)
+    print("-------------")
     return final_result, plan, filled_plan
 
 
@@ -417,6 +422,10 @@ world_test = """
 ##result = chain_docs.invoke("PyCram Grundlagen")
 # result = chain_docs.invoke("PyCram Grundlagen")
 # result = re_chain_example_solve.invoke(task_test)
-# result = stream_rewoo(task_test, world_test)
+
 # result = count_tokens("gpt-4", task_test)
-# print(result)
+
+
+result, plan ,filled_plan = asyncio.run(stream_rewoo(task_test, world_test))
+
+print(result)

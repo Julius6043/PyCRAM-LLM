@@ -11,14 +11,14 @@ llm_o = ChatOpenAI(
     temperature=0,
 )
 llm_pycram = ChatOpenAI(
-    model="ft:gpt-4o-2024-08-06:personal:pycram-4o:A3LeNNIO",
+    model="ft:gpt-4o-2024-08-06:personal:pycram-v2:A6c9UXZT",
     temperature=0,
 )
 llm_mini = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 llm_AH = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0)
 llm_AO = ChatAnthropic(model="claude-3-opus-20240229", temperature=0)
 llm_AS = ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0)
-llm_GP = ChatGoogleGenerativeAI(model="gemini-1.5-pro-exp-0801", temperature=0)
+llm_GP = ChatGoogleGenerativeAI(model="gemini-1.5-pro-exp-0827", temperature=0)
 llm_json = ChatOpenAI(
     model="gpt-4o",
     temperature=0,
