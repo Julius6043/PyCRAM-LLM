@@ -1,16 +1,14 @@
 from typing import Dict, TypedDict
 from langgraph.graph import END, StateGraph
 from operator import itemgetter
-
-from numpy.ma.core import filled
-
 from vector_store_SB import get_retriever, load_in_vector_store
 from langgraph_ReWOO import stream_rewoo
 from ReWOO_codeCheck import stream_rewoo_check
 from dotenv import load_dotenv
-from helper_func import format_docs
+from helper_func import format_docs, extract_urdf_files
 import re
 from code_exec import execute_code_in_process
+from prompts import preprocessing_chain
 
 load_dotenv()
 
@@ -64,7 +62,12 @@ def generate(state: GraphState):
         print(code_solution)
 
     else:
-
+        # Question und worldknowledge können hier nochmal vorverarbeitet werden
+        urdf_content = extract_urdf_files(world)
+        pre_thinking = preprocessing_chain.invoke(
+            {"prompt": question, "world": world, "urdf": urdf_content}
+        )
+        question = pre_thinking
         print("---GENERATE SOLUTION---")
         code_solution, plan, filled_plan = stream_rewoo(question, world)
         print("----CodePlan Versuch 1----")
@@ -79,7 +82,7 @@ def generate(state: GraphState):
             "plan": plan,
             "filled_plan": filled_plan,
             "iterations": iter,
-            "max_iter" : max_iter
+            "max_iter": max_iter,
         }
     }
 
@@ -160,18 +163,18 @@ def check_code_execution(state: GraphState):
     iter = state_dict["iterations"]
     max_iter = state_dict["max_iter"]
     full_result = (
-            "Task:"
-            + question
-            + "\nPyCramPlanCode:\n"
-            + "<code>\n"
-            + code_block
-            + "\n</code>\n"
-            + "World Knowledge:\n"
-            + "<world_knowledge>\n"
-            + world
-            + "\n</world_knowledge>\n"
-            + "\n This is the corresponding plan:\n"
-            + plan
+        "Task:"
+        + question
+        + "\nPyCramPlanCode:\n"
+        + "<code>\n"
+        + code_block
+        + "\n</code>\n"
+        + "World Knowledge:\n"
+        + "<world_knowledge>\n"
+        + world
+        + "\n</world_knowledge>\n"
+        + "\n This is the corresponding plan:\n"
+        + plan
     )
 
     exec_result = execute_code_in_process(code_block)
@@ -326,6 +329,6 @@ pose=Pose([2.5, 2, 1.02]), color=[1, 0, 0, 1]), cereal = Object("cereal", Object
 "breakfast_cereal.stl", pose=Pose([2.5, 2.3, 1.05]), color=[0, 1, 0, 1]), spoon = Object("spoon", ObjectType.SPOON, 
 "spoon.stl", pose=Pose([2.4, 2.2, 0.85]), color=[0, 0, 1, 1]), bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", 
 pose=Pose([2.5, 2.2, 1.02]), color=[1, 1, 0, 1]), apartment.attach(spoon, 'cabinet10_drawer_top')]"""
-#result = generate_plan(task_test, world_test)
+# result = generate_plan(task_test, world_test)
 
-#print(result)
+# print(result)

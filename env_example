@@ -1,6 +1,4 @@
 OPENAI_API_KEY = xxxxxxx
-TELEGRAM_BOT_TOKEN = xxxxxxx
 SUPABASE_URL = xxxxx
 SUPABASE_SERVICE_KEY = xxxxxx
-HUGGING_FACE_LOGIN = xxxxxx
 GOOGLE_API_KEY = xxxxx

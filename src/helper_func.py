@@ -3,6 +3,10 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_anthropic import ChatAnthropic
 import re
 import tiktoken
+from vector_store_SB import get_retriever
+from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 
 
 llm = ChatOpenAI(model="gpt-4o-2024-08-06", temperature=0)
@@ -11,7 +15,11 @@ llm_o = ChatOpenAI(
     temperature=0,
 )
 llm_pycram = ChatOpenAI(
-    model="ft:gpt-4o-2024-08-06:personal:pycram-v2:A6c9UXZT",
+    model="ft:gpt-4o-2024-08-06:personal:pycram-v3:A6w6emoR",
+    temperature=0,
+)
+llm_pycram_mini = ChatOpenAI(
+    model="ft:gpt-4o-mini-2024-07-18:personal:pycram-v3-mini:A6w4KlUM",
     temperature=0,
 )
 llm_mini = ChatOpenAI(model="gpt-4o-mini", temperature=0)
@@ -71,3 +79,40 @@ def count_tokens(model_name, text):
 
     # Anzahl der Tokens
     return len(tokens)
+
+
+# Function to get urdf content out of filenames in a string
+def extract_urdf_files(input_string):
+    """
+    Extrahiert alle .urdf Dateinamen aus dem gegebenen String.
+    Die Dateinamen können von einfachen oder doppelten Anführungszeichen umgeben sein
+    oder einfach durch Leerzeichen getrennt sein.
+
+    Args:
+        input_string (str): Der zu durchsuchende String.
+
+    Returns:
+        list: Eine Liste der gefundenen .urdf Dateinamen.
+    """
+    # Regex-Muster, das drei Fälle abdeckt:
+    # 1. Dateiname in einfachen Anführungszeichen
+    # 2. Dateiname in doppelten Anführungszeichen
+    # 3. Dateiname ohne Anführungszeichen, getrennt durch Leerzeichen oder Start/Ende des Strings
+    pattern = r"""
+        ['"]([^'"]+\.urdf)['"]     |  # In einfachen oder doppelten Anführungszeichen
+        (?<=\s|^)(\S+?\.urdf)(?=\s|$)    # Ohne Anführungszeichen
+    """
+
+    # Verwende re.VERBOSE für bessere Lesbarkeit und re.IGNORECASE für Groß-/Kleinschreibung
+    matches = re.findall(pattern, input_string, re.VERBOSE | re.IGNORECASE)
+
+    # re.findall gibt eine Liste von Tupeln zurück, da es mehrere Gruppen gibt.
+    # Wir müssen die nicht-leeren Gruppen extrahieren.
+    filenames = [match[0] if match[0] else match[1] for match in matches]
+    file_content = ""
+    for file in filenames:
+        urdf_retriever = get_retriever(4, 1, {"source": file})
+        result = urdf_retriever.invoke(file).page_content
+        add_result = f"{result}\n\n-----\n"
+        file_content.append(add_result)
+    return file_content
