@@ -1,5 +1,6 @@
 # Import necessary libraries and modules
 import os
+import asyncio
 import openai
 from dotenv import load_dotenv
 from typing import TypedDict, List
@@ -97,26 +98,45 @@ def _get_current_task(state: ReWOO):
         return len(state["results"]) + 1
 
 
-# Function to execute tools as per the generated plan
-def tool_execution(state: ReWOO):
-    """Worker node that executes the tools of a given plan."""
+async def async_tool_execution(state: ReWOO):
+    """Worker node that executes the tools concurrently."""
     _step = _get_current_task(state)
-    _, step_name, tool, tool_input = state["steps"][_step - 1]
+
+    async def run_tool(step):
+        _, step_name, tool, tool_input = step
+        _results = state["results"] or {}
+        for k, v in _results.items():
+            tool_input = tool_input.replace(k, v)
+
+        if tool == "LLM":
+            result = await llm.ainvoke(tool_input)
+        elif tool == "Retrieve":
+            result = await chain_docs_docu.ainvoke(tool_input)
+        elif tool == "Code":
+            result = await chain_docs_code.ainvoke(tool_input)
+        elif tool == "URDF":
+            urdf_retriever = get_retriever(4, 1)
+            files = await urdf_retriever.ainvoke(tool_input)
+            result = ""
+            for file in files:
+                result = result + file.page_content
+        else:
+            raise ValueError(f"Unknown tool: {tool}")
+
+        return step_name, str(result)
+
     _results = state["results"] or {}
-    for k, v in _results.items():
-        tool_input = tool_input.replace(k, v)
-    if tool == "LLM":
-        result = llm.invoke(tool_input)
-    elif tool == "CodeRetrieve":
-        result = chain_docs_code.invoke(tool_input)
-    elif tool == "Retrieve":
-        result = chain_docs_docu.invoke(tool_input)
-    elif tool == "URDF":
-        urdf_retriever = get_retriever(4, 1)
-        result = urdf_retriever.invoke(tool_input)
-    else:
-        raise ValueError
-    _results[step_name] = str(result)
+    tasks = [
+        run_tool(step) for step in state["steps"][_step - 1 :]
+    ]  # Adjust range based on the task steps.
+
+    # Run all tasks concurrently
+    results = await asyncio.gather(*tasks)
+
+    # Update results in the state
+    for step_name, result in results:
+        _results[step_name] = result
+
     return {"results": _results}
 
 
@@ -165,7 +185,7 @@ def _route(state):
 # Initialize the state graph and add nodes for planning, tool execution, and solving
 graph = StateGraph(ReWOO)
 graph.add_node("plan", get_plan)
-graph.add_node("tool", tool_execution)
+graph.add_node("tool", async_tool_execution)
 graph.add_node("solve", solve)
 graph.add_edge("plan", "tool")
 graph.add_edge("solve", END)
@@ -176,14 +196,9 @@ graph.set_entry_point("plan")
 app = graph.compile()
 
 
-def _sanitize_output(text: str):
-    _, after = text.split("```python")
-    return after.split("```")[0]
-
-
 # Function to stream the execution of the application
-def stream_rewoo_check(task, world, code_input, error):
-    for s in app.stream(
+async def stream_rewoo_check(task, world, code_input, error):
+    async for s in app.astream(
         {"task": task, "world": world, "code": code_input, "error": error}
     ):
         print(s)

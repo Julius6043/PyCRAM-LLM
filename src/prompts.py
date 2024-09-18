@@ -109,7 +109,7 @@ tools later. (Plan, #E1, Plan, #E2, Plan, ...). Don't use **...** to highlight s
 
 The tools can be one of the following: 
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functionality. The input should be a specific search query as a detailed question. 
-(2) CodeRetrieve[input]: A vector database retriever to search and look directly into the PyCram package code. As input give the exact Function and a little description.
+(2) Code[input]: A vector database retriever to search and look directly into the PyCram package code. As input give the exact Function and a little description.
 (3) URDF[input]: A database retriver which returns the URDF file text. Use this tool when you need information about the URDF files used in the world. Provide the URDF file name as input.
 
 PyCramPlanCode follow the following structure:

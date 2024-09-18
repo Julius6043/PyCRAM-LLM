@@ -141,32 +141,6 @@ async def async_tool_execution(state: ReWOO):
     return {"results": _results}
 
 
-# Function to execute tools as per the generated plan
-def tool_execution(state: ReWOO):
-    """Worker node that executes the tools of a given plan."""
-    _step = _get_current_task(state)
-    _, step_name, tool, tool_input = state["steps"][_step - 1]
-    _results = state["results"] or {}
-    for k, v in _results.items():
-        tool_input = tool_input.replace(k, v)
-    if tool == "LLM":
-        result = llm.invoke(tool_input)
-    elif tool == "Retrieve":
-        # retriever_llama3 = get_retriever(2, 3)
-        # re_llama = retriever_llama3 | format_docs
-        # prompt_filled = prompt_docs.format(task=tool_input, context=re_llama.invoke(tool_input))
-        result = chain_docs_docu.invoke(tool_input)
-    elif tool == "Code":
-        result = chain_docs_code.invoke(tool_input)
-    elif tool == "URDF":
-        urdf_retriever = get_retriever(4, 1)
-        result = urdf_retriever.invoke(tool_input)
-    else:
-        raise ValueError
-    _results[step_name] = str(result)
-    return {"results": _results}
-
-
 retriever_example_solve = get_retriever(3, 1)
 re_chain_example_solve = retriever_examples | format_example
 
@@ -257,6 +231,6 @@ world_test = """
 # result = count_tokens("gpt-4", task_test)
 
 
-result, plan, filled_plan = asyncio.run(stream_rewoo(task_test, world_test))
+# result, plan, filled_plan = asyncio.run(stream_rewoo(task_test, world_test))
 
-print(result)
+# print(result)
