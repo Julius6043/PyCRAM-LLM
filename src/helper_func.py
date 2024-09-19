@@ -98,21 +98,15 @@ def extract_urdf_files(input_string):
     # 1. Dateiname in einfachen Anführungszeichen
     # 2. Dateiname in doppelten Anführungszeichen
     # 3. Dateiname ohne Anführungszeichen, getrennt durch Leerzeichen oder Start/Ende des Strings
-    pattern = r"""
-        ['"]([^'"]+\.urdf)['"]     |  # In einfachen oder doppelten Anführungszeichen
-        (?<=\s|^)(\S+?\.urdf)(?=\s|$)    # Ohne Anführungszeichen
-    """
+    pattern = r"""['"]([^'"]+\.urdf)['"]"""
 
     # Verwende re.VERBOSE für bessere Lesbarkeit und re.IGNORECASE für Groß-/Kleinschreibung
-    matches = re.findall(pattern, input_string, re.VERBOSE | re.IGNORECASE)
+    matches = re.findall(pattern, input_string)
 
-    # re.findall gibt eine Liste von Tupeln zurück, da es mehrere Gruppen gibt.
-    # Wir müssen die nicht-leeren Gruppen extrahieren.
-    filenames = [match[0] if match[0] else match[1] for match in matches]
     file_content = ""
-    for file in filenames:
+    for file in matches:
         urdf_retriever = get_retriever(4, 1, {"source": file})
-        result = urdf_retriever.invoke(file).page_content
+        result = urdf_retriever.invoke(file)[0].page_content
         add_result = f"{result}\n\n-----\n"
-        file_content.append(add_result)
+        file_content += add_result
     return file_content

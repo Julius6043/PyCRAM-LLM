@@ -15,8 +15,8 @@ from helper_func import (
 
 
 ## rewoo planer ----------------------------------
-rewoo_planer_prompt = """You are a renowned AI engineer and programmer. You receive world knowledge and a task. You use them to develop a detailed sequence of plans to creat PyCramPlanCode for a robot that enables the robot to perform the 
-task step by step. Concentrate on using Action Designators over MotionDesignators. For each plan, indicate which external tool, along with the input for the tool, is used to gather evidence. You 
+rewoo_planer_prompt = """You are a renowned AI engineer and programmer. You receive world knowledge and a task. Your task is to develop a sequenz of plans to geather 
+resources and break down the given task for a other LLM Agent to generate PyCramPlanCode. PyCramPlanCode is a plan instruction for a robot that should enable it to perform the provided high level task. For each plan, indicate which external tool, along with the input for the tool, is used to gather evidence. You 
 can store the evidence in a variable #E, which can be called upon by other tools later. (Plan, #E1, Plan, #E2, Plan, 
 ...). Don't use **...** to highlight anything.
 
@@ -34,7 +34,7 @@ The 'with simulated_robot:'-Block (defines the Actions and moves of the Robot)
     Start with this two Code lines in this block:
         'ParkArmsAction([Arms.BOTH]).resolve().perform()
         MoveTorsoAction([0.25]).resolve().perform()'
-    ActionDesignators
+    ActionDesignators (Concentrate on using Action Designators over MotionDesignators)
     SematicCostmapLocation
 BulletWorld Close
 
@@ -254,7 +254,7 @@ The 'with simulated_robot:'-Block (defines the Actions and moves of the Robot)
     Start with this two Code lines in this block:
         'ParkArmsAction([Arms.BOTH]).resolve().perform()
         MoveTorsoAction([0.25]).resolve().perform()'
-    ActionDesignators
+    ActionDesignators (Concentrate on using Action Designators over MotionDesignators)
     SematicCostmapLocation
 BulletWorld Close
 </PyCramPlan structure>
@@ -358,59 +358,56 @@ chain_docs_code = (
 
 
 ## Instruction preprocessing chain ------------------------------------------
-preprocessing_prompt = """Du bist ein intelligenter Planungsagent für Roboter. Deine Aufgabe ist es, eine gegebene Anweisung, das Weltwissen und eine URDF-Datei zu analysieren und diese in die folgenden Komponenten zu zerlegen:
+preprocessing_prompt = """You are an intelligent planning agent for robots. Your task is to analyze a given instruction, world knowledge, and a URDF file, and break them down into the following components:
 
-1. **Ausgangsstadium:** Beschreibe den aktuellen Zustand vor Beginn der Aufgabe.
-2. **Zielstadium:** Beschreibe den gewünschten Endzustand nach Ausführung der Aufgabe.
-3. **Schritt-für-Schritt-Handlungsanweisung:** Erstelle eine detaillierte, aber prägnante Abfolge von Aktionen, die der Roboter ausführen muss, um vom Ausgangsstadium zum Zielstadium zu gelangen.
+1. **Initial stage:** Describe the current state before the task begins.
+2. **Goal stage:** Describe the desired end state after completing the task.
+3. **Step-by-step action plan:** Create a detailed but concise sequence of actions that the robot must perform to move from the initial stage to the goal stage.
 
-Die Ausgabe soll kurz und prägnant sein und in Form einer klaren Anweisung verfasst werden, wie die übergebene Anweisung, jedoch mit mehr Details. Gebe dabei die übergebene Anweisung mit aus.
+The output should be brief and concise, formatted as a clear instruction, similar to the provided input, but with more details. Include the provided instruction in the output.
 
-**Eingabeformat:**
+**Input format:**
 
-- **Anweisung:** {prompt}
-- **Weltwissen:** {worldknowledge}
-- **URDF-Datei:** 
+- **Instruction:** {prompt}
+- **World knowledge:** {worldknowledge}
+- **URDF file:** 
 <urdf>
 {urdf}
 </urdf>
 
+**Example:**
 
-**Beispiel:**
-
-- **Anweisung:** Place the cereal box on the kitchen island.
-- **Weltwissen:** [kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), 
+- **Instruction:** Place the cereal box on the kitchen island.
+- **World knowledge:** [kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), 
 robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), 
 cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', pose=Pose([1.4, 1, 0.95])))]
-- **URDF-Datei:** (Inhalt der Datein sind sehr lang, also kommt hier kein Beispiel. Hier würde der Inhalt von 'kitchen.urdf' und 'pr2.urdf' stehen. Diese enthalten Informationen über die Komponenten der Objekte.)
+- **URDF file:** (The content of the file is very long, so no example here. The file would contain information about the components of the objects, such as 'kitchen.urdf' and 'pr2.urdf'.)
 
-**Erwartete Ausgabe:**
-- **Grundanweisung**: Place the cereal box on the kitchen island.
-- **Ausgangsstadium:**  
-    - **Cerealschachtel:** Befindet sich auf dem Boden bei Position **[1.4, 1, 0.95]**.
-    - **Roboter PR2:** Positioniert sich in der Nähe der Cerealschachtel, beispielsweise bei Position **[1.4, 1, 0]**.
+**Expected output:**
+- **Initial stage:**  
+    - **Cereal box:** Located on the ground approximately at position **[1.4, 1, 0.95]**.
+    - **PR2 Robot:** Positioned near the cereal box, approximately at position **[1.4, 1, 0]**.
 
-- **Zielstadium:**  
-    - **Cerealschachtel:** Befindet sich auf der Kücheninsel an der Oberfläche bei Position **[-1.07, 1.72, 0.84]**.
+- **Goal stage:**  
+    - **Cereal box:** Located on the kitchen island surface approximately at position **[-1.07, 1.72, 0.84]**.
 
-- **Schritt-für-Schritt-Anleitung:**
+- **Step-by-step plan:**
 
-    1. **Positionierung des Roboters:**
-    - **Aktion:** Der Roboter PR2 bewegt sich zur Position **[1.4, 1, 0]**, nahe der Cerealschachtel.
+    1. **Robot positioning:**
+    - **Action:** The PR2 robot moves to position **[1.4, 1, 0]**, near the cereal box.
     
-    2. **Greifen der Cerealschachtel:**
-    - **Aktion:** Der Roboter navigiert zur Cerealschachtel bei **[1.4, 1, 0.95]**.
-    - **Aktion:** Greife die Cerealschachtel sicher.
+    2. **Grabbing the cereal box:**
+    - **Action:** The robot navigates to the cereal box at **[1.4, 1, 0.95]**.
+    - **Action:** Securely grab the cereal box.
 
-    3. **Bewegung zur Kücheninsel:**
-    - **Aktion:** Der Roboter transportiert die Cerealschachtel von **[1.4, 1, 0.95]** zur Kücheninsel bei **[-1.07, 1.72, 0.84]**.
+    3. **Movement to the kitchen island:**
+    - **Action:** The robot transports the cereal box from **[1.4, 1, 0.95]** to the kitchen island approximately at **[-1.07, 1.72, 0.84]**.
 
-    4. **Platzieren der Cerealschachtel:**
-    - **Aktion:** Positioniere die Cerealschachtel vorsichtig auf der Kücheninsel an der genauen Position **[-1.07, 1.72, 0.84]**.
+    4. **Placing the cereal box:**
+    - **Action:** Carefully place the cereal box on the kitchen island approximately at position **[-1.07, 1.72, 0.84]**.
 
-    5. **Abschluss der Aufgabe:**
-    - **Aktion:** Überprüfe, ob die Cerealschachtel stabil auf der Kücheninsel platziert ist.
-    - **Aktion:** Beende die Aufgabe und kehre zur Ausgangsposition zurück oder bereite dich auf die nächste Anweisung vor.
+    5. **Task completion:**
+    - **Action:** Finish the task and return to the initial position or prepare for the next instruction.
 """
 
 preprocessing_template = ChatPromptTemplate.from_template(preprocessing_prompt)
@@ -427,3 +424,4 @@ preprocessing_chain = (
     | llm
     | StrOutputParser()
 )
+

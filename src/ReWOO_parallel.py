@@ -86,7 +86,7 @@ def get_plan(state: ReWOO):
 
     # Find all matches in the sample text
     matches = re.findall(regex_pattern, result.content)
-    return {"steps": matches, "plan_string": result.content}
+    return {"steps": matches, "plan_string": result.content, "results": None}
 
 
 # Function to determine the current task based on state
@@ -200,7 +200,7 @@ app = graph.compile()
 # Function to stream the execution of the application
 async def stream_rewoo(task, world):
     plan = ""
-    async for s in app.astream({"task": task, "world": world, "results": None}):
+    async for s in app.astream({"task": task, "world": world}):
         if "plan" in s:
             plan = s["plan"]["plan_string"]
         print(s)
