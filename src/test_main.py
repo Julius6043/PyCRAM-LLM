@@ -114,18 +114,17 @@ def make_test(test_num, run_num=1):
     return result
 
 
-
 ### tests
-#result_retriever_code = test_code_retriever.invoke("Wie sind Costmaps definiert?")
-#result_retriever_docu = test_code_retriever.invoke("")
-#urdf_content = extract_urdf_files(world_test4)
+# result_retriever_code = test_code_retriever.invoke("Wie sind Costmaps definiert?")
+# result_retriever_docu = test_code_retriever.invoke("")
+# urdf_content = extract_urdf_files(world_test4)
 """
 pre_thinking = preprocessing_chain.invoke(
     {"prompt": task_test4, "world": world_test4, "urdf": urdf_content}
 )
 """
-#print(urdf_content)
-#print(pre_thinking)
-#print(result_retriever_code)
+# print(urdf_content)
+# print(pre_thinking)
+# print(result_retriever_code)
 
-print(make_test(2))
+# print(make_test(2))
