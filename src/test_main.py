@@ -115,8 +115,6 @@ def make_test(test_num, run_num=1):
 
 
 ### tests
-# result_retriever_code = test_code_retriever.invoke("Wie sind Costmaps definiert?")
-# result_retriever_docu = test_code_retriever.invoke("")
 # urdf_content = extract_urdf_files(world_test4)
 """
 pre_thinking = preprocessing_chain.invoke(
@@ -128,3 +126,12 @@ pre_thinking = preprocessing_chain.invoke(
 # print(result_retriever_code)
 
 # print(make_test(2))
+print(test_code_retriever.invoke("Wie ist CostmapLocation definiert?"))
+print("------------------------")
+print(
+    test_docu_retriever.invoke("Was sind Aktion Designatoren und wie verwende ich sie?")
+)
+# Doku Tool
+# print(test_tool(1,"Was sind Aktion Designatoren und wie verwende ich sie?"))
+# code Tool
+# print(test_tool(2,"Wie ist CostmapLocation definiert?"))
