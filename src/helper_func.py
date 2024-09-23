@@ -82,7 +82,7 @@ def count_tokens(model_name, text):
 
 
 # Function to get urdf content out of filenames in a string
-def extract_urdf_files(input_string):
+def extract_urdf_files(input_string) -> str:
     """
     Extrahiert alle .urdf Dateinamen aus dem gegebenen String.
     Die Dateinamen können von einfachen oder doppelten Anführungszeichen umgeben sein

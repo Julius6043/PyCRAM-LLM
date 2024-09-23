@@ -11,6 +11,7 @@ from helper_func import (
     llm,
     llm_GP,
     llm_mini,
+    extract_urdf_files,
 )
 
 
@@ -411,6 +412,14 @@ cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', p
 """
 
 preprocessing_template = ChatPromptTemplate.from_template(preprocessing_prompt)
+urdf_prompt = ChatPromptTemplate.from_template("""""")
+urdf_clean = (
+    {"urdf": RunnableLambda(extract_urdf_files)}
+    | urdf_prompt
+    | llm_mini
+    | StrOutputParser()
+)
+urdf_chain = RunnableLambda(extract_urdf_files)
 
 
 # More complex template for tutorial writing, generating comprehensive documentation
@@ -418,10 +427,9 @@ preprocessing_chain = (
     {
         "prompt": itemgetter("prompt"),
         "worldknowledge": itemgetter("world"),
-        "urdf": itemgetter("urdf"),
+        "urdf": itemgetter("world") | urdf_chain,
     }
     | preprocessing_template
     | llm
     | StrOutputParser()
 )
-

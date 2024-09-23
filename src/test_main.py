@@ -83,8 +83,8 @@ apartment.attach(spoon1, 'cabinet10_drawer_top')]"""
 
 
 # retriever test
-test_code_retriever = get_retriever(1, 3)
-test_docu_retriever = get_retriever(2, 3)
+test_code_retriever = get_retriever(1, 2)
+test_docu_retriever = get_retriever(2, 2)
 
 
 def test_tool(tool_num, prompt):
@@ -116,21 +116,26 @@ def make_test(test_num, run_num=1):
 
 ### tests
 # urdf_content = extract_urdf_files(world_test4)
-"""
-pre_thinking = preprocessing_chain.invoke(
-    {"prompt": task_test4, "world": world_test4, "urdf": urdf_content}
-)
-"""
+
+pre_thinking = preprocessing_chain.invoke({"prompt": task_test4, "world": world_test4})
+
 # print(urdf_content)
-# print(pre_thinking)
+print(pre_thinking)
 # print(result_retriever_code)
 
 # print(make_test(2))
-print(test_code_retriever.invoke("Wie ist CostmapLocation definiert?"))
-print("------------------------")
-print(
-    test_docu_retriever.invoke("Was sind Aktion Designatoren und wie verwende ich sie?")
-)
+"""code_retrieve = test_code_retriever.invoke("How is CostmapLocation defined?")
+docu_retieve = test_docu_retriever.invoke(
+    "What are Action Designators and how do i use them?"
+)"""
+"""for text in code_retrieve:
+    print(text.page_content)
+    print("\n\n-----\n\n")
+"""
+"""print("\n------------------------Docu test:\n")
+for text in docu_retieve:
+    print(text.page_content)
+    print("\n\n-----\n\n")"""
 # Doku Tool
 # print(test_tool(1,"Was sind Aktion Designatoren und wie verwende ich sie?"))
 # code Tool
