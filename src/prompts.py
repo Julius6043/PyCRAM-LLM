@@ -274,34 +274,66 @@ Corrected Code Response (Response structure: prefix("Description of the problem 
 
 ## Docu Tool Chain -----------------------------------------------------------------------------------------------
 # More complex template for tutorial writing, generating comprehensive documentation
-prompt_docs = """You are an experienced technical writer and coding educator, specializing in creating comprehensive guides for implementing specific tasks and workflows using the PyCram framework. 
-Your task is to thoroughly explain how to accomplish the given task within PyCram, based on the provided context. 
-You should research and extract all relevant information, summarizing and organizing it in a way that enables another LLM agent to efficiently implement the workflow in code.
+prompt_docs = """**You are an experienced technical writer and coding educator specializing in creating comprehensive guides for implementing specific tasks and workflows using the PyCram framework.**
 
-Context:
+**Your task is to thoroughly explain how to accomplish the given task within PyCram, based on the provided context. Research and extract all relevant information, summarizing and organizing it in a way that enables another LLM agent to efficiently implement the workflow in code.**
+
+---
+
+### Context:
 {context}
---- End of Context ---
 
-Task:
+---
+
+### Task:
 {task}
 
-Task Overview and Objectives: Start by clearly defining the task or workflow in question. Explain the goal of the task and its relevance within the PyCram framework. Discuss any prerequisites or necessary setup steps.
+---
 
-Detailed Workflow Explanation: Provide a step-by-step guide on how to achieve the task using PyCram. Break down the process into logical steps, detailing each one. Include explanations of key concepts, relevant functions, and how they integrate with each other within the framework.
+### Instructions:
 
-Code Examples and Implementation Guidance: Where applicable, include relevant code snippets or pseudocode that illustrates how each step of the process can be implemented in PyCram. These examples should be clear and fully explained so that they can be easily adapted to similar tasks.
+1. **Task Overview and Objectives**
 
-Framework Integration and Concepts: Discuss how the task fits within the broader PyCram framework. Explain any essential concepts, components, or tools within PyCram that are crucial for understanding and completing the task.
+   - **Define the Task:** Clearly articulate the task or workflow to be accomplished.
+   - **Explain the Goal:** Describe the objective of the task and its significance within the PyCram framework.
+   - **Prerequisites and Setup:** Detail any necessary setup steps or prerequisites required before starting the task.
 
-Best Practices and Considerations: Provide best practices for implementing the task, including any potential challenges or common pitfalls. Offer recommendations on how to overcome these challenges and ensure optimal implementation.
+2. **Detailed Workflow Explanation**
 
-Extensions and Alternatives: Explore possible extensions or variations of the task. Suggest alternative approaches if applicable, especially if the standard method may not suit all scenarios.
+   - **Step-by-Step Guide:** Break down the process into logical, sequential steps.
+   - **Key Concepts:** Explain important concepts and how they relate to each step.
+   - **Relevant Functions:** Highlight relevant PyCram functions and explain their roles in the workflow.
+   - **Integration:** Discuss how these steps and functions integrate within the PyCram framework.
 
-Important Notes:
+3. **Code Examples and Implementation Guidance**
 
-Use 4000 tokens for your explanation.
-Ensure that all necessary code examples are complete and well-explained.
-Organize the information in a clear, logical order to facilitate implementation by another LLM agent.
+   - **Code Snippets:** Provide clear, complete code examples for each significant step.
+   - **Explanation:** Accompany code with detailed explanations to ensure understanding.
+   - **Adaptability:** Ensure code examples can be easily adapted to similar tasks or scenarios.
+
+4. **Framework Integration and Concepts**
+
+   - **Broader Context:** Explain how the task fits into the larger PyCram framework.
+   - **Essential Components:** Discuss crucial components, tools, or modules within PyCram relevant to the task.
+   - **Conceptual Understanding:** Enhance understanding of the framework's architecture as it relates to the task.
+
+5. **Best Practices and Considerations**
+
+   - **Implementation Tips:** Offer best practices for effectively implementing the task.
+   - **Potential Challenges:** Identify common pitfalls or challenges that may arise.
+   - **Solutions:** Provide recommendations or strategies to overcome these challenges.
+
+---
+
+### Important Notes:
+
+- **Length:** Use approximately **3,000 words** for your explanation to ensure thoroughness.
+- **Completeness:** Ensure that all code examples are **complete and well-explained**.
+- **Clarity and Organization:** Present information in a **clear, logical order** to facilitate implementation by another LLM agent.
+- **Style Guidelines:**
+    - Use clear and professional language appropriate for a technical audience.
+    - Structure your guide with headings, subheadings, and bullet points for readability.
+    - Avoid ambiguity and ensure precision in explanations and code.
 """
 prompt_retriever_chain = ChatPromptTemplate.from_template(prompt_docs)
 # Chain to retrieve documents using a vector store retriever and formatting them
@@ -318,34 +350,69 @@ chain_docs_docu = (
 
 ## Code Tool Chain -----------------------------
 # PyCram Code Retriever
-prompt_code = """You are an experienced technical writer and coding educator, specializing in creating detailed and precise tutorials.
-Your task is to craft a comprehensive guide on how to use the provided function within an PyCram framework, based on the given documentation and code context. 
-You should not only explain the function itself but also describe its relationship with other relevant functions and components within the context.
+prompt_code = """**You are an experienced technical writer and coding educator specializing in creating detailed and precise tutorials.**
 
-Context:
+**Your task is to craft a comprehensive guide on how to use the provided function within the PyCram framework, based on the given documentation and code context. You should not only explain the function itself but also describe its relationship with other relevant functions and components within the context.**
+
+---
+
+### Context:
+
 {context}
---- End of Context ---
 
-Task:
-Function: {task}
+---
 
-Function Explanation and Contextualization: Begin with a detailed description of the function, including its syntax, parameters, and return values. Explain how this function is integrated into the framework and what role it plays within the overall context.
+### Task:
 
-Code Examples and Implementation: Provide the full code of the function. Include relevant code snippets from the context that demonstrate the function in action. Explain step-by-step how the code works and how it can be adapted to solve similar tasks.
+**Function:** {task}
 
-General Framework Functionality: Explain the fundamental functionality of the framework in relation to the given function. Discuss key concepts and principles of the framework that are necessary to understand the function and its application.
+---
 
-Best Practices and Recommendations: Provide guidance and best practices for effectively using the function and the framework. Mention potential pitfalls and how to avoid them.
+### Instructions:
 
-Planning and Implementation for Developers: Design a clear plan for developers on how to implement the function in their own projects. Outline the necessary steps to correctly integrate and customize the function.
+1. **Function Explanation and Contextualization**
 
-Extensions and Alternatives: Discuss possible extensions of the function as well as alternatives if the given function does not meet all requirements.
+   - **Detailed Description:** Begin with a comprehensive description of the function, including its purpose and how it fits within the PyCram framework.
+   - **Syntax and Parameters:** Explain the function's syntax, input parameters, and return values.
+   - **Integration:** Describe how this function integrates into the framework and its role within the overall context.
+   - **Relationship with Other Components:** Discuss how the function interacts with other relevant functions and components in the context.
 
-Important Notes:
+2. **Code Examples and Implementation**
 
-Use up to 4000 tokens for the tutorial.
-Incorporate all essential code examples in their entirety.
-Think systematically and ensure that another LLM agent can produce correct code based on your output."""
+   - **Full Function Code:** Provide the complete code of the function.
+   - **Demonstration Snippets:** Include relevant code snippets from the context that demonstrate the function in action.
+   - **Step-by-Step Explanation:** Explain how the code works step by step.
+   - **Adaptation:** Show how the code can be adapted to solve similar tasks.
+
+3. **General Framework Functionality**
+
+   - **Fundamental Concepts:** Explain the fundamental functionality of the PyCram framework as it relates to the given function.
+   - **Key Principles:** Discuss key concepts and principles necessary to understand the function and its application.
+   - **Importance:** Highlight why these concepts are essential for effectively using the function.
+
+4. **Best Practices and Recommendations**
+
+   - **Effective Usage:** Provide guidance and best practices for effectively using the function and the framework.
+   - **Common Pitfalls:** Mention potential pitfalls and how to avoid them.
+   - **Optimization Tips:** Offer suggestions on optimizing the function's performance and reliability.
+
+5. **Planning and Implementation for Developers**
+
+   - **Implementation Plan:** Design a clear plan outlining how developers can implement the function in their own projects.
+   - **Integration Steps:** Outline the necessary steps to correctly integrate and customize the function.
+   - **Customization Guidance:** Provide advice on tailoring the function to meet specific project requirements.
+
+
+### Important Notes:
+
+- **Length:** Use around **3,000 words** for the tutorial to ensure thoroughness.
+- **Code Examples:** Incorporate all essential code examples in their entirety.
+- **Systematic Thinking:** Think systematically to ensure that another LLM agent can produce correct code based on your output.
+- **Clarity and Organization:**
+    - Use clear and professional language appropriate for a technical audience.
+    - Structure your tutorial with headings, subheadings, and bullet points for readability.
+    - Ensure explanations are precise and unambiguous.
+"""
 prompt_retriever_code = ChatPromptTemplate.from_template(prompt_code)
 
 retriever_code = get_retriever(1, 4)
@@ -365,26 +432,17 @@ preprocessing_prompt = """You are an intelligent planning agent for robots. Your
 2. **Goal stage:** Describe the desired end state after completing the task.
 3. **Step-by-step action plan:** Create a detailed but concise sequence of actions that the robot must perform to move from the initial stage to the goal stage.
 
-The output should be brief and concise, formatted as a clear instruction, similar to the provided input, but with more details. Include the provided instruction in the output.
+The output should be brief and concise, formatted as a clear instruction, similar to the provided instruction, but with more details. When you are not sure you can provide the right answer just try your best.
 
-**Input format:**
-
-- **Instruction:** {prompt}
-- **World knowledge:** {worldknowledge}
-- **URDF file:** 
-<urdf>
-{urdf}
-</urdf>
-
-**Example:**
-
+Example input:
 - **Instruction:** Place the cereal box on the kitchen island.
 - **World knowledge:** [kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), 
 robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), 
 cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', pose=Pose([1.4, 1, 0.95])))]
 - **URDF file:** (The content of the file is very long, so no example here. The file would contain information about the components of the objects, such as 'kitchen.urdf' and 'pr2.urdf'.)
 
-**Expected output:**
+
+**Your Expected output:**
 - **Initial stage:**  
     - **Cereal box:** Located on the ground approximately at position **[1.4, 1, 0.95]**.
     - **PR2 Robot:** Positioned near the cereal box, approximately at position **[1.4, 1, 0]**.
@@ -409,6 +467,15 @@ cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', p
 
     5. **Task completion:**
     - **Action:** Finish the task and return to the initial position or prepare for the next instruction.
+
+Now do the Task for the Input:
+**Input**
+- **Instruction:** {prompt}
+- **World knowledge:** {worldknowledge}
+- **URDF file:** 
+<urdf>
+{urdf}
+</urdf>
 """
 
 preprocessing_template = ChatPromptTemplate.from_template(preprocessing_prompt)
@@ -430,6 +497,6 @@ preprocessing_chain = (
         "urdf": itemgetter("world") | urdf_chain,
     }
     | preprocessing_template
-    | llm
+    | llm_GP
     | StrOutputParser()
 )

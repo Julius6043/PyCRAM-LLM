@@ -3,8 +3,8 @@ from typing import Dict, TypedDict
 from langgraph.graph import END, StateGraph
 from operator import itemgetter
 from vector_store_SB import get_retriever, load_in_vector_store
-from langgraph_ReWOO import stream_rewoo
-from ReWOO_codeCheck import stream_rewoo_check
+from ReWOO_parallel import stream_rewoo
+from ReWOO_codeCheck_parallel import stream_rewoo_check
 from dotenv import load_dotenv
 from helper_func import format_docs, extract_urdf_files
 import re
@@ -66,10 +66,7 @@ def generate(state: GraphState):
 
     else:
         # Question und worldknowledge können hier nochmal vorverarbeitet werden
-        urdf_content = extract_urdf_files(world)
-        pre_thinking = preprocessing_chain.invoke(
-            {"prompt": question, "world": world, "urdf": urdf_content}
-        )
+        pre_thinking = preprocessing_chain.invoke({"prompt": question, "world": world})
         question = f"**User Instruction:** {question}\n\nThe following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:\n<thinking>{pre_thinking}</thinking>"
         print("---GENERATE SOLUTION---")
         code_solution, plan, filled_plan = asyncio.run(stream_rewoo(question, world))
