@@ -12,9 +12,11 @@ from helper_func import (
     llm_GP,
     llm_mini,
     extract_urdf_files,
+    llm_tools,
 )
 
-
+llm_planer = llm_GP
+llm_mini_main = llm_tools
 ## rewoo planer ----------------------------------
 rewoo_planer_prompt = """You are a renowned AI engineer and programmer. You receive world knowledge and a task. Your task is to develop a sequenz of plans to geather 
 resources and break down the given task for a other LLM Agent to generate PyCramPlanCode. PyCramPlanCode is a plan instruction for a robot that should enable it to perform the provided high level task. For each plan, indicate which external tool, along with the input for the tool, is used to gather evidence. You 
@@ -54,7 +56,7 @@ World knowledge: {world}
 Task: {task}"""
 
 prompt_template = ChatPromptTemplate.from_template(rewoo_planer_prompt)
-rewoo_planner = prompt_template | llm_GP
+rewoo_planner = prompt_template | llm_planer
 
 ## Rewoo solve prompt ------------------------------------------------------------------------
 # Solve function to generate PyCramPlanCode based on the plan and its steps...
@@ -223,7 +225,7 @@ Plan:"""
 prompt_template_codecheck_planer = ChatPromptTemplate.from_template(
     rewoo_codecheck_planer_prompt
 )
-codecheck_planner = prompt_template_codecheck_planer | llm_GP
+codecheck_planner = prompt_template_codecheck_planer | llm_planer
 
 ## rewoo codecheck solve prompt-------------------------------------------------------------------------------------------------
 # Solve function to generate PyCramPlanCode based on the plan and its steps...
@@ -343,7 +345,7 @@ retriever_gpt = get_retriever(2, 4)
 chain_docs_docu = (
     {"context": retriever_gpt | format_docs, "task": RunnablePassthrough()}
     | prompt_retriever_chain
-    | llm_mini
+    | llm_mini_main
     | StrOutputParser()
 )
 
@@ -420,7 +422,7 @@ retriever_code = get_retriever(1, 4)
 chain_docs_code = (
     {"context": retriever_code | format_code, "task": RunnablePassthrough()}
     | prompt_retriever_code
-    | llm_mini
+    | llm_mini_main
     | StrOutputParser()
 )
 
@@ -483,7 +485,7 @@ urdf_prompt = ChatPromptTemplate.from_template("""""")
 urdf_clean = (
     {"urdf": RunnableLambda(extract_urdf_files)}
     | urdf_prompt
-    | llm_mini
+    | llm_mini_main
     | StrOutputParser()
 )
 urdf_chain = RunnableLambda(extract_urdf_files)

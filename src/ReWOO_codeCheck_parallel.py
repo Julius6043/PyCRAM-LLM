@@ -21,6 +21,7 @@ from helper_func import (
     llm,
     llm_GP,
     llm_mini,
+    llm_solver,
 )
 from prompts import (
     codecheck_planner,
@@ -58,7 +59,7 @@ class code(BaseModel):
     description = "Schema for code solutions for robot tasks."
 
 
-llm_with_tool = llm.with_structured_output(code)
+llm_with_tool = llm_solver.with_structured_output(code)
 
 
 # Regex to match expressions of the form E#... = ...[...]

@@ -24,6 +24,7 @@ from helper_func import (
     llm,
     llm_GP,
     llm_mini,
+    llm_solver
 )
 from prompts import rewoo_planner, chain_docs_docu, chain_docs_code, rewoo_solve_prompt
 
@@ -59,7 +60,7 @@ class code(BaseModel):
 
 
 # LLM with tool and enforce invocation
-llm_with_tool = llm.with_structured_output(code)
+llm_with_tool = llm_solver.with_structured_output(code)
 
 # Regex to match expressions of the form E#... = ...[...]
 # Regex pattern to extract information from the plan format specified in the prompt
