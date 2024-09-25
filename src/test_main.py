@@ -16,7 +16,7 @@ cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL,'breakfast_cereal.stl', po
 """
 
 ## test case single easy task
-task_test2 = """Move to position (0,1,1)."""
+task_test2 = """Move to position (-2.5,1,0)."""
 world_test2 = """[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), 
 robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf')]"""
 
@@ -108,7 +108,7 @@ def make_test(test_num, run_num=1):
         return "Der Test existiert nicht"
 
     result, plan, filled_plan, final_iter = generate_plan_parallel(task, world)
-    with open(f"test{test_num}v{run_num}.txt", "w") as file:
+    with open(f"../test_files/test{test_num}v{run_num}.txt", "w") as file:
         test_string = f"Plan:\n{plan}\n\n----\nFilled Plan:\n{filled_plan}\n\n----\nResult:\n{result}\n\n----\nIterations:\n{final_iter}"
         file.write(test_string)
     return result
@@ -121,7 +121,7 @@ def make_test(test_num, run_num=1):
 print(pre_thinking)"""
 # print(result_retriever_code)
 
-# print(make_test(3))
+print(make_test(2))
 """code_retrieve = test_code_retriever.invoke("How is CostmapLocation defined?")
 docu_retieve = test_docu_retriever.invoke(
     "What are Action Designators and how do i use them?"

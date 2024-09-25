@@ -67,7 +67,7 @@ def generate(state: GraphState):
     else:
         # Question und worldknowledge können hier nochmal vorverarbeitet werden
         pre_thinking = preprocessing_chain.invoke({"prompt": question, "world": world})
-        question = f"**User Instruction:** {question}\n\nThe following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:\n<thinking>{pre_thinking}</thinking>"
+        question = f"User Instruction: {question}\n---\nThe following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:\n<thinking>{pre_thinking}</thinking>\n\n"
         print("---GENERATE SOLUTION---")
         code_solution, plan, filled_plan = asyncio.run(stream_rewoo(question, world))
         print("----CodePlan Versuch 1----")
@@ -163,17 +163,17 @@ def check_code_execution(state: GraphState):
     iter = state_dict["iterations"]
     max_iter = state_dict["max_iter"]
     full_result = (
-        "Task:"
+        ""
         + question
-        + "\nPyCramPlanCode:\n"
-        + "<code>\n"
-        + code_block
-        + "\n</code>\n"
-        + "World Knowledge:\n"
+        + "\nWorld Knowledge:\n"
         + "<world_knowledge>\n"
         + world
-        + "\n</world_knowledge>\n"
-        + "\n This is the corresponding plan:\n"
+        + "\n</world_knowledge>\n\n"
+        + "PyCramPlanCode:\n"
+        + "<code>\n"
+        + code_block
+        + "\n</code>\n\n"
+        + "This is the corresponding plan:\n"
         + plan
     )
 

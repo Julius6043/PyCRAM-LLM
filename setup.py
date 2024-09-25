@@ -11,7 +11,16 @@ import os
 # Load environment variables for secure access to configuration settings
 load_dotenv()
 
-example1 = """PyCramPlanCode:
+example1 = """User Instruction: Can you set the table for breakfast? I want to eat a bowl of cereals with milk.
+---
+
+
+World Knowledge:
+<knowledge>
+[robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf", pose=Pose([1, 2, 0])), apartment = Object("apartment", ObjectType.ENVIRONMENT, "apartment.urdf"), milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([2.5, 2, 1.02]), color=[1, 0, 0, 1]), cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([2.5, 2.3, 1.05]), color=[0, 1, 0, 1]), spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([2.4, 2.2, 0.85]), color=[0, 0, 1, 1]), bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([2.5, 2.2, 1.02]), color=[1, 1, 0, 1]), apartment.attach(spoon, 'cabinet10_drawer_top')]
+</knowledge>
+
+PyCramPlanCode:
 <code>
 from pycram.worlds.bullet_world import BulletWorld
 from pycram.designators.action_designator import *
@@ -105,14 +114,7 @@ with simulated_robot:
 world.exit()
 </code>
 
-World Knowledge:
-<knowledge>
-[robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf", pose=Pose([1, 2, 0])), apartment = Object("apartment", ObjectType.ENVIRONMENT, "apartment.urdf"), milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([2.5, 2, 1.02]), color=[1, 0, 0, 1]), cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([2.5, 2.3, 1.05]), color=[0, 1, 0, 1]), spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([2.4, 2.2, 0.85]), color=[0, 0, 1, 1]), bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([2.5, 2.2, 1.02]), color=[1, 1, 0, 1]), apartment.attach(spoon, 'cabinet10_drawer_top')]
-</knowledge>
-
-Task: Can you set the table for breakfast? I want to eat a bowl of cereals with milk.
-
-The corresponding plan:
+This is the corresponding plan:
 
 Plan 1: Get the URDF file of the apartment. #E1 = URDF[apartment.urdf]
 Plan 2: Get the URDF file of the pr2 robot. #E2 = URDF[pr2.urdf]
@@ -129,7 +131,16 @@ Plan 12: Place the spoon and park the arms. #E12 = Retrieve[How do I place objec
 Plan 13: Close the BulletWorld. #E13 = Retrieve[How do I close the BulletWorld in PyCram?]
 """
 
-example2 = """PyCramPlanCode:
+example2 = """User Instruction: Can you place the cereal on the kitchen island?
+---
+
+
+World Knowledge:
+<knowledge>
+[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', pose=Pose([1.4, 1, 0.95]))]
+</knowledge>
+
+PyCramPlanCode:
 <code>
 from pycram.worlds.bullet_world import BulletWorld
 from pycram.world_concepts.world_object import Object
@@ -176,14 +187,7 @@ with simulated_robot:
 world.exit()
 </code>
 
-World Knowledge:
-<knowledge>
-[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', pose=Pose([1.4, 1, 0.95]))]
-</knowledge>
-
-Task: Can you place the cereal on the kitchen island?
-
-The corresponding plan:
+This is the corresponding plan:
 
 Plan 1: Get the URDF file of the kitchen. #E1 = URDF[kitchen.urdf]
 Plan 2: Get the URDF file of the pr2 robot. #E2 = URDF[pr2.urdf]

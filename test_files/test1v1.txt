@@ -1,0 +1,4364 @@
+Plan:
+Task:**User Instruction:** Place the cereal box on the kitchen island.
+
+The following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:
+<thinking>- **Initial stage:**  
+    - **Cereal box:** Located on the ground approximately at position **[1.4, 1, 0.95]**.
+    - **PR2 Robot:** Initial position not specified, assuming at a home position.
+
+- **Goal stage:**  
+    - **Cereal box:** Located on the kitchen island surface.
+
+- **Step-by-step plan:**
+
+    1. **Robot positioning:**
+    - **Action:** The PR2 robot moves to a position near the cereal box, ensuring a clear path for grasping.
+    
+    2. **Grabbing the cereal box:**
+    - **Action:** The robot positions its gripper above the cereal box at **[1.4, 1, 0.95]**.
+    - **Action:** The robot lowers its gripper and securely grasps the cereal box.
+
+    3. **Movement to the kitchen island:**
+    - **Action:** The robot raises its arm holding the cereal box to a safe height to avoid collisions.
+    - **Action:** The robot navigates to the kitchen island, avoiding obstacles.
+
+    4. **Placing the cereal box:**
+    - **Action:** The robot positions itself near the kitchen island surface.
+    - **Action:** The robot carefully lowers the cereal box onto the kitchen island surface.
+    - **Action:** The robot releases the cereal box.
+
+    5. **Task completion:**
+    - **Action:** The robot moves its arm away from the cereal box.
+    - **Action:** Finish the task and return to the initial position or prepare for the next instruction.
+
+**Note:** The URDF file provides the structure of the kitchen and the robot, but it doesn't specify the exact location of the kitchen island surface. Therefore, the precise target position for placing the cereal box cannot be determined from the given information. 
+</thinking>
+PyCramPlanCode:
+<code>
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.process_module import simulated_robot
+from pycram.designators.motion_designator import *
+from pycram.designators.location_designator import *
+from pycram.designators.action_designator import *
+from pycram.designators.object_designator import *
+from pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode
+from pycram.datastructures.pose import Pose
+# Initialize the BulletWorld
+world = BulletWorld(WorldMode.GUI)
+
+# Define the objects in the world
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.4, 1, 0.95]))
+
+# Create object designators
+cereal_desig = ObjectDesignatorDescription(names=["cereal"])
+kitchen_desig = ObjectDesignatorDescription(names=["kitchen"])
+robot_desig = ObjectDesignatorDescription(names=["pr2"]).resolve()
+
+# Simulate robot actions
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.25]).resolve().perform()
+
+    # Find a reachable location near the cereal
+    pickup_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot_desig).resolve()
+    pickup_arm = pickup_pose.reachable_arms[0]
+
+    # Navigate to the cereal box
+    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+
+    # Pick up the cereal box
+    PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=[Grasp.FRONT]).resolve().perform()
+
+    # Park arms after picking up
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+    # Find a location on the kitchen island surface
+    place_island = SemanticCostmapLocation("kitchen_island_surface", kitchen_desig.resolve(), cereal_desig.resolve()).resolve()
+
+    # Find a reachable stand location for placing
+    place_stand = CostmapLocation(place_island.pose, reachable_for=robot_desig, reachable_arm=pickup_arm).resolve()
+
+    # Navigate to the kitchen island
+    NavigateAction(target_locations=[place_stand.pose]).resolve().perform()
+
+    # Place the cereal box on the kitchen island
+    PlaceAction(cereal_desig, target_locations=[place_island.pose], arms=[pickup_arm]).resolve().perform()
+
+    # Park arms after placing
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+# Close the BulletWorld
+world.exit()
+</code>
+World Knowledge:
+<world_knowledge>
+
+[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), 
+robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'),
+cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL,'breakfast_cereal.stl', pose=Pose([1.4, 1, 0.95]))]
+
+</world_knowledge>
+
+ This is the corresponding plan:
+Plan 1: Get the URDF file of the kitchen. 
+#E1 = URDF[kitchen.urdf]
+
+Plan 2: Get the URDF file of the pr2 robot. 
+#E2 = URDF[pr2.urdf]
+
+Plan 3: Create a object designator for the cereal, kitchen and the robot object. 
+#E3 = Retrieve[How to create an object designator in PyCram for an object with the name 'cereal', 'kitchen', and 'pr2'?]
+
+Plan 4: Find a location near the cereal box that is reachable by the robot.
+#E4 = Retrieve[How can I find a reachable location near an object using PyCram, considering the robot's kinematics and the environment? The robot should be able to grasp the object from this location. Provide code examples using CostmapLocation and explain the parameters 'target' and 'reachable_for'.] 
+
+Plan 5: Retrieve the method for navigating the robot to the location near the cereal box. 
+#E5 = Retrieve[How to navigate the robot to a specific pose in PyCram using the NavigateAction? Provide code examples and explain the 'target_locations' parameter.]
+
+Plan 6: Retrieve the method to pick up the cereal box.
+#E6 = Retrieve[How can I pick up an object in PyCram using the PickUpAction? Provide code examples and explanations of the necessary parameters, such as object designator, arm selection, and grasp type.]
+
+Plan 7: Find a location on the kitchen island surface that is reachable by the robot.
+#E7 = Retrieve[How can I find a reachable location on a specific surface of an object, like the 'kitchen_island_surface' of the 'kitchen' object, using PyCram? Consider the robot's kinematics and the environment's constraints. The robot should be able to place an object on this location. Provide code examples using SemanticCostmapLocation and CostmapLocation, and explain the relevant parameters.]
+
+Plan 8: Retrieve the method for navigating the robot to the kitchen island.
+#E8 = Retrieve[How to navigate the robot to a specific pose in PyCram using the NavigateAction? Provide code examples and explain the 'target_locations' parameter.]
+
+Plan 9: Retrieve the method for placing the cereal box on the kitchen island.
+#E9 = Retrieve[How can I place an object on a specific location in PyCram using the PlaceAction? Provide code examples and explanations of the necessary parameters, such as object designator, target location, and arm selection.]
+
+Plan 10: Retrieve the method for parking the robot's arms.
+#E10 = Retrieve[How can I park the robot's arms in PyCram using ParkArmsAction? Provide code examples and explain the usage of the 'arms' parameter.]
+
+Plan 11: Close the BulletWorld. 
+#E11 = Retrieve[How do I close the BulletWorld in PyCram? Provide a code example.] 
+
+
+----
+Filled Plan:
+Plan: Get the URDF file of the kitchen.
+Content from: #<IAI_kitchen.urdf>#
+<?xml version="1.0" ?>
+<!-- =================================================================================== -->
+<!-- |    This document was autogenerated by xacro from IAI_kitchen.urdf.xacro         | -->
+<!-- |    EDITING THIS FILE BY HAND IS NOT RECOMMENDED                                 | -->
+<!-- =================================================================================== -->
+<robot name="iai_oven_area" xmlns:xacro="http://ros.org/wiki/xacro">
+  <link name="room_link">    
+  </link>
+  <!--- FIXME THIS should NOT be here -->
+  <link name="sink_area_footprint">
+    <sphere_inertia mass="0" radius="0"/>
+  </link>
+  <link name="sink_area">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/racks/SinkArea.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_footprint_joint" type="fixed">
+    <origin rpy="0 0 3.14159265359" xyz="1.825 1.3 0"/>
+    <child link="sink_area_footprint"/>
+    <parent link="room_link"/>
+  </joint>
+  <joint name="sink_area_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.29 1.03 0.41"/>
+    <parent link="sink_area_footprint"/>
+    <child link="sink_area"/>
+  </joint>
+  <link name="sink_area_sink">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/Sink.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_sink_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.005 0.47 0.4414"/>
+    <parent link="sink_area"/>
+    <child link="sink_area_sink"/>
+  </joint>
+  <link name="sink_area_right_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Panel_60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_right_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.28 0.7 0.325 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_right_panel"/>
+  </joint>
+  <link name="sink_area_trash_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_58.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_trash_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_trash_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.01 0.7 -0.035 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_trash_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="sink_area_trash_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.2375"/>
+    <parent link="sink_area_trash_drawer_main"/>
+    <child link="sink_area_trash_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="sink_area_left_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_80_14.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_left_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle80.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_left_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.01 -0.6 0.325 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_left_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="sink_area_left_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.0175"/>
+    <parent link="sink_area_left_upper_drawer_main"/>
+    <child link="sink_area_left_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="sink_area_left_middle_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_80_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_left_middle_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle80.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_left_middle_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.01 -0.6 0.11 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_left_middle_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="sink_area_left_middle_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="sink_area_left_middle_drawer_main"/>
+    <child link="sink_area_left_middle_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="sink_area_left_bottom_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_80_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_left_bottom_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle80.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_left_bottom_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.01 -0.6 -0.18 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_left_bottom_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="sink_area_left_bottom_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="sink_area_left_bottom_drawer_main"/>
+    <child link="sink_area_left_bottom_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="sink_area_dish_washer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/DishWasher.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_dish_washer_door">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/DishWasherDoor.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_dish_washer_door_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_dish_washer_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.01 0.1 0.035 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_dish_washer_main"/>
+  </joint>
+  <joint name="sink_area_dish_washer_door_joint" type="revolute">
+    <origin rpy="-1.57079632679 0 0" xyz="0.27 0. -0.325"/>
+    <parent link="sink_area_dish_washer_main"/>
+    <child link="sink_area_dish_washer_door"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <joint name="sink_area_dish_washer_door_handle_joint" type="fixed">
+    <origin rpy="-1.57079632679 0 0" xyz="0.0625 -0.6325 0."/>
+    <parent link="sink_area_dish_washer_door"/>
+    <child link="sink_area_dish_washer_door_handle"/>
+  </joint>
+  <link name="oven_area_area_footprint">
+    <sphere_inertia mass="0" radius="0"/>
+  </link>
+  <link name="oven_area_area">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/racks/OvenArea.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_footprint_joint" type="fixed">
+    <origin rpy="0 0 3.14159265359" xyz="1.805 2.5 0"/>
+    <child link="oven_area_area_footprint"/>
+    <parent link="room_link"/>
+  </joint>
+  <joint name="oven_area_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.29 0.6 0.755"/>
+    <parent link="oven_area_area_footprint"/>
+    <child link="oven_area_area"/>
+  </joint>
+  <link name="oven_area_oven_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/OvenMain.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_oven_door">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/OvenDoor.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_oven_door_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_oven_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/OvenPanel.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.0 0.0 0.415"/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_oven_main"/>
+  </joint>
+  <joint name="oven_area_oven_door_joint" type="revolute">
+    <origin rpy="-1.57079632679 0 0" xyz="0.2737 0. -0.2614"/>
+    <parent link="oven_area_oven_main"/>
+    <child link="oven_area_oven_door"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <joint name="oven_area_oven_door_handle_joint" type="fixed">
+    <origin rpy="-1.57079632679 0 0" xyz="0.05876 -0.39803 0."/>
+    <parent link="oven_area_oven_door"/>
+    <child link="oven_area_oven_door_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <joint name="oven_area_oven_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.27 0 0.2449"/>
+    <parent link="oven_area_oven_main"/>
+    <child link="oven_area_oven_panel"/>
+  </joint>
+  <link name="oven_area_oven_knob_stove_1">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_stove_1_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 -0.21 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_stove_1"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_oven_knob_stove_2">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_stove_2_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 -0.14 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_stove_2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_oven_knob_stove_3">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_stove_3_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 -0.07 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_stove_3"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_oven_knob_stove_4">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_stove_4_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 -0.0 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_stove_4"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_oven_knob_oven">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_oven_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 0.16 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_oven"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_area_middle_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_14.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_area_middle_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_area_middle_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 -0. 0.045 "/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_area_middle_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="oven_area_area_middle_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.0175"/>
+    <parent link="oven_area_area_middle_upper_drawer_main"/>
+    <child link="oven_area_area_middle_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="oven_area_area_middle_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_58.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_area_middle_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_area_middle_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 -0. -0.315 "/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_area_middle_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="oven_area_area_middle_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.2375"/>
+    <parent link="oven_area_area_middle_lower_drawer_main"/>
+    <child link="oven_area_area_middle_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="oven_area_area_left_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/VDrawer.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_area_left_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/VHandle130.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_area_left_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 -0.45 0.06 "/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_area_left_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="oven_area_area_left_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3525 0 0"/>
+    <parent link="oven_area_area_left_drawer_main"/>
+    <child link="oven_area_area_left_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="oven_area_area_right_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/VDrawer.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_area_right_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/VHandle130.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_area_right_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 0.45 0.06 "/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_area_right_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="oven_area_area_right_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3525 0 0"/>
+    <parent link="oven_area_area_right_drawer_main"/>
+    <child link="oven_area_area_right_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_footprint">
+    <sphere_inertia mass="0" radius="0"/>
+  </link>
+  <link name="kitchen_island">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/racks/IslandArea.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_footprint_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="-1.365 0.59 0"/>
+    <child link="kitchen_island_footprint"/>
+    <parent link="room_link"/>
+  </joint>
+  <joint name="kitchen_island_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.2975 1.1292 0.421"/>
+    <parent link="kitchen_island_footprint"/>
+    <child link="kitchen_island"/>
+  </joint>
+  <link name="kitchen_island_stove">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/Stove.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_stove_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.025 0.7658 0.4315"/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_stove"/>
+  </joint>
+  <link name="kitchen_island_left_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Panel_60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_left_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.2725 -0.8 0.329 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_left_panel"/>
+  </joint>
+  <link name="kitchen_island_left_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_left_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_left_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 -0.8 0.114 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_left_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_left_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_left_upper_drawer_main"/>
+    <child link="kitchen_island_left_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_left_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_left_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_left_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 -0.8 -0.176 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_left_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_left_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_left_lower_drawer_main"/>
+    <child link="kitchen_island_left_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_middle_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Panel_100.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_middle_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.2725 0 0.329 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_middle_panel"/>
+  </joint>
+  <link name="kitchen_island_middle_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_100_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_middle_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle100.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_middle_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 0 0.114 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_middle_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_middle_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_middle_upper_drawer_main"/>
+    <child link="kitchen_island_middle_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_middle_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_100_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_middle_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle100.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_middle_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 0 -0.176 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_middle_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_middle_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_middle_lower_drawer_main"/>
+    <child link="kitchen_island_middle_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_right_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Panel_60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_right_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.2725 0.8 0.329 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_right_panel"/>
+  </joint>
+  <link name="kitchen_island_right_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_right_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_right_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 0.8 0.114 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_right_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_right_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_right_upper_drawer_main"/>
+    <child link="kitchen_island_right_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_right_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_right_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_right_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 0.8 -0.176 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_right_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_right_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_right_lower_drawer_main"/>
+    <child link="kitchen_island_right_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="fridge_area_footprint">
+    <sphere_inertia mass="0" radius="0"/>
+  </link>
+  <link name="fridge_area">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/racks/FridgeArea.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="fridge_area_footprint_joint" type="fixed">
+    <origin rpy="0 0 3.14159265359" xyz="1.825 -0.76 0"/>
+    <child link="fridge_area_footprint"/>
+    <parent link="room_link"/>
+  </joint>
+  <joint name="fridge_area_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.29 .3 0.74"/>
+    <parent link="fridge_area_footprint"/>
+    <child link="fridge_area"/>
+  </joint>
+  <link name="fridge_area_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="fridge_area_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="fridge_area_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 -0.0 -0.4175 "/>
+    <parent link="fridge_area"/>
+    <child link="fridge_area_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="fridge_area_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="fridge_area_lower_drawer_main"/>
+    <child link="fridge_area_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="iai_fridge_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/Fridge.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="iai_fridge_door">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/FridgeDoor.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="iai_fridge_door_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/VHandle90.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="iai_fridge_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <parent link="fridge_area"/>
+    <child link="iai_fridge_main"/>
+  </joint>
+  <joint name="iai_fridge_door_joint" type="revolute">
+    <origin rpy="0 0 0" xyz="0.29 0.3 0.245"/>
+    <parent link="iai_fridge_main"/>
+    <child link="iai_fridge_door"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <joint name="iai_fridge_door_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.06 -0.57 0."/>
+    <parent link="iai_fridge_door"/>
+    <child link="iai_fridge_door_handle"/>
+  </joint>
+  <!--
+  <iai_sink_area name="sink_area" parent="room_link">
+    <origin xyz="-5.29 -5.65 0" rpy="0 0 0" />    
+  </iai_sink_area>
+  
+  <iai_oven_area name="oven_area" parent="room_link">
+    <origin xyz="-5.27 -6.85 0" rpy="0 0 0" />    
+  </iai_oven_area>
+  
+  
+  <iai_kitchen_island name="kitchen_island" parent="room_link">
+    <origin xyz="-2.1 -4.94 0" rpy="0 0 ${pi}" />    
+  </iai_kitchen_island>
+  
+  <iai_fridge_area name="fridge_area" parent="room_link">
+    <origin xyz="-5.29 -3.59 0" rpy="0 0 0" />    
+  </iai_fridge_area>
+  -->
+</robot>
+
+
+ = URDF[kitchen.urdf]Plan: Get the URDF file of the pr2 robot.
+Content from: #<ur5e_without_gripper.urdf>#
+<?xml version="1.0" ?>
+<robot name="ur5e">
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <mesh filename="file://../meshes/dae/base.dae"/>
+      </geometry>
+      <material name="LightGrey">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="file://../meshes/stl/base.stl"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="4.0"/>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <inertia ixx="0.00443333156" ixy="0.0" ixz="0.0" iyy="0.00443333156" iyz="0.0" izz="0.0072"/>
+    </inertial>
+  </link>
+  <joint name="shoulder_pan_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="shoulder_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.163"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="150.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="3.14"/>
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <link name="shoulder_link">
+    <visual>
+      <geometry>
+        <mesh filename="file://../meshes/dae/shoulder.dae"/>
+      </geometry>
+      <material name="LightGrey">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="file://../meshes/stl/shoulder.stl"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="3.7"/>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <inertia ixx="0.010267495893" ixy="0.0" ixz="0.0" iyy="0.010267495893" iyz="0.0" izz="0.00666"/>
+    </inertial>
+  </link>
+  <joint name="shoulder_lift_joint" type="revolute">
+    <parent link="shoulder_link"/>
+    <child link="upper_arm_link"/>
+    <origin rpy="0.0 1.5707963267948966 0.0" xyz="0.0 0.138 0.0"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="150.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="3.14"/>
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <link name="upper_arm_link">
+    <visual>
+      <geometry>
+        <mesh filename="file://../meshes/dae/upperarm.dae"/>
+      </geometry>
+      <material name="LightGrey">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="file://../meshes/stl/upperarm.stl"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="8.393"/>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.2125"/>
+      <inertia ixx="0.1338857818623325" ixy="0.0" ixz="0.0" iyy="0.1338857818623325" iyz="0.0" izz="0.0151074"/>
+    </inertial>
+  </link>
+  <joint name="elbow_joint" type="revolute">
+    <parent link="upper_arm_link"/>
+    <child link="forearm_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 -0.131 0.425"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="150.0" lower="-3.141592653589793" upper="3.141592653589793" velocity="3.14"/>
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <link name="forearm_link">
+    <visual>
+      <geometry>
+        <mesh filename="file://../meshes/dae/forearm.dae"/>
+      </geometry>
+      <material name="LightGrey">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="file://../meshes/stl/forearm.stl"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="2.275"/>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.196"/>
+      <inertia ixx="0.031179620861480004" ixy="0.0" ixz="0.0" iyy="0.031179620861480004" iyz="0.0" izz="0.004095"/>
+    </inertial>
+  </link>
+  <joint name="wrist_1_joint" type="revolute">
+    <parent link="forearm_link"/>
+    <child link="wrist_1_link"/>
+    <origin rpy="0.0 1.5707963267948966 0.0" xyz="0.0 0.0 0.392"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="28.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="6.28"/>
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <link name="wrist_1_link">
+    <visual>
+      <geometry>
+        <mesh filename="file://../meshes/dae/wrist1.dae"/>
+      </geometry>
+      <material name="LightGrey">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="file://../meshes/stl/wrist1.stl"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.219"/>
+      <origin rpy="0 0 0" xyz="0.0 0.127 0.0"/>
+      <inertia ixx="0.0025598989760400002" ixy="0.0" ixz="0.0" iyy="0.0025598989760400002" iyz="0.0" izz="0.0021942"/>
+    </inertial>
+  </link>
+  <joint name="wrist_2_joint" type="revolute">
+    <parent link="wrist_1_link"/>
+    <child link="wrist_2_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.127 0.0"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="28.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="6.28"/>
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <link name="wrist_2_link">
+    <visual>
+      <geometry>
+        <mesh filename="file://../meshes/dae/wrist2.dae"/>
+      </geometry>
+      <material name="LightGrey">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="file://../meshes/stl/wrist2.stl"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.219"/>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.1"/>
+      <inertia ixx="0.0025598989760400002" ixy="0.0" ixz="0.0" iyy="0.0025598989760400002" iyz="0.0" izz="0.0021942"/>
+    </inertial>
+  </link>
+  <joint name="wrist_3_joint" type="revolute">
+    <parent link="wrist_2_link"/>
+    <child link="wrist_3_link"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.1"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="28.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="6.28"/>
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+  <link name="wrist_3_link">
+    <visual>
+      <geometry>
+        <mesh filename="file://../meshes/dae/wrist3.dae"/>
+      </geometry>
+      <material name="LightGrey">
+        <color rgba="0.7 0.7 0.7 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="file://../meshes/stl/wrist3.stl"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.1879"/>
+      <origin rpy="1.5707963267948966 0 0" xyz="0.0 0.0771 0.0"/>
+      <inertia ixx="9.890410052167731e-05" ixy="0.0" ixz="0.0" iyy="9.890410052167731e-05" iyz="0.0" izz="0.0001321171875"/>
+    </inertial>
+  </link>
+</robot>
+
+
+ = URDF[pr2.urdf]Plan: Create a object designator for the cereal, kitchen and the robot object.
+# Creating an Object Designator in PyCram for 'cereal', 'kitchen', and 'pr2'
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task at hand is to create an object designator in the PyCram framework for three specific objects: 'cereal', 'kitchen', and 'pr2'. Object designators are symbolic representations that allow the PyCram framework to identify and interact with objects in the BulletWorld or real environment.
+
+### Explain the Goal
+The primary objective of this task is to demonstrate how to instantiate object designators for specific objects within the PyCram framework. This is significant because it enables the robot to recognize and manipulate these objects during simulations or real-world applications. By creating object designators, we can facilitate actions such as picking up, moving, or interacting with these objects.
+
+### Prerequisites and Setup
+Before proceeding with the task, ensure that you have the following prerequisites in place:
+- **PyCram Installed:** Ensure that the PyCram framework is installed in your Python environment.
+- **Bullet Physics Engine:** The BulletWorld, which is part of the PyCram framework, should be set up to simulate the environment.
+- **Object Files:** Ensure that the URDF or STL files for the objects ('cereal', 'kitchen', and 'pr2') are accessible in your resource directory.
+
+To set up the BulletWorld and the necessary objects, you can use the following code snippet:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+from pycram.datastructures.pose import Pose
+
+# Create a BulletWorld instance
+world = BulletWorld(WorldMode.GUI)
+
+# Create the objects
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.4, 1, 0.95]))
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+#### Step 1: Import Necessary Modules
+To create object designators, you need to import the relevant classes from the PyCram framework.
+
+```python
+from pycram.designators.object_designator import BelieveObject
+```
+
+#### Step 2: Create Object Designators
+You can create object designators for the 'cereal', 'kitchen', and 'pr2' objects using the `BelieveObject` class. This class allows you to specify the names of the objects you want to describe.
+
+```python
+# Create object designators
+cereal_designator = BelieveObject(names=["cereal"])
+kitchen_designator = BelieveObject(names=["kitchen"])
+pr2_designator = BelieveObject(names=["pr2"])
+```
+
+#### Step 3: Resolve Object Designators
+Once the designators are created, you can resolve them to get the actual object instances from the BulletWorld. The `resolve()` method will return the corresponding object if it exists.
+
+```python
+resolved_cereal = cereal_designator.resolve()
+resolved_kitchen = kitchen_designator.resolve()
+resolved_pr2 = pr2_designator.resolve()
+```
+
+#### Step 4: Verify Resolved Objects
+To ensure that the objects have been resolved correctly, you can print their details.
+
+```python
+print(f"Resolved Cereal: {resolved_cereal}")
+print(f"Resolved Kitchen: {resolved_kitchen}")
+print(f"Resolved PR2: {resolved_pr2}")
+```
+
+### Key Concepts
+- **Object Designators:** These are symbolic representations of objects that allow the framework to identify and interact with them.
+- **BelieveObject Class:** This class is used to create object designators based on the names of the objects.
+- **Resolve Method:** This method is crucial for retrieving the actual object instances from the BulletWorld.
+
+### Relevant Functions
+- `BelieveObject(names)`: Initializes an object designator with the specified names.
+- `resolve()`: Resolves the designator to return the actual object instance.
+
+### Integration
+The steps outlined above integrate seamlessly within the PyCram framework, allowing for the effective identification and manipulation of objects in the simulation environment.
+
+## 3. Code Examples and Implementation Guidance
+
+### Complete Code Example
+Here is the complete code example that incorporates all the steps discussed:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+
+# Step 1: Create a BulletWorld instance
+world = BulletWorld(WorldMode.GUI)
+
+# Step 2: Create the objects
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.4, 1, 0.95]))
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+
+# Step 3: Create object designators
+cereal_designator = BelieveObject(names=["cereal"])
+kitchen_designator = BelieveObject(names=["kitchen"])
+pr2_designator = BelieveObject(names=["pr2"])
+
+# Step 4: Resolve object designators
+resolved_cereal = cereal_designator.resolve()
+resolved_kitchen = kitchen_designator.resolve()
+resolved_pr2 = pr2_designator.resolve()
+
+# Step 5: Verify resolved objects
+print(f"Resolved Cereal: {resolved_cereal}")
+print(f"Resolved Kitchen: {resolved_kitchen}")
+print(f"Resolved PR2: {resolved_pr2}")
+
+# Close the world when done
+world.exit()
+```
+
+### Explanation
+- The code begins by importing the necessary modules and creating a BulletWorld instance.
+- It then creates the objects 'kitchen', 'cereal', and 'pr2' using their respective URDF or STL files.
+- Object designators are created for each object using the `BelieveObject` class.
+- The designators are resolved to retrieve the actual object instances, which are then printed to verify their correctness.
+- Finally, the BulletWorld is closed using `world.exit()`.
+
+### Adaptability
+This code can be easily adapted to create object designators for other objects by simply changing the names in the `BelieveObject` instantiation.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+Creating object designators is a fundamental aspect of working with the PyCram framework. It allows for the symbolic representation of objects, which is essential for enabling robots to interact with their environment effectively.
+
+### Essential Components
+- **BulletWorld:** The simulation environment where objects are instantiated and manipulated.
+- **Object Class:** Represents the objects within the BulletWorld, allowing for their creation and manipulation.
+- **Designators:** Symbolic representations that facilitate the identification and interaction with objects.
+
+### Conceptual Understanding
+Understanding how object designators work within the PyCram framework is crucial for developing more complex robotic behaviors. By mastering the creation and resolution of object designators, users can build sophisticated plans that involve multiple objects and actions.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- **Ensure Object Names are Unique:** When creating object designators, ensure that the names provided are unique to avoid ambiguity.
+- **Check Object Existence:** Always verify that the objects have been resolved correctly before attempting to manipulate them.
+- **Use Descriptive Names:** Use descriptive names for your objects to make your code more readable and maintainable.
+
+### Potential Challenges
+- **Object Not Found:** If an object cannot be resolved, it may indicate that the object was not created correctly or that the name provided does not match any existing object.
+- **File Path Issues:** Ensure that the file paths for the URDF or STL files are correct and accessible.
+
+### Solutions
+- **Debugging:** Use print statements to debug and verify the existence of objects at various stages of your code.
+- **Documentation:** Refer to the PyCram documentation for additional guidance on object creation and designators.
+
+By following this comprehensive guide, you should be able to create object designators for 'cereal', 'kitchen', and 'pr2' effectively within the PyCram framework. This foundational knowledge will serve as a stepping stone for more advanced robotic programming tasks. = Retrieve[How to create an object designator in PyCram for an object with the name 'cereal', 'kitchen', and 'pr2'?]Plan: Find a location near the cereal box that is reachable by the robot.
+# Finding a Reachable Location Near an Object Using PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task at hand is to find a reachable location near a specific object using the PyCram framework. This involves determining a pose from which a robot can grasp the object while considering the robot's kinematics and the environment's constraints.
+
+### Explain the Goal
+The primary objective is to enable a robot to identify a suitable position to approach and grasp an object. This is crucial in robotic applications where precise manipulation is required, such as in service robots, industrial automation, and research in robotics. By utilizing the `CostmapLocation` class, we can leverage costmaps to evaluate potential poses based on reachability criteria.
+
+### Prerequisites and Setup
+Before diving into the implementation, ensure you have the following prerequisites:
+- **PyCram Framework**: Ensure that the PyCram framework is installed and properly configured in your environment.
+- **Robot Model**: A robot model (e.g., PR2) should be available in URDF format.
+- **Object Model**: The object you want the robot to grasp (e.g., a milk carton) should also be available in a compatible format (e.g., STL).
+- **BulletWorld**: A simulation environment (BulletWorld) should be initialized to simulate the robot and object interactions.
+
+### Initial Setup Code
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+
+# Initialize the BulletWorld
+world = BulletWorld()
+
+# Load the robot and object
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+object_to_grasp = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+
+# Set the robot's joint state if necessary
+robot.set_joint_state("torso_lift_joint", 0.25)
+```
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+#### Step 1: Define the Target Object
+The first step is to define the target object that the robot will grasp. This is done by creating an object designator for the object.
+
+```python
+from pycram.designators.object_designator import BelieveObject
+
+# Create an object designator for the target object
+target_object = BelieveObject(names=["milk"]).resolve()
+```
+
+#### Step 2: Define the Robot Designator
+Next, we need to create a designator for the robot that will be reaching for the object.
+
+```python
+# Create an object designator for the robot
+robot_designator = BelieveObject(names=["pr2"]).resolve()
+```
+
+#### Step 3: Create the CostmapLocation Description
+Now, we can create a `CostmapLocation` description. This class requires two parameters:
+- **target**: The object that the robot should be able to reach.
+- **reachable_for**: The robot designator that specifies which robot can reach the target.
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+
+# Create a CostmapLocation description
+location_description = CostmapLocation(target=target_object, reachable_for=robot_designator)
+```
+
+#### Step 4: Resolve the Location
+Finally, we can resolve the location description to find a reachable pose.
+
+```python
+# Resolve the location to find a reachable pose
+reachable_pose = location_description.resolve()
+print(reachable_pose)
+```
+
+### Key Concepts
+
+- **CostmapLocation**: This class is essential for finding locations based on costmaps. It evaluates the environment and the robot's capabilities to determine valid poses.
+- **Target Parameter**: This parameter specifies the object that the robot should be able to reach. It is crucial for defining the goal of the reachability query.
+- **Reachable_for Parameter**: This parameter indicates which robot can reach the specified target. It ensures that the robot's kinematics and constraints are considered when determining reachable poses.
+
+### Relevant Functions
+- **resolve()**: This method is used to compute the actual pose based on the constraints defined in the `CostmapLocation`. It returns a pose that satisfies the reachability criteria.
+
+### Integration
+The steps outlined above integrate seamlessly within the PyCram framework, leveraging its designators and costmap capabilities to facilitate robotic manipulation tasks.
+
+## 3. Code Examples and Implementation Guidance
+
+### Complete Code Example
+Here is a complete code example that incorporates all the steps discussed:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+from pycram.designators.location_designator import CostmapLocation
+
+# Initialize the BulletWorld
+world = BulletWorld()
+
+# Load the robot and object
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+object_to_grasp = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+
+# Set the robot's joint state if necessary
+robot.set_joint_state("torso_lift_joint", 0.25)
+
+# Create an object designator for the target object
+target_object = BelieveObject(names=["milk"]).resolve()
+
+# Create an object designator for the robot
+robot_designator = BelieveObject(names=["pr2"]).resolve()
+
+# Create a CostmapLocation description
+location_description = CostmapLocation(target=target_object, reachable_for=robot_designator)
+
+# Resolve the location to find a reachable pose
+reachable_pose = location_description.resolve()
+print("Reachable Pose:", reachable_pose)
+
+# Clean up the world
+world.exit()
+```
+
+### Explanation of the Code
+- **Initialization**: The code initializes the BulletWorld and loads the robot and object models.
+- **Designators**: It creates designators for both the target object and the robot.
+- **CostmapLocation**: The `CostmapLocation` is instantiated with the target object and the robot designator.
+- **Pose Resolution**: The `resolve()` method is called to find a reachable pose, which is then printed.
+
+### Adaptability
+This code can be easily adapted for different robots or objects by changing the names in the `BelieveObject` designators. Additionally, the robot's joint states can be modified to reflect different configurations.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by demonstrating how to utilize designators and costmaps to facilitate robotic manipulation. The ability to find reachable locations is a fundamental aspect of robotic planning and execution.
+
+### Essential Components
+- **Designators**: These are crucial for abstracting objects and locations in the environment.
+- **Costmaps**: They provide a way to evaluate the environment and determine valid poses based on various constraints.
+
+### Conceptual Understanding
+Understanding how designators and costmaps work together is essential for effectively using the PyCram framework. Designators allow for flexible referencing of objects and locations, while costmaps enable the evaluation of those references against the physical constraints of the environment.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- **Test Different Configurations**: Experiment with different robot configurations and object placements to understand how they affect reachable poses.
+- **Visualize Costmaps**: Use visualization tools to inspect costmaps and understand how they influence pose selection.
+
+### Potential Challenges
+- **Complex Environments**: In environments with many obstacles, finding a reachable pose may be more challenging. Ensure that the costmaps are accurately representing the environment.
+- **Robot Kinematics**: Different robots have different kinematic constraints. Ensure that the robot designator accurately reflects the robot's capabilities.
+
+### Solutions
+- **Adjust Costmap Parameters**: Modify the parameters used to generate costmaps to better suit the environment.
+- **Use Iterators**: If the first resolved pose is not suitable, consider using the iterator functionality of `CostmapLocation` to explore alternative poses.
+
+By following this comprehensive guide, you should be able to effectively find reachable locations near objects using the PyCram framework, enhancing your robotic applications and research endeavors. = Retrieve[How can I find a reachable location near an object using PyCram, considering the robot's kinematics and the environment? The robot should be able to grasp the object from this location. Provide code examples using CostmapLocation and explain the parameters 'target' and 'reachable_for'.]Plan: Retrieve the method for navigating the robot to the location near the cereal box.
+# Navigating the Robot to a Specific Pose in PyCram Using NavigateAction
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task at hand is to navigate a robot to a specific pose using the `NavigateAction` class from the PyCram framework. This involves creating a description of the navigation action, resolving it to a performable designator, and executing the action in a simulated environment.
+
+### Explain the Goal
+The primary objective of this task is to enable the robot to move to a designated location within its environment. This is significant in robotics as it allows for autonomous navigation, which is essential for tasks such as object manipulation, exploration, and interaction with the environment. By mastering the `NavigateAction`, users can effectively control the robot's movements in a simulated or real-world setting.
+
+### Prerequisites and Setup
+Before starting the task, ensure that you have the following prerequisites:
+- **PyCram Framework**: Ensure that the PyCram framework is installed and properly configured in your Python environment.
+- **Bullet Physics Engine**: The Bullet physics engine should be available, as PyCram uses it for simulating the robot's environment.
+- **Robot Model**: A robot model (e.g., PR2) should be available in URDF format for simulation.
+
+### Setup Steps
+1. **Import Required Modules**: Import the necessary classes and functions from the PyCram framework.
+2. **Initialize the Bullet World**: Create an instance of `BulletWorld` to simulate the environment.
+3. **Load the Robot**: Instantiate the robot object using its URDF file.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+# Initialize the Bullet World
+world = BulletWorld(WorldMode.GUI)
+
+# Load the robot model
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+#### Step 1: Define the Target Pose
+The first step is to define the target pose where the robot should navigate. A pose consists of a position (x, y, z) and an orientation (quaternion).
+
+```python
+from pycram.datastructures.pose import Pose
+
+# Define the target pose
+target_pose = Pose([1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0])  # Position and orientation
+```
+
+#### Step 2: Create the NavigateAction Description
+Next, create a `NavigateAction` description that includes the target locations. The `target_locations` parameter is a list of possible poses where the robot can navigate.
+
+```python
+from pycram.designators.action_designator import NavigateAction
+
+# Create the NavigateAction description
+navigate_description = NavigateAction(target_locations=[target_pose])
+```
+
+**Explanation of `target_locations` Parameter**:
+- The `target_locations` parameter is a list of `Pose` objects that represent the potential destinations for the robot. In this case, we provide a single pose, but multiple poses can be included to allow for flexibility in navigation.
+- The `NavigateAction` will select one of the poses from this list during the resolution process.
+
+#### Step 3: Resolve the Action Designator
+Once the description is created, resolve it to obtain a performable designator.
+
+```python
+# Resolve the action designator
+navigate_designator = navigate_description.resolve()
+```
+
+#### Step 4: Perform the Navigation Action
+To execute the navigation action, you need to perform it within a simulated environment. Use the `simulated_robot` context manager to ensure the action is executed in the correct environment.
+
+```python
+from pycram.process_module import simulated_robot
+
+# Perform the navigation action
+with simulated_robot:
+    navigate_designator.perform()
+```
+
+### Key Concepts
+- **Pose**: A pose is a representation of a position and orientation in 3D space. It is crucial for defining where the robot should navigate.
+- **Action Designator**: An action designator is a high-level description of an action that can be resolved into a specific executable action. In this case, `NavigateAction` is the designator for navigation.
+- **Simulated Environment**: The `simulated_robot` context manager allows the robot to perform actions in a simulated environment, which is essential for testing and development.
+
+### Relevant Functions
+- `NavigateAction`: This class is used to create a description of the navigation action.
+- `resolve()`: This method resolves the action designator description into a performable designator.
+- `perform()`: This method executes the action defined by the designator.
+
+### Integration
+The steps outlined above integrate seamlessly within the PyCram framework, allowing users to navigate robots effectively. The modular design of PyCram enables easy adjustments and extensions to the navigation capabilities.
+
+## 3. Code Examples and Implementation Guidance
+
+### Complete Code Example
+Here is the complete code example that demonstrates how to navigate the robot to a specific pose using the `NavigateAction`.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+from pycram.datastructures.pose import Pose
+from pycram.designators.action_designator import NavigateAction
+from pycram.process_module import simulated_robot
+
+# Step 1: Initialize the Bullet World
+world = BulletWorld(WorldMode.GUI)
+
+# Step 2: Load the robot model
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+
+# Step 3: Define the target pose
+target_pose = Pose([1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0])  # Position and orientation
+
+# Step 4: Create the NavigateAction description
+navigate_description = NavigateAction(target_locations=[target_pose])
+
+# Step 5: Resolve the action designator
+navigate_designator = navigate_description.resolve()
+
+# Step 6: Perform the navigation action
+with simulated_robot:
+    navigate_designator.perform()
+```
+
+### Explanation
+- The code initializes the simulation environment and loads the robot model.
+- It defines a target pose and creates a navigation action description.
+- The action designator is resolved and executed within a simulated environment.
+
+### Adaptability
+This code can be easily adapted for different scenarios by changing the target pose or adding more poses to the `target_locations` list. Users can also modify the robot model or the environment as needed.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+The `NavigateAction` is part of the action designator module in PyCram, which allows for high-level control of robot actions. This module is essential for implementing complex behaviors in robotic systems.
+
+### Essential Components
+- **BulletWorld**: The simulation environment where the robot operates.
+- **Object**: Represents the robot and other entities in the environment.
+- **Pose**: Defines the position and orientation for navigation.
+
+### Conceptual Understanding
+Understanding how action designators work is crucial for effectively programming robots in PyCram. The modular design allows for easy integration of various actions, making it possible to create sophisticated robotic behaviors.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- **Test in Simulation**: Always test navigation actions in a simulated environment before deploying them on a real robot to avoid collisions and ensure safety.
+- **Use Multiple Poses**: When defining `target_locations`, consider providing multiple poses to allow the robot to choose the best path based on its environment.
+- **Monitor Robot State**: Keep track of the robot's state and environment to adjust navigation dynamically if obstacles are detected.
+
+### Potential Challenges
+- **Collision Avoidance**: Ensure that the target poses do not lead to collisions with obstacles in the environment.
+- **Dynamic Environments**: In dynamic environments, the robot may need to re-evaluate its navigation path based on changes in the surroundings.
+
+### Solutions
+- **Path Planning Algorithms**: Implement path planning algorithms to dynamically adjust the robot's path based on real-time sensor data.
+- **Feedback Mechanisms**: Use feedback from the robot's sensors to modify navigation actions and improve accuracy.
+
+---
+
+By following this comprehensive guide, users can effectively navigate a robot to a specific pose using the `NavigateAction` in the PyCram framework. The modular design and clear structure of the code examples facilitate easy adaptation for various robotic tasks. = Retrieve[How to navigate the robot to a specific pose in PyCram using the NavigateAction? Provide code examples and explain the 'target_locations' parameter.]Plan: Retrieve the method to pick up the cereal box.
+# Comprehensive Guide to Picking Up an Object in PyCram Using the PickUpAction
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task at hand is to utilize the `PickUpAction` from the PyCram framework to enable a robot to pick up an object. This involves defining the object to be picked up, selecting the appropriate arm, and specifying the grasp type.
+
+### Explain the Goal
+The primary objective of this task is to demonstrate how to effectively use the `PickUpAction` within the PyCram framework. This action is crucial for robotic manipulation tasks, allowing robots to interact with their environment by grasping and lifting objects. Understanding how to implement this action is fundamental for developing more complex robotic behaviors.
+
+### Prerequisites and Setup
+Before diving into the implementation, ensure the following prerequisites are met:
+- **PyCram Installation**: Ensure that the PyCram framework is installed and properly configured in your Python environment.
+- **Robot Simulation Environment**: Set up a simulation environment using `BulletWorld` or a real robot setup.
+- **Object Definition**: Have a defined object in the simulation that the robot can interact with. This object should be represented as an instance of the `Object` class in PyCram.
+
+### Example Setup
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+# Initialize the simulation world
+world = BulletWorld(WorldMode.GUI)
+
+# Create a robot (e.g., PR2)
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+
+# Create an object to pick up (e.g., a milk carton)
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+```
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+#### Step 1: Define the Object Designator
+The first step is to create an object designator that describes the object you want the robot to pick up. This is done using the `BelieveObject` class, which allows the robot to recognize the object by its name.
+
+```python
+from pycram.designators.object_designator import BelieveObject
+
+# Create an object designator for the milk object
+milk_desig = BelieveObject(names=["milk"])
+```
+
+#### Step 2: Select the Arm
+Next, you need to specify which arm of the robot will be used to pick up the object. In PyCram, arms are represented using the `Arms` enum.
+
+```python
+from pycram.datastructures.enums import Arms
+
+# Select the right arm for picking up the object
+arm = Arms.RIGHT
+```
+
+#### Step 3: Specify the Grasp Type
+The grasp type determines how the robot will grip the object. This is defined using the `Grasp` enum, which specifies different grasping strategies.
+
+```python
+from pycram.datastructures.enums import Grasp
+
+# Specify the grasp type (e.g., right grasp)
+grasp = Grasp.RIGHT
+```
+
+#### Step 4: Create the PickUpAction
+With the object designator, arm selection, and grasp type defined, you can now create the `PickUpAction`. This action encapsulates all the necessary parameters for the robot to perform the pick-up operation.
+
+```python
+from pycram.designators.action_designator import PickUpAction
+
+# Create the PickUpAction with the defined parameters
+pick_up_action = PickUpAction(
+    object_designator_description=milk_desig,
+    arms=[arm],
+    grasps=[grasp]
+)
+```
+
+#### Step 5: Resolve the Action Designator
+Before performing the action, you need to resolve the action designator to create a performable instance.
+
+```python
+# Resolve the action designator to create a performable instance
+performable_pick_up_action = pick_up_action.resolve()
+```
+
+#### Step 6: Perform the Action
+Finally, execute the action within a simulated robot environment. This is done using the `simulated_robot` context manager.
+
+```python
+from pycram.process_module import simulated_robot
+
+# Perform the pick-up action in the simulated environment
+with simulated_robot:
+    performable_pick_up_action.perform()
+```
+
+### Key Concepts
+- **Object Designator**: Represents the object to be manipulated. It allows the robot to identify and interact with specific objects in the environment.
+- **Arm Selection**: Specifies which arm of the robot will be used for the action. This is crucial for ensuring the robot can reach and manipulate the object effectively.
+- **Grasp Type**: Defines how the robot will grip the object, which can vary based on the object's shape and size.
+
+### Relevant Functions
+- `BelieveObject`: Creates an object designator based on the object's name.
+- `PickUpAction`: Represents the action of picking up an object, requiring parameters such as the object designator, arm, and grasp type.
+- `resolve()`: Converts an action designator into a performable action.
+- `perform()`: Executes the resolved action in the specified environment.
+
+### Integration
+These steps integrate seamlessly within the PyCram framework, allowing for a structured approach to robotic manipulation tasks. The use of designators abstracts the complexity of direct robot control, enabling developers to focus on higher-level task definitions.
+
+## 3. Code Examples and Implementation Guidance
+
+### Complete Code Example
+Here is a complete code example that incorporates all the steps outlined above:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode, Arms, Grasp
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+from pycram.designators.action_designator import PickUpAction
+from pycram.process_module import simulated_robot
+
+# Initialize the simulation world
+world = BulletWorld(WorldMode.GUI)
+
+# Create a robot (e.g., PR2)
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+
+# Create an object to pick up (e.g., a milk carton)
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+
+# Create an object designator for the milk object
+milk_desig = BelieveObject(names=["milk"])
+
+# Select the right arm for picking up the object
+arm = Arms.RIGHT
+
+# Specify the grasp type (e.g., right grasp)
+grasp = Grasp.RIGHT
+
+# Create the PickUpAction with the defined parameters
+pick_up_action = PickUpAction(
+    object_designator_description=milk_desig,
+    arms=[arm],
+    grasps=[grasp]
+)
+
+# Resolve the action designator to create a performable instance
+performable_pick_up_action = pick_up_action.resolve()
+
+# Perform the pick-up action in the simulated environment
+with simulated_robot:
+    performable_pick_up_action.perform()
+```
+
+### Explanation
+- **Initialization**: The code initializes the simulation environment and creates a robot and an object.
+- **Object Designator**: The `BelieveObject` class is used to create a designator for the milk object.
+- **Action Creation**: The `PickUpAction` is created with the necessary parameters, which are then resolved into a performable action.
+- **Execution**: The action is performed within a simulated robot context, allowing the robot to pick up the object.
+
+### Adaptability
+This code can be easily adapted for different objects, arms, or grasp types by modifying the parameters passed to the `BelieveObject`, `PickUpAction`, and other relevant classes.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+The `PickUpAction` is part of the action designator module in PyCram, which provides a high-level interface for defining and executing complex robotic actions. This module is essential for building sophisticated robotic behaviors that require interaction with the environment.
+
+### Essential Components
+- **Action Designators**: These are high-level abstractions that encapsulate complex actions, allowing for easier implementation and management of robotic tasks.
+- **Object Designators**: These represent the objects in the environment, enabling the robot to identify and interact with them effectively.
+- **Simulation Environment**: The `BulletWorld` provides a realistic simulation environment for testing and executing robotic actions.
+
+### Conceptual Understanding
+Understanding how action and object designators work together is crucial for developing effective robotic applications. Action designators define what the robot should do, while object designators specify what it should interact with. This separation of concerns simplifies the development process and enhances code maintainability.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- **Test in Simulation**: Always test your actions in a simulated environment before deploying them on a real robot to avoid potential damage or errors.
+- **Use Descriptive Names**: When creating object designators, use clear and descriptive names to avoid confusion, especially when dealing with multiple objects.
+- **Modular Code**: Keep your code modular by separating different functionalities into functions or classes. This enhances readability and maintainability.
+
+### Potential Challenges
+- **Object Recognition**: Ensure that the object designator accurately identifies the object in the environment. If the object is not recognized, the pick-up action will fail.
+- **Arm Reachability**: Verify that the selected arm can reach the object. If the arm is not positioned correctly, the robot may not be able to pick up the object.
+
+### Solutions
+- **Debugging**: Use logging and debugging tools to track the robot's actions and identify any issues during execution.
+- **Adjust Parameters**: If the robot fails to pick up the object, consider adjusting the arm selection, grasp type, or object designator parameters.
+
+---
+
+This comprehensive guide provides a detailed overview of how to implement the `PickUpAction` in PyCram, complete with code examples, explanations, and best practices. By following this guide, you should be able to effectively enable a robot to pick up objects in a simulated environment. = Retrieve[How can I pick up an object in PyCram using the PickUpAction? Provide code examples and explanations of the necessary parameters, such as object designator, arm selection, and grasp type.]Plan: Find a location on the kitchen island surface that is reachable by the robot.
+# Finding a Reachable Location on a Specific Surface Using PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task at hand is to find a reachable location on a specific surface of an object, such as the 'kitchen_island_surface' of the 'kitchen' object, using the PyCram framework. This involves utilizing the `SemanticCostmapLocation` and `CostmapLocation` classes to determine valid poses where a robot can place an object.
+
+### Explain the Goal
+The primary objective is to ensure that the robot can identify a suitable location on the specified surface where it can safely and effectively place an object. This is significant within the PyCram framework as it allows for precise manipulation and interaction with the environment, taking into account the robot's kinematics and the constraints of the environment.
+
+### Prerequisites and Setup
+Before starting the task, ensure that you have the following:
+- **PyCram Installed:** Make sure you have the PyCram framework installed and properly configured.
+- **Bullet Physics Engine:** The BulletWorld must be initialized to simulate the environment.
+- **Robot and Object Models:** Ensure that the robot (e.g., PR2) and the environment (e.g., kitchen) are defined in URDF or STL format and are available for loading.
+
+### Initial Setup Code
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+
+# Initialize the BulletWorld
+world = BulletWorld()
+
+# Load the kitchen environment
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+
+# Load the robot (e.g., PR2)
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+#### Step 1: Define the Target Surface
+To find a reachable location on the kitchen island surface, we need to specify the surface as our target. This is done using the `SemanticCostmapLocation` class, which allows us to create a costmap based on semantic entities.
+
+#### Step 2: Create the Semantic Location Designator
+The `SemanticCostmapLocation` requires the URDF link name of the surface, the object it is part of, and optionally, the object for which the location is being found.
+
+```python
+from pycram.designators.location_designator import SemanticCostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+# Define the kitchen object designator
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+
+# Create the semantic location designator for the kitchen island surface
+location_description = SemanticCostmapLocation(
+    urdf_link_name="kitchen_island_surface",
+    part_of=kitchen_desig,
+    for_object=None  # Optional: specify an object if needed
+)
+```
+
+#### Step 3: Resolve the Location
+Once the location description is created, we can resolve it to find valid poses on the specified surface.
+
+```python
+# Resolve the location to get valid poses
+valid_poses = location_description.resolve()
+print(valid_poses)
+```
+
+### Key Concepts
+- **SemanticCostmapLocation:** This class is used to find locations over semantic entities, allowing for more context-aware placement of objects.
+- **URDF Link Name:** This is the name of the specific surface on the object where the robot should place the item.
+- **Object Designator:** The `BelieveObject` class is used to create symbolic representations of objects in the environment.
+
+### Relevant Functions
+- **`resolve()`:** This method is crucial as it computes the valid poses based on the constraints defined in the location designator.
+
+### Integration
+The steps outlined above integrate seamlessly within the PyCram framework, leveraging its designator system to abstract the complexities of robot motion planning and environment interaction.
+
+## 3. Code Examples and Implementation Guidance
+
+### Example 1: Using SemanticCostmapLocation
+Here’s a complete code example that demonstrates how to find a reachable location on the kitchen island surface.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+from pycram.designators.location_designator import SemanticCostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+# Initialize the BulletWorld
+world = BulletWorld()
+
+# Load the kitchen environment
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+
+# Load the robot (e.g., PR2)
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+
+# Define the kitchen object designator
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+
+# Create the semantic location designator for the kitchen island surface
+location_description = SemanticCostmapLocation(
+    urdf_link_name="kitchen_island_surface",
+    part_of=kitchen_desig,
+    for_object=None  # Optional: specify an object if needed
+)
+
+# Resolve the location to get valid poses
+valid_poses = location_description.resolve()
+print("Valid poses on the kitchen island surface:")
+for pose in valid_poses:
+    print(pose)
+```
+
+### Example 2: Using CostmapLocation
+If you want to find a reachable location considering the robot's kinematics, you can use the `CostmapLocation` class. This requires specifying the target object and the robot.
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+# Load the object to be placed (e.g., a milk object)
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+
+# Define the milk object designator
+milk_desig = BelieveObject(names=["milk"]).resolve()
+
+# Create the costmap location designator for the kitchen island surface
+location_description = CostmapLocation(
+    target=milk_desig,
+    reachable_for=BelieveObject(names=["pr2"]).resolve()  # Specify the robot
+)
+
+# Resolve the location to get valid poses
+reachable_poses = location_description.resolve()
+print("Reachable poses for placing the milk on the kitchen island surface:")
+for pose in reachable_poses:
+    print(pose)
+```
+
+### Explanation of Parameters
+- **`urdf_link_name`:** The name of the specific surface on the object (e.g., "kitchen_island_surface").
+- **`part_of`:** The object that contains the surface (e.g., the kitchen).
+- **`target`:** The object that the robot will interact with (e.g., the milk).
+- **`reachable_for`:** The robot that needs to reach the location.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by demonstrating how to utilize designators to abstract the complexities of robot motion planning. The framework allows for high-level descriptions of actions and locations, enabling robots to interact with their environments intelligently.
+
+### Essential Components
+- **BulletWorld:** The simulation environment where objects and robots are defined and manipulated.
+- **Designators:** Symbolic representations of objects, locations, and actions that simplify the interaction with the environment.
+
+### Conceptual Understanding
+Understanding how designators work within PyCram is crucial for effectively implementing robotic tasks. They provide a way to abstract the details of the robot's kinematics and the environment's constraints, allowing for more straightforward programming of complex behaviors.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- **Test Incrementally:** Start with simple tasks and gradually increase complexity to ensure each part of the code works as expected.
+- **Use Visualization:** Utilize the visualization capabilities of PyCram to debug and understand the costmaps and poses generated.
+
+### Potential Challenges
+- **Collision Detection:** Ensure that the poses generated do not lead to collisions with other objects in the environment.
+- **Kinematic Constraints:** Be aware of the robot's kinematic limitations when resolving poses.
+
+### Solutions
+- **Adjust Parameters:** If poses are not valid, consider adjusting the parameters of the costmap or the robot's joint states.
+- **Iterate Over Poses:** Use the generator capabilities of the location designators to explore multiple valid poses if the first one does not work.
+
+---
+
+By following this comprehensive guide, you should be able to effectively find reachable locations on specific surfaces using the PyCram framework, ensuring that your robot can interact with its environment in a meaningful way. = Retrieve[How can I find a reachable location on a specific surface of an object, like the 'kitchen_island_surface' of the 'kitchen' object, using PyCram? Consider the robot's kinematics and the environment's constraints. The robot should be able to place an object on this location. Provide code examples using SemanticCostmapLocation and CostmapLocation, and explain the relevant parameters.]Plan: Retrieve the method for navigating the robot to the kitchen island.
+# Navigating the Robot to a Specific Pose in PyCram Using NavigateAction
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task at hand is to navigate a robot to a specific pose using the `NavigateAction` class from the PyCram framework. This involves creating a description of the navigation action, resolving it to a performable designator, and executing the action in a simulated environment.
+
+### Explain the Goal
+The primary objective of this task is to enable the robot to move to a designated location within its environment. This is significant in robotic applications where precise movements are required for tasks such as object manipulation, exploration, or interaction with the environment. The `NavigateAction` provides a high-level abstraction for defining movement actions, making it easier to implement complex behaviors in robotic systems.
+
+### Prerequisites and Setup
+Before starting the task, ensure that you have the following prerequisites:
+- **PyCram Framework**: Ensure that the PyCram framework is installed and properly configured in your Python environment.
+- **Bullet Physics Engine**: The Bullet physics engine should be available, as PyCram uses it for simulating the robot's environment.
+- **Robot Model**: A robot model (e.g., PR2) should be available in URDF format for simulation.
+
+### Setup Steps
+1. **Import Required Modules**: Import the necessary classes from the PyCram framework.
+2. **Initialize the Bullet World**: Create an instance of `BulletWorld` to simulate the environment.
+3. **Load the Robot Model**: Instantiate the robot object using its URDF file.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+# Initialize the Bullet World
+world = BulletWorld(WorldMode.GUI)
+
+# Load the robot model (e.g., PR2)
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+#### Step 1: Define the Target Pose
+The first step is to define the target pose where the robot should navigate. A pose consists of a position (x, y, z) and an orientation (quaternion).
+
+```python
+from pycram.datastructures.pose import Pose
+
+# Define the target pose
+target_pose = Pose([1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0])  # Position and orientation
+```
+
+#### Step 2: Create the NavigateAction Description
+Next, create a `NavigateAction` description that includes the target pose. The `target_locations` parameter is a list of possible poses where the robot can navigate.
+
+```python
+from pycram.designators.action_designator import NavigateAction
+
+# Create the NavigateAction description
+navigate_description = NavigateAction(target_locations=[target_pose])
+```
+
+**Key Concept: `target_locations` Parameter**
+- The `target_locations` parameter is a list of poses that the robot can navigate to. In this case, we provide a single pose, but multiple poses can be specified if needed. The `NavigateAction` will select one of the poses from this list during execution.
+
+#### Step 3: Resolve the Action Designator
+Once the description is created, resolve it to obtain a performable action designator.
+
+```python
+# Resolve the action designator
+navigate_designator = navigate_description.resolve()
+```
+
+#### Step 4: Perform the Navigation Action
+To execute the navigation action, you need to perform it within a simulated robot environment. Use the `simulated_robot` context manager to ensure the action is executed in the correct environment.
+
+```python
+from pycram.process_module import simulated_robot
+
+# Perform the navigation action
+with simulated_robot:
+    navigate_designator.perform()
+```
+
+### Key Concepts
+- **Action Designator**: An abstraction that encapsulates a specific action (in this case, navigation) and its parameters.
+- **Pose**: A representation of a position and orientation in 3D space, crucial for defining where the robot should move.
+- **Simulated Environment**: A controlled environment where the robot can perform actions without physical constraints.
+
+### Relevant Functions
+- `NavigateAction`: Class used to create a navigation action description.
+- `resolve()`: Method that resolves the action description into a performable designator.
+- `perform()`: Method that executes the action defined by the designator.
+
+### Integration
+These steps integrate seamlessly within the PyCram framework, allowing for high-level control of robotic actions. The `NavigateAction` class abstracts the complexity of navigation, enabling developers to focus on higher-level task planning.
+
+## 3. Code Examples and Implementation Guidance
+
+### Complete Code Example
+Here is the complete code example that demonstrates how to navigate the robot to a specific pose using the `NavigateAction`.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+from pycram.datastructures.pose import Pose
+from pycram.designators.action_designator import NavigateAction
+from pycram.process_module import simulated_robot
+
+# Step 1: Initialize the Bullet World
+world = BulletWorld(WorldMode.GUI)
+
+# Step 2: Load the robot model
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+
+# Step 3: Define the target pose
+target_pose = Pose([1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0])  # Position and orientation
+
+# Step 4: Create the NavigateAction description
+navigate_description = NavigateAction(target_locations=[target_pose])
+
+# Step 5: Resolve the action designator
+navigate_designator = navigate_description.resolve()
+
+# Step 6: Perform the navigation action
+with simulated_robot:
+    navigate_designator.perform()
+
+# Optional: Exit the world after completion
+world.exit()
+```
+
+### Explanation
+- **Initialization**: The code initializes the Bullet world and loads the robot model.
+- **Pose Definition**: A target pose is defined for navigation.
+- **Action Description**: A `NavigateAction` description is created with the target pose.
+- **Resolution and Execution**: The action designator is resolved and executed within a simulated environment.
+
+### Adaptability
+This code can be easily adapted for different robots or target poses by modifying the robot model and the pose parameters. You can also extend the `target_locations` list to include multiple poses for more complex navigation tasks.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+The task of navigating a robot to a specific pose fits into the larger context of robotic control and task execution within the PyCram framework. PyCram provides a modular approach to designing robotic behaviors, allowing developers to create complex workflows by combining various designators.
+
+### Essential Components
+- **Action Designators**: These are crucial for defining high-level actions that the robot can perform.
+- **Location Designators**: These can be used in conjunction with action designators to determine valid navigation targets based on environmental constraints.
+- **Object Designators**: These can be used to identify objects in the environment that the robot may need to interact with during navigation.
+
+### Conceptual Understanding
+Understanding how action designators like `NavigateAction` work is essential for developing effective robotic applications. The abstraction provided by these designators allows for easier implementation of complex behaviors, such as navigating to specific locations while avoiding obstacles.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- **Test in Simulation**: Always test navigation actions in a simulated environment before deploying them on a real robot to ensure safety and reliability.
+- **Use Multiple Poses**: When defining `target_locations`, consider providing multiple poses to allow the robot to choose the best path based on its current state and environment.
+- **Monitor Robot State**: Implement monitoring of the robot's state to handle unexpected situations, such as obstacles in the path.
+
+### Potential Challenges
+- **Collision Avoidance**: Ensure that the target poses do not lead to collisions with obstacles in the environment.
+- **Dynamic Environments**: In dynamic environments, the robot may need to adapt its navigation strategy based on changes in the surroundings.
+
+### Solutions
+- **Path Planning Algorithms**: Consider integrating path planning algorithms to dynamically adjust the robot's path based on real-time sensor data.
+- **Feedback Mechanisms**: Implement feedback mechanisms to allow the robot to adjust its actions based on its current position and orientation.
+
+---
+
+By following this comprehensive guide, you should be able to effectively navigate a robot to a specific pose using the `NavigateAction` class in the PyCram framework. The provided code examples and explanations will help you understand the underlying concepts and facilitate the implementation of similar tasks in your robotic applications. = Retrieve[How to navigate the robot to a specific pose in PyCram using the NavigateAction? Provide code examples and explain the 'target_locations' parameter.]Plan: Retrieve the method for placing the cereal box on the kitchen island.
+# Placing an Object on a Specific Location in PyCram Using PlaceAction
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task at hand is to place an object at a specific location using the `PlaceAction` designator in the PyCram framework. This involves selecting an object to be placed, determining the target location for placement, and specifying which arm of the robot will be used for the action.
+
+### Explain the Goal
+The primary objective of this task is to enable a robot to accurately place an object in a designated area within a simulated environment. This capability is crucial for robotic applications such as assembly, service robots, and any scenario where precise object manipulation is required. By mastering the `PlaceAction`, users can enhance the robot's interaction with its environment, making it more versatile and effective in performing tasks.
+
+### Prerequisites and Setup
+Before proceeding with the implementation of the `PlaceAction`, ensure the following prerequisites are met:
+- **PyCram Framework Installed**: Ensure that the PyCram framework is installed and properly configured in your Python environment.
+- **Bullet Physics Engine**: The Bullet physics engine should be available, as PyCram relies on it for simulating the robot's environment.
+- **Robot and Object Models**: Have the necessary URDF files for the robot and the objects you intend to manipulate (e.g., a robot model like PR2 and an object like a milk carton).
+- **Basic Understanding of PyCram**: Familiarity with the PyCram framework, including how to create worlds, objects, and designators.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+#### Step 1: Initialize the Environment
+First, create a BulletWorld instance and add the robot and the object to the environment.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+from pycram.datastructures.pose import Pose
+
+# Initialize the BulletWorld
+world = BulletWorld(WorldMode.GUI)
+
+# Create a robot object (e.g., PR2)
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+
+# Create an object to be placed (e.g., milk)
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+```
+
+#### Step 2: Create Object Designator
+Next, create an object designator for the object you want to place. This designator will be used to identify the object during the placement action.
+
+```python
+from pycram.designators.object_designator import BelieveObject
+
+# Create an object designator for the milk object
+milk_desig = BelieveObject(names=["milk"])
+```
+
+#### Step 3: Define Target Location
+Specify the target location where the object will be placed. This is done by creating a pose that represents the desired position and orientation.
+
+```python
+# Define the target location for placing the object
+target_location = Pose([-1.20, 1.0192, 0.9624], [0, 0, 0, 1])  # Example pose
+```
+
+#### Step 4: Select the Arm
+Choose which arm of the robot will be used for the placement action. This is typically specified using an enumeration from the PyCram framework.
+
+```python
+from pycram.datastructures.enums import Arms
+
+# Select the right arm for the placement action
+arm = Arms.RIGHT
+```
+
+#### Step 5: Create and Resolve the PlaceAction
+Now, create a `PlaceAction` designator using the object designator, target location, and selected arm. Resolve this action to prepare it for execution.
+
+```python
+from pycram.designators.action_designator import PlaceAction
+
+# Create the PlaceAction designator
+place_action = PlaceAction(object_designator_description=milk_desig,
+                            target_locations=[target_location],
+                            arms=[arm])
+
+# Resolve the action to make it performable
+place_action_resolved = place_action.resolve()
+```
+
+#### Step 6: Perform the Action
+Finally, execute the resolved action within a simulated robot environment. This will instruct the robot to place the object at the specified location.
+
+```python
+from pycram.process_module import simulated_robot
+
+# Perform the placement action in a simulated environment
+with simulated_robot:
+    place_action_resolved.perform()
+```
+
+### Key Concepts
+- **Object Designator**: Represents the object to be manipulated. In this case, it identifies the milk carton.
+- **Target Location**: A pose that defines where the object should be placed. It includes both position and orientation.
+- **Arm Selection**: Specifies which arm of the robot will perform the action, allowing for flexibility in how the robot interacts with objects.
+
+### Relevant Functions
+- `BelieveObject`: Creates an object designator based on the name of the object.
+- `Pose`: Represents a 6D pose (position and orientation) in space.
+- `PlaceAction`: Represents the action of placing an object at a specified location.
+- `resolve()`: Prepares the action for execution by resolving it into a performable state.
+- `perform()`: Executes the resolved action in the specified environment.
+
+### Integration
+These steps integrate seamlessly within the PyCram framework, allowing for a structured approach to robotic manipulation tasks. The use of designators abstracts the complexity of object identification and action execution, enabling users to focus on higher-level task planning.
+
+## 3. Code Examples and Implementation Guidance
+
+### Complete Code Example
+Here is the complete code example that encapsulates all the steps discussed above:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode, Arms
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+from pycram.designators.action_designator import PlaceAction
+from pycram.process_module import simulated_robot
+
+# Step 1: Initialize the environment
+world = BulletWorld(WorldMode.GUI)
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+
+# Step 2: Create object designator
+milk_desig = BelieveObject(names=["milk"])
+
+# Step 3: Define target location
+target_location = Pose([-1.20, 1.0192, 0.9624], [0, 0, 0, 1])  # Example pose
+
+# Step 4: Select the arm
+arm = Arms.RIGHT
+
+# Step 5: Create and resolve the PlaceAction
+place_action = PlaceAction(object_designator_description=milk_desig,
+                            target_locations=[target_location],
+                            arms=[arm])
+place_action_resolved = place_action.resolve()
+
+# Step 6: Perform the action
+with simulated_robot:
+    place_action_resolved.perform()
+```
+
+### Explanation
+- **Initialization**: The code initializes the BulletWorld and creates the robot and object instances.
+- **Object Designator**: The `BelieveObject` class is used to create a designator for the milk object.
+- **Target Location**: A specific pose is defined for where the milk should be placed.
+- **Arm Selection**: The right arm of the robot is selected for the action.
+- **Action Creation**: A `PlaceAction` is created and resolved, making it ready for execution.
+- **Execution**: The action is performed within a simulated environment, allowing the robot to place the object.
+
+### Adaptability
+This code can be easily adapted for different objects, target locations, or robot configurations. Simply modify the object names, poses, or arm selections as needed.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+The `PlaceAction` is part of the action designator system in PyCram, which allows for high-level task planning and execution. This system is designed to abstract the complexities of robotic actions, enabling users to focus on the logic of their applications rather than the low-level details of robot control.
+
+### Essential Components
+- **Action Designators**: These are high-level representations of actions that can be performed by the robot. They encapsulate the necessary parameters and logic for executing complex tasks.
+- **Object Designators**: These represent the objects in the environment that the robot can interact with. They provide a way to identify and manipulate objects based on their properties.
+- **Location Designators**: These describe where actions can take place, ensuring that the robot operates within the constraints of its environment.
+
+### Conceptual Understanding
+Understanding how designators work is crucial for effectively using the PyCram framework. Designators allow for a modular approach to robotic programming, where actions, objects, and locations can be defined independently and combined as needed.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- **Test in Simulation**: Always test your actions in a simulated environment before deploying them on a real robot to avoid potential damage or errors.
+- **Use Descriptive Names**: When creating objects and designators, use clear and descriptive names to make your code more readable and maintainable.
+- **Modular Design**: Break down complex tasks into smaller, manageable functions or classes to enhance code organization and reusability.
+
+### Potential Challenges
+- **Collision Detection**: Ensure that the target location is valid and does not result in collisions with other objects in the environment.
+- **Object Availability**: Verify that the object you intend to manipulate is present in the environment before executing actions that depend on it.
+
+### Solutions
+- **Debugging**: Use logging and debugging tools to trace the execution of your code and identify any issues that arise during simulation.
+- **Iterative Development**: Develop your code iteratively, testing each component before integrating it into larger workflows.
+
+By following this comprehensive guide, you should be well-equipped to implement the `PlaceAction` in PyCram, enabling your robot to effectively place objects in a simulated environment. = Retrieve[How can I place an object on a specific location in PyCram using the PlaceAction? Provide code examples and explanations of the necessary parameters, such as object designator, target location, and arm selection.]Plan: Retrieve the method for parking the robot's arms.
+Content from: #<IAI_kitchen.urdf>#
+<?xml version="1.0" ?>
+<!-- =================================================================================== -->
+<!-- |    This document was autogenerated by xacro from IAI_kitchen.urdf.xacro         | -->
+<!-- |    EDITING THIS FILE BY HAND IS NOT RECOMMENDED                                 | -->
+<!-- =================================================================================== -->
+<robot name="iai_oven_area" xmlns:xacro="http://ros.org/wiki/xacro">
+  <link name="room_link">    
+  </link>
+  <!--- FIXME THIS should NOT be here -->
+  <link name="sink_area_footprint">
+    <sphere_inertia mass="0" radius="0"/>
+  </link>
+  <link name="sink_area">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/racks/SinkArea.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_footprint_joint" type="fixed">
+    <origin rpy="0 0 3.14159265359" xyz="1.825 1.3 0"/>
+    <child link="sink_area_footprint"/>
+    <parent link="room_link"/>
+  </joint>
+  <joint name="sink_area_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.29 1.03 0.41"/>
+    <parent link="sink_area_footprint"/>
+    <child link="sink_area"/>
+  </joint>
+  <link name="sink_area_sink">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/Sink.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_sink_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.005 0.47 0.4414"/>
+    <parent link="sink_area"/>
+    <child link="sink_area_sink"/>
+  </joint>
+  <link name="sink_area_right_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Panel_60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_right_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.28 0.7 0.325 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_right_panel"/>
+  </joint>
+  <link name="sink_area_trash_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_58.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_trash_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_trash_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.01 0.7 -0.035 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_trash_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="sink_area_trash_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.2375"/>
+    <parent link="sink_area_trash_drawer_main"/>
+    <child link="sink_area_trash_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="sink_area_left_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_80_14.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_left_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle80.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_left_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.01 -0.6 0.325 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_left_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="sink_area_left_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.0175"/>
+    <parent link="sink_area_left_upper_drawer_main"/>
+    <child link="sink_area_left_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="sink_area_left_middle_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_80_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_left_middle_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle80.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_left_middle_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.01 -0.6 0.11 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_left_middle_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="sink_area_left_middle_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="sink_area_left_middle_drawer_main"/>
+    <child link="sink_area_left_middle_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="sink_area_left_bottom_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_80_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_left_bottom_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle80.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_left_bottom_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.01 -0.6 -0.18 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_left_bottom_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="sink_area_left_bottom_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="sink_area_left_bottom_drawer_main"/>
+    <child link="sink_area_left_bottom_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="sink_area_dish_washer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/DishWasher.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_dish_washer_door">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/DishWasherDoor.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_dish_washer_door_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_dish_washer_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.01 0.1 0.035 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_dish_washer_main"/>
+  </joint>
+  <joint name="sink_area_dish_washer_door_joint" type="revolute">
+    <origin rpy="-1.57079632679 0 0" xyz="0.27 0. -0.325"/>
+    <parent link="sink_area_dish_washer_main"/>
+    <child link="sink_area_dish_washer_door"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <joint name="sink_area_dish_washer_door_handle_joint" type="fixed">
+    <origin rpy="-1.57079632679 0 0" xyz="0.0625 -0.6325 0."/>
+    <parent link="sink_area_dish_washer_door"/>
+    <child link="sink_area_dish_washer_door_handle"/>
+  </joint>
+  <link name="oven_area_area_footprint">
+    <sphere_inertia mass="0" radius="0"/>
+  </link>
+  <link name="oven_area_area">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/racks/OvenArea.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_footprint_joint" type="fixed">
+    <origin rpy="0 0 3.14159265359" xyz="1.805 2.5 0"/>
+    <child link="oven_area_area_footprint"/>
+    <parent link="room_link"/>
+  </joint>
+  <joint name="oven_area_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.29 0.6 0.755"/>
+    <parent link="oven_area_area_footprint"/>
+    <child link="oven_area_area"/>
+  </joint>
+  <link name="oven_area_oven_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/OvenMain.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_oven_door">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/OvenDoor.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_oven_door_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_oven_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/OvenPanel.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.0 0.0 0.415"/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_oven_main"/>
+  </joint>
+  <joint name="oven_area_oven_door_joint" type="revolute">
+    <origin rpy="-1.57079632679 0 0" xyz="0.2737 0. -0.2614"/>
+    <parent link="oven_area_oven_main"/>
+    <child link="oven_area_oven_door"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <joint name="oven_area_oven_door_handle_joint" type="fixed">
+    <origin rpy="-1.57079632679 0 0" xyz="0.05876 -0.39803 0."/>
+    <parent link="oven_area_oven_door"/>
+    <child link="oven_area_oven_door_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <joint name="oven_area_oven_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.27 0 0.2449"/>
+    <parent link="oven_area_oven_main"/>
+    <child link="oven_area_oven_panel"/>
+  </joint>
+  <link name="oven_area_oven_knob_stove_1">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_stove_1_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 -0.21 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_stove_1"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_oven_knob_stove_2">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_stove_2_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 -0.14 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_stove_2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_oven_knob_stove_3">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_stove_3_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 -0.07 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_stove_3"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_oven_knob_stove_4">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_stove_4_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 -0.0 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_stove_4"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_oven_knob_oven">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_oven_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 0.16 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_oven"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_area_middle_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_14.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_area_middle_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_area_middle_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 -0. 0.045 "/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_area_middle_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="oven_area_area_middle_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.0175"/>
+    <parent link="oven_area_area_middle_upper_drawer_main"/>
+    <child link="oven_area_area_middle_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="oven_area_area_middle_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_58.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_area_middle_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_area_middle_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 -0. -0.315 "/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_area_middle_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="oven_area_area_middle_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.2375"/>
+    <parent link="oven_area_area_middle_lower_drawer_main"/>
+    <child link="oven_area_area_middle_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="oven_area_area_left_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/VDrawer.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_area_left_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/VHandle130.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_area_left_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 -0.45 0.06 "/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_area_left_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="oven_area_area_left_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3525 0 0"/>
+    <parent link="oven_area_area_left_drawer_main"/>
+    <child link="oven_area_area_left_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="oven_area_area_right_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/VDrawer.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_area_right_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/VHandle130.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_area_right_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 0.45 0.06 "/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_area_right_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="oven_area_area_right_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3525 0 0"/>
+    <parent link="oven_area_area_right_drawer_main"/>
+    <child link="oven_area_area_right_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_footprint">
+    <sphere_inertia mass="0" radius="0"/>
+  </link>
+  <link name="kitchen_island">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/racks/IslandArea.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_footprint_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="-1.365 0.59 0"/>
+    <child link="kitchen_island_footprint"/>
+    <parent link="room_link"/>
+  </joint>
+  <joint name="kitchen_island_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.2975 1.1292 0.421"/>
+    <parent link="kitchen_island_footprint"/>
+    <child link="kitchen_island"/>
+  </joint>
+  <link name="kitchen_island_stove">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/Stove.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_stove_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.025 0.7658 0.4315"/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_stove"/>
+  </joint>
+  <link name="kitchen_island_left_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Panel_60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_left_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.2725 -0.8 0.329 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_left_panel"/>
+  </joint>
+  <link name="kitchen_island_left_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_left_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_left_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 -0.8 0.114 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_left_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_left_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_left_upper_drawer_main"/>
+    <child link="kitchen_island_left_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_left_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_left_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_left_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 -0.8 -0.176 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_left_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_left_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_left_lower_drawer_main"/>
+    <child link="kitchen_island_left_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_middle_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Panel_100.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_middle_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.2725 0 0.329 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_middle_panel"/>
+  </joint>
+  <link name="kitchen_island_middle_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_100_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_middle_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle100.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_middle_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 0 0.114 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_middle_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_middle_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_middle_upper_drawer_main"/>
+    <child link="kitchen_island_middle_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_middle_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_100_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_middle_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle100.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_middle_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 0 -0.176 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_middle_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_middle_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_middle_lower_drawer_main"/>
+    <child link="kitchen_island_middle_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_right_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Panel_60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_right_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.2725 0.8 0.329 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_right_panel"/>
+  </joint>
+  <link name="kitchen_island_right_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_right_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_right_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 0.8 0.114 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_right_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_right_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_right_upper_drawer_main"/>
+    <child link="kitchen_island_right_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_right_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_right_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_right_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 0.8 -0.176 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_right_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_right_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_right_lower_drawer_main"/>
+    <child link="kitchen_island_right_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="fridge_area_footprint">
+    <sphere_inertia mass="0" radius="0"/>
+  </link>
+  <link name="fridge_area">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/racks/FridgeArea.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="fridge_area_footprint_joint" type="fixed">
+    <origin rpy="0 0 3.14159265359" xyz="1.825 -0.76 0"/>
+    <child link="fridge_area_footprint"/>
+    <parent link="room_link"/>
+  </joint>
+  <joint name="fridge_area_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.29 .3 0.74"/>
+    <parent link="fridge_area_footprint"/>
+    <child link="fridge_area"/>
+  </joint>
+  <link name="fridge_area_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="fridge_area_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="fridge_area_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 -0.0 -0.4175 "/>
+    <parent link="fridge_area"/>
+    <child link="fridge_area_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="fridge_area_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="fridge_area_lower_drawer_main"/>
+    <child link="fridge_area_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="iai_fridge_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/Fridge.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="iai_fridge_door">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/FridgeDoor.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="iai_fridge_door_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/VHandle90.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="iai_fridge_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <parent link="fridge_area"/>
+    <child link="iai_fridge_main"/>
+  </joint>
+  <joint name="iai_fridge_door_joint" type="revolute">
+    <origin rpy="0 0 0" xyz="0.29 0.3 0.245"/>
+    <parent link="iai_fridge_main"/>
+    <child link="iai_fridge_door"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <joint name="iai_fridge_door_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.06 -0.57 0."/>
+    <parent link="iai_fridge_door"/>
+    <child link="iai_fridge_door_handle"/>
+  </joint>
+  <!--
+  <iai_sink_area name="sink_area" parent="room_link">
+    <origin xyz="-5.29 -5.65 0" rpy="0 0 0" />    
+  </iai_sink_area>
+  
+  <iai_oven_area name="oven_area" parent="room_link">
+    <origin xyz="-5.27 -6.85 0" rpy="0 0 0" />    
+  </iai_oven_area>
+  
+  
+  <iai_kitchen_island name="kitchen_island" parent="room_link">
+    <origin xyz="-2.1 -4.94 0" rpy="0 0 ${pi}" />    
+  </iai_kitchen_island>
+  
+  <iai_fridge_area name="fridge_area" parent="room_link">
+    <origin xyz="-5.29 -3.59 0" rpy="0 0 0" />    
+  </iai_fridge_area>
+  -->
+</robot>
+
+
+0 = Retrieve[How can I park the robot's arms in PyCram using ParkArmsAction? Provide code examples and explain the usage of the 'arms' parameter.]Plan: Close the BulletWorld.
+Content from: #<IAI_kitchen.urdf>#
+<?xml version="1.0" ?>
+<!-- =================================================================================== -->
+<!-- |    This document was autogenerated by xacro from IAI_kitchen.urdf.xacro         | -->
+<!-- |    EDITING THIS FILE BY HAND IS NOT RECOMMENDED                                 | -->
+<!-- =================================================================================== -->
+<robot name="iai_oven_area" xmlns:xacro="http://ros.org/wiki/xacro">
+  <link name="room_link">    
+  </link>
+  <!--- FIXME THIS should NOT be here -->
+  <link name="sink_area_footprint">
+    <sphere_inertia mass="0" radius="0"/>
+  </link>
+  <link name="sink_area">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/racks/SinkArea.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_footprint_joint" type="fixed">
+    <origin rpy="0 0 3.14159265359" xyz="1.825 1.3 0"/>
+    <child link="sink_area_footprint"/>
+    <parent link="room_link"/>
+  </joint>
+  <joint name="sink_area_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.29 1.03 0.41"/>
+    <parent link="sink_area_footprint"/>
+    <child link="sink_area"/>
+  </joint>
+  <link name="sink_area_sink">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/Sink.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_sink_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.005 0.47 0.4414"/>
+    <parent link="sink_area"/>
+    <child link="sink_area_sink"/>
+  </joint>
+  <link name="sink_area_right_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Panel_60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_right_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.28 0.7 0.325 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_right_panel"/>
+  </joint>
+  <link name="sink_area_trash_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_58.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_trash_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_trash_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.01 0.7 -0.035 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_trash_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="sink_area_trash_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.2375"/>
+    <parent link="sink_area_trash_drawer_main"/>
+    <child link="sink_area_trash_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="sink_area_left_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_80_14.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_left_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle80.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_left_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.01 -0.6 0.325 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_left_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="sink_area_left_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.0175"/>
+    <parent link="sink_area_left_upper_drawer_main"/>
+    <child link="sink_area_left_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="sink_area_left_middle_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_80_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_left_middle_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle80.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_left_middle_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.01 -0.6 0.11 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_left_middle_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="sink_area_left_middle_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="sink_area_left_middle_drawer_main"/>
+    <child link="sink_area_left_middle_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="sink_area_left_bottom_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_80_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_left_bottom_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle80.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_left_bottom_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.01 -0.6 -0.18 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_left_bottom_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="sink_area_left_bottom_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="sink_area_left_bottom_drawer_main"/>
+    <child link="sink_area_left_bottom_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="sink_area_dish_washer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/DishWasher.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_dish_washer_door">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/DishWasherDoor.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="sink_area_dish_washer_door_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="sink_area_dish_washer_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.01 0.1 0.035 "/>
+    <parent link="sink_area"/>
+    <child link="sink_area_dish_washer_main"/>
+  </joint>
+  <joint name="sink_area_dish_washer_door_joint" type="revolute">
+    <origin rpy="-1.57079632679 0 0" xyz="0.27 0. -0.325"/>
+    <parent link="sink_area_dish_washer_main"/>
+    <child link="sink_area_dish_washer_door"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <joint name="sink_area_dish_washer_door_handle_joint" type="fixed">
+    <origin rpy="-1.57079632679 0 0" xyz="0.0625 -0.6325 0."/>
+    <parent link="sink_area_dish_washer_door"/>
+    <child link="sink_area_dish_washer_door_handle"/>
+  </joint>
+  <link name="oven_area_area_footprint">
+    <sphere_inertia mass="0" radius="0"/>
+  </link>
+  <link name="oven_area_area">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/racks/OvenArea.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_footprint_joint" type="fixed">
+    <origin rpy="0 0 3.14159265359" xyz="1.805 2.5 0"/>
+    <child link="oven_area_area_footprint"/>
+    <parent link="room_link"/>
+  </joint>
+  <joint name="oven_area_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.29 0.6 0.755"/>
+    <parent link="oven_area_area_footprint"/>
+    <child link="oven_area_area"/>
+  </joint>
+  <link name="oven_area_oven_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/OvenMain.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_oven_door">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="1.57079632679 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/OvenDoor.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_oven_door_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_oven_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/OvenPanel.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.0 0.0 0.415"/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_oven_main"/>
+  </joint>
+  <joint name="oven_area_oven_door_joint" type="revolute">
+    <origin rpy="-1.57079632679 0 0" xyz="0.2737 0. -0.2614"/>
+    <parent link="oven_area_oven_main"/>
+    <child link="oven_area_oven_door"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <joint name="oven_area_oven_door_handle_joint" type="fixed">
+    <origin rpy="-1.57079632679 0 0" xyz="0.05876 -0.39803 0."/>
+    <parent link="oven_area_oven_door"/>
+    <child link="oven_area_oven_door_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <joint name="oven_area_oven_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.27 0 0.2449"/>
+    <parent link="oven_area_oven_main"/>
+    <child link="oven_area_oven_panel"/>
+  </joint>
+  <link name="oven_area_oven_knob_stove_1">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_stove_1_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 -0.21 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_stove_1"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_oven_knob_stove_2">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_stove_2_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 -0.14 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_stove_2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_oven_knob_stove_3">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_stove_3_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 -0.07 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_stove_3"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_oven_knob_stove_4">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_stove_4_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 -0.0 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_stove_4"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_oven_knob_oven">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 1.57079632679 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/oven/Knob.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_oven_knob_oven_joint" type="revolute">
+    <origin rpy="0 -1.57079632679 0" xyz="0 0.16 0"/>
+    <parent link="oven_area_oven_panel"/>
+    <child link="oven_area_oven_knob_oven"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="3.14159265359" velocity="10"/>
+  </joint>
+  <link name="oven_area_area_middle_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_14.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_area_middle_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_area_middle_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 -0. 0.045 "/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_area_middle_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="oven_area_area_middle_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.0175"/>
+    <parent link="oven_area_area_middle_upper_drawer_main"/>
+    <child link="oven_area_area_middle_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="oven_area_area_middle_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_58.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_area_middle_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_area_middle_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 -0. -0.315 "/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_area_middle_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="oven_area_area_middle_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.2375"/>
+    <parent link="oven_area_area_middle_lower_drawer_main"/>
+    <child link="oven_area_area_middle_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="oven_area_area_left_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/VDrawer.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_area_left_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/VHandle130.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_area_left_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 -0.45 0.06 "/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_area_left_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="oven_area_area_left_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3525 0 0"/>
+    <parent link="oven_area_area_left_drawer_main"/>
+    <child link="oven_area_area_left_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="oven_area_area_right_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/VDrawer.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="oven_area_area_right_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/VHandle130.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="oven_area_area_right_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 0.45 0.06 "/>
+    <parent link="oven_area_area"/>
+    <child link="oven_area_area_right_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="oven_area_area_right_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3525 0 0"/>
+    <parent link="oven_area_area_right_drawer_main"/>
+    <child link="oven_area_area_right_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_footprint">
+    <sphere_inertia mass="0" radius="0"/>
+  </link>
+  <link name="kitchen_island">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/racks/IslandArea.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_footprint_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="-1.365 0.59 0"/>
+    <child link="kitchen_island_footprint"/>
+    <parent link="room_link"/>
+  </joint>
+  <joint name="kitchen_island_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.2975 1.1292 0.421"/>
+    <parent link="kitchen_island_footprint"/>
+    <child link="kitchen_island"/>
+  </joint>
+  <link name="kitchen_island_stove">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/Stove.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_stove_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.025 0.7658 0.4315"/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_stove"/>
+  </joint>
+  <link name="kitchen_island_left_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Panel_60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_left_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.2725 -0.8 0.329 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_left_panel"/>
+  </joint>
+  <link name="kitchen_island_left_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_left_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_left_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 -0.8 0.114 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_left_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_left_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_left_upper_drawer_main"/>
+    <child link="kitchen_island_left_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_left_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_left_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_left_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 -0.8 -0.176 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_left_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_left_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_left_lower_drawer_main"/>
+    <child link="kitchen_island_left_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_middle_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Panel_100.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_middle_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.2725 0 0.329 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_middle_panel"/>
+  </joint>
+  <link name="kitchen_island_middle_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_100_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_middle_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle100.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_middle_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 0 0.114 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_middle_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_middle_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_middle_upper_drawer_main"/>
+    <child link="kitchen_island_middle_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_middle_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_100_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_middle_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle100.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_middle_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 0 -0.176 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_middle_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_middle_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_middle_lower_drawer_main"/>
+    <child link="kitchen_island_middle_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_right_panel">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Panel_60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_right_panel_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.2725 0.8 0.329 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_right_panel"/>
+  </joint>
+  <link name="kitchen_island_right_upper_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_right_upper_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_right_upper_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 0.8 0.114 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_right_upper_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_right_upper_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_right_upper_drawer_main"/>
+    <child link="kitchen_island_right_upper_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="kitchen_island_right_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="kitchen_island_right_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="kitchen_island_right_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0025 0.8 -0.176 "/>
+    <parent link="kitchen_island"/>
+    <child link="kitchen_island_right_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="kitchen_island_right_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="kitchen_island_right_lower_drawer_main"/>
+    <child link="kitchen_island_right_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="fridge_area_footprint">
+    <sphere_inertia mass="0" radius="0"/>
+  </link>
+  <link name="fridge_area">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/racks/FridgeArea.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="fridge_area_footprint_joint" type="fixed">
+    <origin rpy="0 0 3.14159265359" xyz="1.825 -0.76 0"/>
+    <child link="fridge_area_footprint"/>
+    <parent link="room_link"/>
+  </joint>
+  <joint name="fridge_area_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.29 .3 0.74"/>
+    <parent link="fridge_area_footprint"/>
+    <child link="fridge_area"/>
+  </joint>
+  <link name="fridge_area_lower_drawer_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/drawers/Drawer_60_29.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="fridge_area_lower_drawer_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/Handle60.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="fridge_area_lower_drawer_main_joint" type="prismatic">
+    <origin rpy="0 0 0" xyz="0.0 -0.0 -0.4175 "/>
+    <parent link="fridge_area"/>
+    <child link="fridge_area_lower_drawer_main"/>
+    <axis xyz="1. 0. 0.0"/>
+    <limit effort="300" lower="0" upper="0.48" velocity="10"/>
+  </joint>
+  <joint name="fridge_area_lower_drawer_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.3325 0 0.11"/>
+    <parent link="fridge_area_lower_drawer_main"/>
+    <child link="fridge_area_lower_drawer_handle"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <link name="iai_fridge_main">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/Fridge.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="iai_fridge_door">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/misc/FridgeDoor.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="iai_fridge_door_handle">
+    <sphere_inertia mass="0" radius="0"/>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://iai_kitchen/meshes/handles/VHandle90.dae"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="iai_fridge_main_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <parent link="fridge_area"/>
+    <child link="iai_fridge_main"/>
+  </joint>
+  <joint name="iai_fridge_door_joint" type="revolute">
+    <origin rpy="0 0 0" xyz="0.29 0.3 0.245"/>
+    <parent link="iai_fridge_main"/>
+    <child link="iai_fridge_door"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="300" lower="0" upper="1.57079632679" velocity="10"/>
+  </joint>
+  <joint name="iai_fridge_door_handle_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0.06 -0.57 0."/>
+    <parent link="iai_fridge_door"/>
+    <child link="iai_fridge_door_handle"/>
+  </joint>
+  <!--
+  <iai_sink_area name="sink_area" parent="room_link">
+    <origin xyz="-5.29 -5.65 0" rpy="0 0 0" />    
+  </iai_sink_area>
+  
+  <iai_oven_area name="oven_area" parent="room_link">
+    <origin xyz="-5.27 -6.85 0" rpy="0 0 0" />    
+  </iai_oven_area>
+  
+  
+  <iai_kitchen_island name="kitchen_island" parent="room_link">
+    <origin xyz="-2.1 -4.94 0" rpy="0 0 ${pi}" />    
+  </iai_kitchen_island>
+  
+  <iai_fridge_area name="fridge_area" parent="room_link">
+    <origin xyz="-5.29 -3.59 0" rpy="0 0 0" />    
+  </iai_fridge_area>
+  -->
+</robot>
+
+
+1 = Retrieve[How do I close the BulletWorld in PyCram? Provide a code example.]
+
+----
+Result:
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.process_module import simulated_robot
+from pycram.designators.motion_designator import *
+from pycram.designators.location_designator import *
+from pycram.designators.action_designator import *
+from pycram.designators.object_designator import *
+from pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode
+from pycram.datastructures.pose import Pose
+
+# Initialize the BulletWorld
+world = BulletWorld(WorldMode.GUI)
+
+# Define the objects in the world
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.4, 1, 0.95]))
+
+# Create object designators
+cereal_desig = ObjectDesignatorDescription(names=["cereal"])
+kitchen_desig = ObjectDesignatorDescription(names=["kitchen"])
+robot_desig = ObjectDesignatorDescription(names=["pr2"]).resolve()
+
+# Simulate robot actions
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.25]).resolve().perform()
+
+    # Find a reachable location near the cereal
+    pickup_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot_desig).resolve()
+    pickup_arm = pickup_pose.reachable_arms[0]
+
+    # Navigate to the cereal box
+    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+
+    # Pick up the cereal box
+    PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=[Grasp.FRONT]).resolve().perform()
+
+    # Park arms after picking up
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+    # Find a location on the kitchen island surface
+    place_island = SemanticCostmapLocation("kitchen_island_surface", kitchen_desig.resolve(), cereal_desig.resolve()).resolve()
+
+    # Find a reachable stand location for placing
+    place_stand = CostmapLocation(place_island.pose, reachable_for=robot_desig, reachable_arm=pickup_arm).resolve()
+
+    # Navigate to the kitchen island
+    NavigateAction(target_locations=[place_stand.pose]).resolve().perform()
+
+    # Place the cereal box on the kitchen island
+    PlaceAction(cereal_desig, target_locations=[place_island.pose], arms=[pickup_arm]).resolve().perform()
+
+    # Park arms after placing
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+# Close the BulletWorld
+world.exit()
+
+----
+Iterations:
+1
