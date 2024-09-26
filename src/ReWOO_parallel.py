@@ -1,32 +1,21 @@
 # Import necessary libraries and modules
-import os
 import asyncio
-import openai
 from dotenv import load_dotenv
 from typing import TypedDict, List
 
 import re
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.tools import DuckDuckGoSearchResults
 from langgraph.graph import StateGraph, END
 from vector_store_SB import get_retriever
-from langchain_core.runnables import RunnableLambda, RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
-
-from langchain.output_parsers.openai_tools import PydanticToolsParser
 from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_community.chat_models import ChatOllama
 from helper_func import (
     format_docs,
     format_code,
     format_examples,
     format_example,
     llm,
-    llm_GP,
-    llm_mini,
     llm_solver
 )
-from prompts import rewoo_planner, chain_docs_docu, chain_docs_code, rewoo_solve_prompt
+from prompts import rewoo_planner, chain_docs_docu, chain_docs_code, rewoo_solve_prompt, urdf_tool
 
 # from run_llm_local import run_llama3_remote
 import sys
@@ -87,6 +76,7 @@ def get_plan(state: ReWOO):
 
     # Find all matches in the sample text
     matches = re.findall(regex_pattern, result.content)
+    print(matches)
     return {"steps": matches, "plan_string": result.content, "results": None}
 
 
@@ -107,6 +97,8 @@ async def async_tool_execution(state: ReWOO):
     async def run_tool(step):
         _, step_name, tool, tool_input = step
         _results = state["results"] or {}
+        task = state["task"]
+        world = state["world"]
         for k, v in _results.items():
             tool_input = tool_input.replace(k, v)
 
@@ -117,11 +109,13 @@ async def async_tool_execution(state: ReWOO):
         elif tool == "Code":
             result = await chain_docs_code.ainvoke(tool_input)
         elif tool == "URDF":
-            urdf_retriever = get_retriever(4, 1)
+            urdf_retriever = get_retriever(4, 1, {"source": tool_input})
             files = await urdf_retriever.ainvoke(tool_input)
-            result = ""
-            for file in files:
-                result = result + file.page_content
+            if len(files) >= 1:
+                file = files[0].page_content
+                result = await urdf_tool.ainvoke({"prompt": task, "world": world, "urdf": file})
+            else:
+                result = f"The URDF {tool_input} is not in the database."
         else:
             raise ValueError(f"Unknown tool: {tool}")
 
@@ -155,7 +149,7 @@ def solve(state: ReWOO):
         for k, v in _results.items():
             tool_input = tool_input.replace(k, v)
             step_name = step_name.replace(k, v)
-        plan += f"Plan: {_plan}\n{step_name} = {tool}[{tool_input}]"
+        plan += f"Plan: {_plan}\n{step_name} = {tool}[{tool_input}]\n\n"
     code_example = re_chain_example_solve.invoke(task)
     code_example_filler = (
         """Here is also an related example of a similar PyCRAM plan code (use this as a semantic and syntactic example for the code structure and not for the world knowledge):
@@ -168,7 +162,6 @@ def solve(state: ReWOO):
         plan=plan, code_example=code_example_filler, task=task, world=state["world"]
     )
     result_chain = llm_with_tool
-    # result_chain = llm_GP
     result = result_chain.invoke(prompt_solve)
     return {"result": result, "result_plan": plan}
 

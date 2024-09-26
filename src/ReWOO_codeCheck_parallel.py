@@ -1,26 +1,15 @@
 # Import necessary libraries and modules
-import os
 import asyncio
-import openai
 from dotenv import load_dotenv
 from typing import TypedDict, List
-from langchain_openai import ChatOpenAI
 import re
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.tools import DuckDuckGoSearchResults
 from langgraph.graph import StateGraph, END
 from vector_store_SB import get_retriever
-from langchain_core.runnables import RunnableLambda, RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
+
 from langchain_core.pydantic_v1 import BaseModel, Field
 from helper_func import (
-    format_docs,
-    format_code,
-    format_examples,
     format_example,
     llm,
-    llm_GP,
-    llm_mini,
     llm_solver,
 )
 from prompts import (
@@ -28,6 +17,7 @@ from prompts import (
     chain_docs_code,
     chain_docs_docu,
     codecheck_solve_prompt,
+    urdf_tool,
 )
 from run_llm_local import run_llama3_remote
 
@@ -106,6 +96,8 @@ async def async_tool_execution(state: ReWOO):
     async def run_tool(step):
         _, step_name, tool, tool_input = step
         _results = state["results"] or {}
+        task = state["task"]
+        world = state["world"]
         for k, v in _results.items():
             tool_input = tool_input.replace(k, v)
 
@@ -116,11 +108,13 @@ async def async_tool_execution(state: ReWOO):
         elif tool == "Code":
             result = await chain_docs_code.ainvoke(tool_input)
         elif tool == "URDF":
-            urdf_retriever = get_retriever(4, 1)
+            urdf_retriever = get_retriever(4, 1, {"source": tool_input})
             files = await urdf_retriever.ainvoke(tool_input)
-            result = ""
-            for file in files:
-                result = result + file.page_content
+            if len(files) >= 1:
+                file = files[0].page_content
+                result = await urdf_tool.ainvoke({"prompt": task, "world": world, "urdf": file})
+            else:
+                result = f"The URDF {tool_input} is not in the database."
         else:
             raise ValueError(f"Unknown tool: {tool}")
 

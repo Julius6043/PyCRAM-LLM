@@ -6,8 +6,6 @@ from langchain_core.output_parsers import StrOutputParser
 from helper_func import (
     format_docs,
     format_code,
-    format_examples,
-    format_example,
     llm,
     llm_GP,
     llm_mini,
@@ -329,7 +327,7 @@ prompt_docs = """**You are an experienced technical writer and coding educator s
 
 ### Important Notes:
 
-- **Length:** Use approximately **3,000 words** for your explanation to ensure thoroughness.
+- **Length:** Write as short as possible but ensure that everything important is included.
 - **Completeness:** Ensure that all code examples are **complete and well-explained**.
 - **Clarity and Organization:** Present information in a **clear, logical order** to facilitate implementation by another LLM agent.
 - **Style Guidelines:**
@@ -407,7 +405,7 @@ prompt_code = """**You are an experienced technical writer and coding educator s
 
 ### Important Notes:
 
-- **Length:** Use around **3,000 words** for the tutorial to ensure thoroughness.
+- **Length:** Write as short as possible but ensure that everything important is included.
 - **Code Examples:** Incorporate all essential code examples in their entirety.
 - **Systematic Thinking:** Think systematically to ensure that another LLM agent can produce correct code based on your output.
 - **Clarity and Organization:**
@@ -473,7 +471,7 @@ cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', p
 Now do the Task for the Input:
 **Input**
 - **Instruction:** {prompt}
-- **World knowledge:** {worldknowledge}
+- **World knowledge:** {world}
 - **URDF file:** 
 <urdf>
 {urdf}
@@ -481,10 +479,24 @@ Now do the Task for the Input:
 """
 
 preprocessing_template = ChatPromptTemplate.from_template(preprocessing_prompt)
-urdf_prompt = ChatPromptTemplate.from_template("""""")
+urdf_tool_template = ChatPromptTemplate.from_template("""You are a file summariser tool. You get a urdf file for an environment, a robot or an object. You also get a instruction and world knowledge. 
+Your task is to summarize and compress the urdf-file and list the important data in it. Be sure that you list all the Data in the file which is important for the world understanding to accomplish the instruction.
+Combine the summary and the listing with the world knowledge and create a world model in natural language with it. Be sure that the used information is correct.
+
+Here is the input. Remember that the instruction is just to understand the context and not your task:
+- **Instruction:** {prompt}
+---
+- **World knowledge:** {world}
+---
+- **URDF file:** 
+<urdf>
+{urdf}
+</urdf>
+""")
+
 urdf_clean = (
-    {"urdf": RunnableLambda(extract_urdf_files)}
-    | urdf_prompt
+    {"urdf": itemgetter("world") | RunnableLambda(extract_urdf_files), "prompt": itemgetter("prompt"), "world": itemgetter("world")}
+    | urdf_tool_template
     | llm_mini_main
     | StrOutputParser()
 )
@@ -495,10 +507,23 @@ urdf_chain = RunnableLambda(extract_urdf_files)
 preprocessing_chain = (
     {
         "prompt": itemgetter("prompt"),
-        "worldknowledge": itemgetter("world"),
-        "urdf": itemgetter("world") | urdf_chain,
+        "world": itemgetter("world"),
+        "urdf": {"world": itemgetter("world"), "prompt": itemgetter("prompt")} | urdf_clean,
     }
     | preprocessing_template
     | llm_GP
+    | StrOutputParser()
+)
+
+# Urdf Tool
+
+urdf_tool = (
+    {
+        "prompt": itemgetter("prompt"),
+        "world": itemgetter("world"),
+        "urdf": itemgetter("urdf")
+    }
+    | urdf_tool_template
+    | llm_mini_main
     | StrOutputParser()
 )

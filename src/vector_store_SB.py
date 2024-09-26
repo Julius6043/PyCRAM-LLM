@@ -16,8 +16,6 @@ from PyPDF2 import PdfReader
 from bs4 import BeautifulSoup as Soup
 import os
 import re
-import httpx
-from pathlib import Path
 from langchain.docstore.document import Document
 
 # Initialize environment variables.

@@ -121,7 +121,7 @@ def make_test(test_num, run_num=1):
 print(pre_thinking)"""
 # print(result_retriever_code)
 
-print(make_test(5))
+print(make_test(5, 2))
 """code_retrieve = test_code_retriever.invoke("How is CostmapLocation defined?")
 docu_retieve = test_docu_retriever.invoke(
     "What are Action Designators and how do i use them?"
