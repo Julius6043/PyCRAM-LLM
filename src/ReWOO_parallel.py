@@ -54,7 +54,7 @@ llm_with_tool = llm_solver.with_structured_output(code)
 # Regex to match expressions of the form E#... = ...[...]
 # Regex pattern to extract information from the plan format specified in the prompt
 regex_pattern = (
-    r"\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*"
+    r"\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+\s)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*"
 )
 
 # planer and solver definition
@@ -105,9 +105,9 @@ async def async_tool_execution(state: ReWOO):
         if tool == "LLM":
             result = await llm.ainvoke(tool_input)
         elif tool == "Retrieve":
-            result = await chain_docs_docu.ainvoke(tool_input)
+            result = await chain_docs_docu.ainvoke({"task": tool_input, "instruction": task, "world": world})
         elif tool == "Code":
-            result = await chain_docs_code.ainvoke(tool_input)
+            result = await chain_docs_code.ainvoke({"task": tool_input, "instruction": task, "world": world})
         elif tool == "URDF":
             urdf_retriever = get_retriever(4, 1, {"source": tool_input})
             files = await urdf_retriever.ainvoke(tool_input)
@@ -149,7 +149,7 @@ def solve(state: ReWOO):
         for k, v in _results.items():
             tool_input = tool_input.replace(k, v)
             step_name = step_name.replace(k, v)
-        plan += f"Plan: {_plan}\n{step_name} = {tool}[{tool_input}]\n\n"
+        plan += f"Plan: {_plan}\n{step_name}= {tool}[{tool_input}]\n--\n\n"
     code_example = re_chain_example_solve.invoke(task)
     code_example_filler = (
         """Here is also an related example of a similar PyCRAM plan code (use this as a semantic and syntactic example for the code structure and not for the world knowledge):

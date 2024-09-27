@@ -1,0 +1,1127 @@
+Plan:
+User Instruction: Pick up the 'thing' from the kitchen counter.
+---
+The following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:
+<thinking>- **Initial stage:**  
+    - **Spoon:** Located on the kitchen counter approximately at position **[1.4, 1, 0.87]**. It is blue (color=[0, 0, 1, 1]).
+    - **PR2 Robot:** Positioned near the kitchen counter, in a safe initial position (e.g., **[0, 0, 0]**)
+
+- **Goal stage:**  
+    - **Spoon:**  Grasped by the PR2 robot's gripper.
+
+- **Step-by-step plan:**
+
+    1. **Robot navigation to the kitchen counter:**
+    - **Action:** The PR2 robot moves from its initial position to a position near the kitchen counter, facing the spoon. This might involve path planning to avoid obstacles. 
+    - **Example target position:** **[1.3, 0.9, 0]**.
+
+    2. **Arm positioning:**
+    - **Action:** The robot positions its arm above the spoon, ensuring a clear grasping trajectory.
+    - **Example target arm pose:**  The robot's gripper should be positioned approximately above the spoon at **[1.4, 1, 0.97]**, with the gripper open and oriented for a top-down grasp.
+
+    3. **Grasping the spoon:**
+    - **Action:** The robot lowers its arm and closes its gripper to securely grasp the spoon.
+    - **Details:** This requires precise control of the gripper's position and force to avoid knocking over the spoon or damaging it.
+
+    4. **Lifting the spoon:**
+    - **Action:** The robot lifts the spoon vertically a short distance (e.g., 10 cm) to clear the counter.
+
+    5. **Task completion:**
+    - **Action:** The robot maintains its grasp on the spoon and awaits further instructions. 
+
+
+**Important Considerations:**
+
+* **Object Recognition:** The robot needs to be able to identify the "thing" as the spoon based on the world knowledge (object type and color).
+* **Path Planning:** The robot needs to plan a collision-free path to the kitchen counter.
+* **Grasp Planning:** The robot needs to determine a suitable grasp pose for the spoon based on its shape and position.
+* **Force Control:** The robot needs to apply appropriate force when grasping and lifting the spoon to avoid slippage or damage.
+
+**Note:** The exact positions and poses in the plan are estimates based on the limited information provided. A real implementation would require more detailed world knowledge and possibly sensor feedback to refine these values.</thinking>
+
+
+World Knowledge:
+<world_knowledge>
+[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), 
+robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), 
+spoon = Object('spoon', ObjectType.SPOON, 'spoon.stl', pose=Pose([1.4, 1, 0.87]), 
+color=[0, 0, 1, 1])]
+</world_knowledge>
+
+PyCramPlanCode:
+<code>
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.process_module import simulated_robot
+from pycram.designators.action_designator import *
+from pycram.designators.location_designator import *
+from pycram.datastructures.enums import ObjectType, Arms, WorldMode
+from pycram.datastructures.pose import Pose
+world = BulletWorld(WorldMode.GUI)
+
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([1.4, 1, 0.87]), color=[0, 0, 1, 1])
+
+robot_desig = ObjectDesignatorDescription(names=["pr2"]).resolve()
+kitchen_desig = ObjectDesignatorDescription(names=["kitchen"]).resolve()
+spoon_desig = ObjectDesignatorDescription(names=["spoon"]).resolve()
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.25]).resolve().perform()
+
+    # Navigate to the kitchen counter
+    navigate_target = Pose([1.3, 0.9, 0])
+    NavigateAction(target_locations=[navigate_target]).resolve().perform()
+
+    # Position the robot's arm above the spoon
+    arm_target_pose = Pose([1.4, 1, 0.97])
+    MoveTCPMotion(target=arm_target_pose, arm=Arms.RIGHT).perform()
+
+    # Grasp the spoon
+    PickUpAction(object_designator_description=spoon_desig, arms=[Arms.RIGHT], grasps=[Grasp.TOP]).resolve().perform()
+
+    # Lift the spoon
+    lift_pose = Pose([1.4, 1, 1.07])
+    MoveTCPMotion(target=lift_pose, arm=Arms.RIGHT).perform()
+
+world.exit()
+</code>
+
+This is the corresponding plan:
+Plan 1: Get the URDF file of the kitchen. #E1 = URDF[kitchen.urdf]
+Plan 2: Get the URDF file of the pr2 robot. #E2 = URDF[pr2.urdf]
+Plan 3: Retrieve the method for navigating the robot to a specific position. #E3 = Retrieve[How can I make the PR2 robot navigate to a specific position in PyCram?]
+Plan 4: Retrieve the method for initializing and closing the BulletWorld. #E4 = Retrieve[How do I initialize and close the BulletWorld in PyCram, including setting the world mode to GUI?] 
+Plan 5: Retrieve the method for creating object designators for the robot, the kitchen, and the spoon. #E5 = Retrieve[How can I create object designators for the robot, environment, and a specific object in PyCram?]
+Plan 6: Retrieve the method for parking the robot's arms and moving the torso to a specific height. #E6 = Retrieve[How can I make the PR2 robot park its arms and move its torso to a specific height in PyCram?]
+Plan 7: Retrieve the method for positioning the robot's arm above an object with a specific pose. #E7 = Retrieve[How can I position the PR2 robot's arm above a specific object with a defined pose in PyCram?]
+Plan 8: Retrieve the method for grasping an object with the robot's gripper. #E8 = Retrieve[How can I make the PR2 robot grasp a specific object in PyCram, considering its pose and ensuring a secure grasp?]
+Plan 9: Retrieve the method for lifting an object with the robot's gripper after grasping it. #E9 = Retrieve[How can I make the PR2 robot lift a grasped object to a specific height in PyCram?] 
+Plan 10: Retrieve the method for detecting an object by its color in PyCram. #E10 = Retrieve[How can I identify and locate an object based on its color in a PyCram simulation?] 
+
+
+----
+Filled Plan:
+Plan: Get the URDF file of the kitchen.
+### Summary of the URDF File
+
+The provided URDF file describes a kitchen environment, including various components such as walls, a sink area, an oven area, a kitchen island, and a fridge area. Each component is defined with its physical properties (mass, inertia), visual representation (mesh files), and collision geometry. The kitchen is structured with fixed joints connecting different parts, ensuring they remain in place relative to one another.
+
+### Important Data from the URDF File
+
+1. **Kitchen Environment:**
+   - **Walls:** Six walls with defined dimensions and positions.
+   - **Room Link:** The main link representing the kitchen room.
+
+2. **Sink Area:**
+   - **Components:** Sink, surface, drawers, and their respective joints.
+   - **Positioning:** Fixed joints connecting the sink area to the room link.
+
+3. **Oven Area:**
+   - **Components:** Oven, oven door, and knobs.
+   - **Positioning:** Fixed joints connecting the oven area to the room link.
+
+4. **Kitchen Island:**
+   - **Components:** Island surface, stove, and drawers.
+   - **Positioning:** Fixed joints connecting the kitchen island to the room link.
+
+5. **Fridge Area:**
+   - **Components:** Fridge, fridge door, and drawers.
+   - **Positioning:** Fixed joints connecting the fridge area to the room link.
+
+6. **Visual and Collision Geometry:**
+   - Each component has associated mesh files for visual representation and collision detection.
+
+7. **Mass and Inertia:**
+   - Each link has defined mass and inertia properties for physics simulation.
+
+### World Model
+
+In the kitchen environment, the PR2 robot is positioned near the kitchen counter, where a blue spoon is located at coordinates **[1.4, 1, 0.87]**. The robot's task is to navigate to the counter, grasp the spoon, and lift it. The kitchen is equipped with various components, including a sink area, an oven area, a kitchen island, and a fridge area, all structured with fixed joints to maintain their positions. The robot must recognize the spoon based on its color and shape, plan a collision-free path to the counter, and execute precise movements to grasp the spoon without causing any disturbances.
+
+The kitchen's layout includes:
+- **Walls** that define the boundaries of the kitchen.
+- **Sink Area** with a sink and drawers for storage.
+- **Oven Area** with an oven and knobs for cooking.
+- **Kitchen Island** that serves as a central workspace with additional storage.
+- **Fridge Area** for food storage, including a fridge and drawers.
+
+The robot's actions will involve navigating through this structured environment, utilizing its sensors and control systems to interact with the spoon effectively.= URDF[kitchen.urdf]
+
+Plan: Get the URDF file of the pr2 robot.
+### Summary of the URDF File
+
+The provided URDF file describes the PR2 robot, which is a mobile manipulator designed for various tasks, including object manipulation. The robot consists of multiple links and joints that allow it to move and interact with its environment. Key components include:
+
+- **Base and Mobility**: The robot has a base with wheels for navigation, equipped with sensors for obstacle detection and navigation.
+- **Arm Structure**: The robot features a multi-joint arm with a shoulder, elbow, and wrist, allowing for a wide range of motion.
+- **Gripper**: The PR2 is equipped with a two-finger gripper that can grasp objects, with joints for flexing and rolling the fingers.
+- **Sensors**: The robot includes various sensors, such as cameras and laser range finders, for perception and interaction with the environment.
+
+### Important Data from the URDF File
+
+1. **Robot Name**: PR2
+2. **Base Link**:
+   - Mass: 116.0 kg
+   - Inertia: Defined with specific values for stability and movement.
+3. **Arm Joints**:
+   - **Shoulder Pan Joint**: Allows rotation around the vertical axis.
+   - **Shoulder Lift Joint**: Allows vertical movement of the arm.
+   - **Elbow Flex Joint**: Allows bending of the arm.
+   - **Wrist Flex and Roll Joints**: Allow for fine manipulation of the gripper.
+4. **Gripper**:
+   - Two-finger design with individual joints for each finger.
+   - Capable of applying force and detecting contact.
+5. **Sensors**:
+   - Laser sensors for distance measurement.
+   - Cameras for visual perception.
+6. **Materials**: Various materials are defined for visual representation, including colors for different parts of the robot.
+
+### World Model
+
+In the context of the instruction to pick up the "thing" (identified as a blue spoon) from the kitchen counter, the PR2 robot is positioned near the counter and is capable of navigating to the spoon's location at coordinates **[1.4, 1, 0.87]**. The robot's arm can be maneuvered to position the gripper above the spoon, allowing it to grasp the object securely. The gripper's design, with its flexible fingers, enables it to apply the necessary force to hold the spoon without damaging it.
+
+The robot's sensors will assist in identifying the spoon and ensuring a clear path to it, while the arm's joints provide the necessary range of motion to execute the task effectively. The robot's ability to lift the spoon after grasping it ensures that it can complete the task as instructed. 
+
+Overall, the PR2 robot is well-equipped for the task of picking up the spoon from the kitchen counter, utilizing its mobility, arm articulation, and sensory feedback to achieve the goal.= URDF[pr2.urdf]
+
+Plan: Retrieve the method for navigating the robot to a specific position.
+# Navigating the PR2 Robot to a Specific Position in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task involves navigating the PR2 robot to a specific position within the PyCram framework. This is a fundamental operation that allows the robot to move to designated locations in a simulated environment.
+
+### Explain the Goal
+The objective is to successfully move the PR2 robot to a target position, ensuring that it can navigate effectively while avoiding obstacles. This capability is crucial for performing tasks such as picking up objects or interacting with the environment.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The PR2 robot and the environment (e.g., kitchen) are loaded into the BulletWorld.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Create a BulletWorld Instance**
+   - Initialize the BulletWorld where the robot and objects will be simulated.
+
+2. **Define the Target Position**
+   - Specify the target position to which the robot should navigate.
+
+3. **Use Action Designators for Navigation**
+   - Utilize the `NavigateAction` designator to instruct the robot to move to the target position.
+
+### Key Concepts
+- **BulletWorld**: The simulation environment where the robot operates.
+- **Action Designators**: High-level commands that encapsulate actions the robot can perform, such as navigation.
+
+### Relevant Functions
+- `BulletWorld()`: Initializes the simulation environment.
+- `NavigateAction()`: Represents the action of moving the robot to a specified location.
+
+### Integration
+These steps integrate within the PyCram framework by leveraging the simulation capabilities of BulletWorld and the action designators to control the robot's movements.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippet
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.pose import Pose
+from pycram.designators.action_designator import NavigateAction
+from pycram.process_module import simulated_robot
+
+# Step 1: Create a BulletWorld instance
+world = BulletWorld()
+
+# Step 2: Define the PR2 robot and the target position
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+target_position = Pose([1.3, 0.9, 0], [0, 0, 0, 1])  # Example target position
+
+# Step 3: Navigate the robot to the target position
+with simulated_robot:
+    navigate_action = NavigateAction(target_locations=[target_position])
+    navigate_action.resolve().perform()
+```
+
+### Explanation
+- **BulletWorld Initialization**: Creates the simulation environment.
+- **Target Position**: The `Pose` object defines the target coordinates and orientation.
+- **Navigation Action**: The `NavigateAction` is resolved and performed within the context of the simulated robot, moving it to the specified location.
+
+### Adaptability
+This code can be adapted for different target positions by changing the coordinates in the `Pose` object.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+Navigating the robot is a fundamental aspect of robotic manipulation tasks within the PyCram framework. It allows the robot to position itself effectively to interact with objects in its environment.
+
+### Essential Components
+- **BulletWorld**: The core simulation environment.
+- **Action Designators**: Provide a high-level interface for controlling robot actions.
+
+### Conceptual Understanding
+Understanding how to navigate the robot is essential for building more complex behaviors, such as picking up objects or performing tasks that require precise positioning.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always verify that the target position is reachable and does not collide with any obstacles.
+- Use visualization tools within PyCram to confirm the robot's path and target position.
+
+### Potential Challenges
+- **Collision Avoidance**: Ensure that the robot's path is clear of obstacles.
+- **Navigation Failures**: If the robot fails to reach the target, check the target's validity and the robot's current state.
+
+### Solutions
+- Utilize costmaps to assess the environment and plan paths effectively.
+- Implement error handling to manage navigation failures gracefully.
+
+By following this guide, you can effectively navigate the PR2 robot to specific positions within the PyCram framework, enabling it to perform a variety of tasks in a simulated environment.= Retrieve[How can I make the PR2 robot navigate to a specific position in PyCram?]
+
+Plan: Retrieve the method for initializing and closing the BulletWorld.
+# Initializing and Closing the BulletWorld in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task involves initializing the BulletWorld in PyCram with the GUI mode and subsequently closing it after use. The BulletWorld serves as the internal physics simulation environment where objects and robots can be manipulated and tested.
+
+### Explain the Goal
+The objective is to create a simulation environment that allows for the visualization and interaction with objects and robots. This is crucial for testing and developing robotic applications in a controlled setting before deploying them in real-world scenarios.
+
+### Prerequisites and Setup
+Before starting this task, ensure that:
+- PyCram is properly installed and set up.
+- The necessary libraries are imported in your Python environment.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Import Required Modules**
+   - You need to import the necessary classes from the PyCram library to work with the BulletWorld.
+
+2. **Initialize the BulletWorld**
+   - Create an instance of the BulletWorld class, specifying the mode as GUI to enable visual interaction.
+
+3. **Close the BulletWorld**
+   - After completing your tasks in the BulletWorld, ensure to close it properly to free up resources.
+
+### Key Concepts
+- **BulletWorld**: A simulation environment that allows for the creation and manipulation of objects and robots.
+- **WorldMode**: An enumeration that defines the mode of the BulletWorld, such as GUI or headless.
+
+### Relevant Functions
+- `BulletWorld()`: Constructor to create a new BulletWorld instance.
+- `world.exit()`: Method to close the BulletWorld and terminate any running threads.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet for Initialization and Closing
+
+```python
+# Step 1: Import the necessary modules
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.datastructures.enums import WorldMode
+
+# Step 2: Initialize the BulletWorld in GUI mode
+world = BulletWorld(mode=WorldMode.GUI)
+
+# Your simulation code goes here
+# For example, you can spawn objects or robots, perform actions, etc.
+
+# Step 3: Close the BulletWorld
+world.exit()
+```
+
+### Explanation
+- **Importing Modules**: The first step is to import the `BulletWorld` class and the `WorldMode` enumeration from the PyCram library.
+- **Initializing the BulletWorld**: The `BulletWorld` is instantiated with the `mode` parameter set to `WorldMode.GUI`, which allows for graphical interaction with the simulation.
+- **Closing the BulletWorld**: The `exit()` method is called on the `world` object to properly close the simulation environment and clean up resources.
+
+### Adaptability
+This code can be adapted for various tasks within the PyCram framework by adding additional logic between the initialization and closing steps, such as spawning objects or executing actions.
+
+## Framework Integration and Concepts
+
+### Broader Context
+The BulletWorld is a fundamental component of the PyCram framework, enabling users to simulate and visualize robotic actions in a controlled environment. It integrates with various designators and action modules to facilitate complex robotic tasks.
+
+### Essential Components
+- **Objects**: Any entity within the BulletWorld, such as robots or items, can be manipulated.
+- **Action Designators**: High-level actions that can be performed within the BulletWorld, such as moving or picking up objects.
+
+### Conceptual Understanding
+Understanding how to initialize and close the BulletWorld is essential for any simulation task in PyCram. It sets the stage for further interactions and manipulations of objects and robots.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure to close the BulletWorld using `world.exit()` to prevent memory leaks.
+- Use the GUI mode for visual feedback during development and testing.
+
+### Potential Challenges
+- Forgetting to close the BulletWorld can lead to resource exhaustion.
+- Errors in object spawning or manipulation can occur if the BulletWorld is not properly initialized.
+
+### Solutions
+- Always wrap your simulation code between the initialization and closing steps.
+- Test your code incrementally to catch errors early in the development process.
+
+By following this guide, you can effectively initialize and manage the BulletWorld in PyCram, facilitating the development of robotic applications in a simulated environment.= Retrieve[How do I initialize and close the BulletWorld in PyCram, including setting the world mode to GUI?]
+
+Plan: Retrieve the method for creating object designators for the robot, the kitchen, and the spoon.
+# Creating Object Designators in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task is to create object designators for a robot, an environment, and a specific object (in this case, a spoon) within the PyCram framework. Object designators are symbolic representations that allow the robot to identify and interact with objects in its environment.
+
+### Explain the Goal
+The objective is to enable the robot to recognize and manipulate specific objects by creating designators that encapsulate their properties. This is significant as it forms the basis for higher-level actions, such as picking up or placing objects.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The necessary objects (robot, environment, and spoon) are defined in the BulletWorld.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Import Required Modules**
+   Begin by importing the necessary modules from PyCram.
+
+   ```python
+   from pycram.worlds.bullet_world import BulletWorld
+   from pycram.world_concepts.world_object import Object
+   from pycram.datastructures.enums import ObjectType
+   from pycram.designators.object_designator import BelieveObject
+   ```
+
+2. **Create the BulletWorld**
+   Initialize the BulletWorld where the robot and objects will be defined.
+
+   ```python
+   world = BulletWorld()
+   ```
+
+3. **Define the Environment and Objects**
+   Create instances of the environment (kitchen), the robot (PR2), and the specific object (spoon).
+
+   ```python
+   kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+   pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+   spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([1.4, 1, 0.87]), color=[0, 0, 1, 1])
+   ```
+
+4. **Create Object Designators**
+   Use the `BelieveObject` designator to create designators for the robot, environment, and spoon.
+
+   ```python
+   robot_designator = BelieveObject(names=["pr2"]).resolve()
+   kitchen_designator = BelieveObject(names=["kitchen"]).resolve()
+   spoon_designator = BelieveObject(names=["spoon"]).resolve()
+   ```
+
+### Key Concepts
+- **Object Designators:** These are symbolic representations that allow the robot to identify and interact with objects in the environment.
+- **Resolve Method:** The `resolve()` method is used to ground the designator to a specific instance of the object in the BulletWorld.
+
+### Relevant Functions
+- `BelieveObject`: This function creates an object designator based on the names or types provided.
+- `resolve()`: This method resolves the designator to a specific object instance.
+
+### Integration
+These steps integrate within the PyCram framework by allowing the robot to recognize and interact with objects, which is essential for executing higher-level actions like picking up or placing objects.
+
+## Code Examples and Implementation Guidance
+
+### Complete Code Example
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+
+# Step 1: Create the BulletWorld
+world = BulletWorld()
+
+# Step 2: Define the environment and objects
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([1.4, 1, 0.87]), color=[0, 0, 1, 1])
+
+# Step 3: Create object designators
+robot_designator = BelieveObject(names=["pr2"]).resolve()
+kitchen_designator = BelieveObject(names=["kitchen"]).resolve()
+spoon_designator = BelieveObject(names=["spoon"]).resolve()
+
+# Output the resolved designators
+print("Robot Designator:", robot_designator)
+print("Kitchen Designator:", kitchen_designator)
+print("Spoon Designator:", spoon_designator)
+```
+
+### Explanation
+- The code initializes the BulletWorld and defines the kitchen, PR2 robot, and spoon.
+- It then creates object designators for each of these entities, allowing the robot to recognize and interact with them.
+
+### Adaptability
+This code can be easily adapted to create designators for other objects or environments by changing the names and types in the `BelieveObject` calls.
+
+## Framework Integration and Concepts
+
+### Broader Context
+Creating object designators is a foundational step in enabling robots to interact with their environment. This task fits into the larger PyCram framework by facilitating object recognition and manipulation.
+
+### Essential Components
+- **BulletWorld:** The simulation environment where objects and robots are defined.
+- **Object Designators:** Key components that allow the robot to identify and interact with objects.
+
+### Conceptual Understanding
+Understanding how to create and use object designators is crucial for developing more complex robotic behaviors and interactions within the PyCram framework.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Ensure that the names used in `BelieveObject` match the names defined in the BulletWorld.
+- Use the `resolve()` method to ground designators to specific instances before using them in actions.
+
+### Potential Challenges
+- Mismatched names or types can lead to unresolved designators, causing errors in execution.
+- Ensure that the objects are properly loaded into the BulletWorld before creating designators.
+
+### Solutions
+- Double-check the names and types of objects in the BulletWorld.
+- Use debugging statements to verify that designators are resolving correctly.
+
+By following this guide, you can effectively create object designators for a robot, environment, and specific objects in PyCram, enabling more complex interactions and behaviors.= Retrieve[How can I create object designators for the robot, environment, and a specific object in PyCram?]
+
+Plan: Retrieve the method for parking the robot's arms and moving the torso to a specific height.
+# Parking Arms and Moving Torso in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task involves commanding the PR2 robot to park its arms and adjust its torso to a specific height. This is a common prerequisite action before performing other tasks, such as picking up objects or navigating through an environment.
+
+### Explain the Goal
+The objective is to ensure that the robot's arms are safely positioned and that the torso is at a desired height, allowing for better stability and readiness for subsequent actions. This is significant in the PyCram framework as it prepares the robot for effective manipulation and movement.
+
+### Prerequisites and Setup
+Before executing the task, ensure that:
+- The PyCram framework is properly set up and running.
+- The PR2 robot description is loaded into the PyCram environment.
+- The robot is initialized and ready to receive commands.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Import Necessary Modules**
+   - Import the required classes and functions from the PyCram framework.
+
+2. **Park the Arms**
+   - Use the `ParkArmsAction` to move the robot's arms to a parked position.
+
+3. **Move the Torso**
+   - Use the `MoveTorsoAction` to adjust the torso to the desired height.
+
+### Key Concepts
+- **Action Designators**: These are high-level commands that encapsulate specific actions the robot can perform, such as parking arms or moving the torso.
+- **Robot State**: The robot's state must be managed to ensure safe and effective operation.
+
+### Relevant Functions
+- `ParkArmsAction`: This action parks the robot's arms.
+- `MoveTorsoAction`: This action adjusts the height of the robot's torso.
+
+### Integration
+These actions are integrated into the PyCram framework, allowing for seamless execution and coordination of robot movements.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippets
+
+```python
+from pycram.designators.action_designator import ParkArmsAction, MoveTorsoAction
+from pycram.process_module import simulated_robot
+
+# Define the desired torso height
+desired_height = 0.3  # Example height in meters
+
+# Execute the actions within the simulated robot context
+with simulated_robot:
+    # Park the arms
+    ParkArmsAction().resolve().perform()
+    
+    # Move the torso to the specified height
+    MoveTorsoAction([desired_height]).resolve().perform()
+```
+
+### Explanation
+- **Import Statements**: The necessary classes are imported to access the actions.
+- **Desired Height**: The height to which the torso will be moved is defined.
+- **Context Management**: The `with simulated_robot` context ensures that the actions are executed in the simulated environment.
+- **Action Execution**: The `resolve()` method prepares the action, and `perform()` executes it.
+
+### Adaptability
+The code can be easily modified to change the torso height or to include additional actions before or after parking the arms.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+This task is part of the larger workflow in PyCram, where the robot must be in a safe and stable configuration before performing complex tasks. Properly managing the robot's state is crucial for effective operation.
+
+### Essential Components
+- **Action Designators**: These are central to commanding the robot's movements.
+- **Process Modules**: They facilitate the execution of actions in either simulated or real environments.
+
+### Conceptual Understanding
+Understanding how action designators work within the PyCram framework is essential for effectively programming robot behaviors and ensuring safe operations.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always check the robot's current state before executing actions to avoid conflicts.
+- Use the simulated environment for testing before deploying actions on a real robot.
+
+### Potential Challenges
+- The robot may not be able to park its arms if they are obstructed.
+- The torso may not move to the desired height if the height exceeds its limits.
+
+### Solutions
+- Implement checks to ensure that the arms can be parked safely.
+- Validate the desired height against the robot's specifications before executing the `MoveTorsoAction`.
+
+By following this guide, you can effectively command the PR2 robot to park its arms and adjust its torso height within the PyCram framework.= Retrieve[How can I make the PR2 robot park its arms and move its torso to a specific height in PyCram?]
+
+Plan: Retrieve the method for positioning the robot's arm above an object with a specific pose.
+# Positioning the PR2 Robot's Arm Above a Specific Object in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task involves positioning the PR2 robot's arm directly above a specific object (in this case, a spoon) using the PyCram framework. This is a crucial step in robotic manipulation tasks, allowing the robot to prepare for grasping or interacting with the object.
+
+### Explain the Goal
+The objective is to ensure that the robot's arm is accurately positioned above the object, taking into account the object's pose and the robot's kinematics. This positioning is significant as it sets the stage for subsequent actions, such as grasping the object.
+
+### Prerequisites and Setup
+Before starting this task, ensure that:
+- The PyCram framework is properly set up and running.
+- The PR2 robot and the object (spoon) are loaded into the BulletWorld.
+- The robot's kinematic model is correctly defined and registered.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Define the Object and Its Pose**
+   - Create an object designator for the spoon and define its pose.
+
+2. **Resolve the Object's Position**
+   - Use the object designator to resolve the spoon's current position in the BulletWorld.
+
+3. **Calculate the Target Arm Position**
+   - Determine the target position for the robot's arm, which should be directly above the spoon.
+
+4. **Move the Robot's Arm**
+   - Use the appropriate action designator to position the robot's arm above the calculated target position.
+
+### Key Concepts
+- **Object Designator:** A symbolic representation of the object (spoon) that allows the robot to interact with it.
+- **Pose:** Represents the position and orientation of the object in 3D space.
+- **Action Designator:** Used to perform high-level actions, such as moving the robot's arm.
+
+### Relevant Functions
+- `BelieveObject`: Resolves the object designator to get the object's current pose.
+- `NavigateAction`: Moves the robot's arm to a specified pose.
+
+### Integration
+These steps integrate within the PyCram framework by utilizing designators to abstract the details of object manipulation and robot movement, allowing for a more modular and reusable code structure.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippet
+
+```python
+from pycram.designators.object_designator import BelieveObject
+from pycram.designators.action_designator import MoveArmAction
+from pycram.datastructures.pose import Pose
+from pycram.process_module import simulated_robot
+
+# Step 1: Define the object designator for the spoon
+spoon_desig = BelieveObject(names=["spoon"])
+
+# Step 2: Resolve the spoon's current pose
+spoon_pose = spoon_desig.resolve()
+
+# Step 3: Calculate the target position above the spoon
+# Assuming we want to position the arm 10 cm above the spoon
+target_position = [spoon_pose.position.x, spoon_pose.position.y, spoon_pose.position.z + 0.1]
+target_pose = Pose(target_position)
+
+# Step 4: Move the robot's arm to the target position
+with simulated_robot:
+    MoveArmAction(target_pose).resolve().perform()
+```
+
+### Explanation
+- **Step 1:** The `BelieveObject` designator is used to create a symbolic reference to the spoon.
+- **Step 2:** The `resolve()` method retrieves the current pose of the spoon.
+- **Step 3:** The target position is calculated by adding a height offset (10 cm) to the spoon's z-coordinate.
+- **Step 4:** The `MoveArmAction` is executed within a simulated robot context to move the arm to the calculated position.
+
+### Adaptability
+This code can be adapted for other objects by changing the name in the `BelieveObject` instantiation and adjusting the height offset as needed.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by demonstrating how to use designators to abstract the complexities of robot manipulation. It highlights the modularity of PyCram, allowing for easy adjustments and reuse of code.
+
+### Essential Components
+- **Designators:** Facilitate symbolic representation of objects and actions.
+- **Actions:** High-level commands that encapsulate the details of robot movements.
+
+### Conceptual Understanding
+Understanding how designators and actions work together is crucial for effective robotic programming in PyCram. This task exemplifies the use of these components to achieve a specific goal.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always verify the object's pose before attempting to move the robot's arm.
+- Use appropriate height offsets based on the object's dimensions to avoid collisions.
+
+### Potential Challenges
+- The robot may not be able to reach the target position due to kinematic constraints or obstacles.
+- The object may not be recognized if the designator is not correctly defined.
+
+### Solutions
+- Implement collision checking before moving the arm.
+- Ensure that the object designator accurately reflects the object's name and type in the BulletWorld.
+
+By following this guide, you can effectively position the PR2 robot's arm above a specific object using the PyCram framework, setting the stage for further manipulation tasks.= Retrieve[How can I position the PR2 robot's arm above a specific object with a defined pose in PyCram?]
+
+Plan: Retrieve the method for grasping an object with the robot's gripper.
+# Grasping an Object with the PR2 Robot in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task is to enable the PR2 robot to grasp a specific object (in this case, a spoon) located on a kitchen counter using the PyCram framework. This involves navigating to the object, positioning the robot's arm, and executing a grasping action.
+
+### Explain the Goal
+The objective is to successfully pick up the spoon while ensuring a secure grasp. This task is significant as it demonstrates the integration of navigation, arm control, and grasping capabilities within the PyCram framework.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The PR2 robot and the spoon object are loaded into the BulletWorld.
+- The robot's kinematics and grasping capabilities are correctly configured.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Navigate to the Kitchen Counter**
+   - Use the `NavigateAction` to move the PR2 robot to a position near the spoon.
+
+2. **Position the Robot's Arm**
+   - Calculate the arm's target pose above the spoon and use the `MoveArmAction` to position the arm accordingly.
+
+3. **Grasp the Spoon**
+   - Execute the `PickUpAction` to grasp the spoon securely.
+
+4. **Lift the Spoon**
+   - Use the `MoveArmAction` to lift the spoon slightly after grasping.
+
+### Key Concepts
+- **Action Designators**: These are high-level actions that describe what the robot should do, such as navigating or picking up an object.
+- **Object Designators**: These represent the objects the robot will interact with, such as the spoon.
+- **Pose**: Represents the position and orientation of the robot's end effector.
+
+### Relevant Functions
+- `NavigateAction`: Moves the robot to a specified location.
+- `MoveArmAction`: Positions the robot's arm to a specified pose.
+- `PickUpAction`: Executes the grasping of an object.
+
+### Integration
+These steps integrate to form a coherent workflow where the robot navigates, positions itself, and performs a grasping action, demonstrating the capabilities of the PyCram framework.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippets
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.designators.object_designator import ObjectDesignatorDescription
+from pycram.designators.action_designator import NavigateAction, PickUpAction, MoveArmAction
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+
+# Initialize the BulletWorld
+world = BulletWorld()
+
+# Define the spoon object
+spoon_desig = ObjectDesignatorDescription(names=["spoon"])
+
+# Step 1: Navigate to the kitchen counter
+navigate_target = Pose([1.3, 0.9, 0], [0, 0, 0, 1])  # Target position near the spoon
+NavigateAction(target_locations=[navigate_target]).resolve().perform()
+
+# Step 2: Position the robot's arm above the spoon
+arm_target_pose = Pose([1.4, 1, 0.97], [0, 0, 0, 1])  # Position above the spoon
+MoveArmAction(target_pose=arm_target_pose, arms=[Arms.RIGHT]).resolve().perform()
+
+# Step 3: Grasp the spoon
+PickUpAction(object_designator_description=spoon_desig, arms=[Arms.RIGHT], grasps=["top"]).resolve().perform()
+
+# Step 4: Lift the spoon
+lift_pose = Pose([1.4, 1, 1.07], [0, 0, 0, 1])  # Lift position
+MoveArmAction(target_pose=lift_pose, arms=[Arms.RIGHT]).resolve().perform()
+```
+
+### Explanation
+- **NavigateAction**: Moves the robot to a specified location near the spoon.
+- **MoveArmAction**: Positions the robot's arm directly above the spoon for a secure grasp.
+- **PickUpAction**: Executes the grasping action using the specified arm and grasp type.
+- **Lift Action**: Raises the spoon slightly to clear the counter.
+
+### Adaptability
+This code can be adapted for different objects or positions by changing the object names and target poses.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by showcasing how to combine navigation, arm control, and object manipulation. It highlights the modular design of PyCram, where different components can be reused and integrated.
+
+### Essential Components
+- **BulletWorld**: The simulation environment where the robot and objects exist.
+- **Action Designators**: High-level commands that encapsulate complex behaviors.
+- **Object Designators**: Representations of objects in the world, allowing for easy interaction.
+
+### Conceptual Understanding
+Understanding how these components interact is crucial for effectively using the PyCram framework to implement robotic tasks.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Ensure that the robot's kinematics are correctly configured to avoid collisions during navigation and grasping.
+- Test the grasping action in a simulated environment before executing it on a real robot.
+
+### Potential Challenges
+- **Collision Avoidance**: The robot may encounter obstacles while navigating.
+- **Grasp Stability**: The grasp may not be secure if the arm is not positioned correctly.
+
+### Solutions
+- Use costmaps to plan collision-free paths.
+- Adjust the arm's position and orientation based on the object's shape and size to ensure a secure grasp.
+
+By following this guide, you can effectively implement a grasping task for the PR2 robot using the PyCram framework.= Retrieve[How can I make the PR2 robot grasp a specific object in PyCram, considering its pose and ensuring a secure grasp?]
+
+Plan: Retrieve the method for lifting an object with the robot's gripper after grasping it.
+# Lifting a Grasped Object to a Specific Height in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task involves programming the PR2 robot to lift an object (e.g., a spoon) that it has already grasped to a specified height. This is a common manipulation task in robotics, where precise control over the object's position is required.
+
+### Explain the Goal
+The objective is to ensure that the robot can successfully lift the object without dropping it or causing any damage. This task is significant as it demonstrates the robot's ability to perform controlled movements, which is essential for various applications in robotic manipulation.
+
+### Prerequisites and Setup
+Before starting this task, ensure that:
+- The PR2 robot is properly set up and initialized within the PyCram framework.
+- The object to be lifted (e.g., a spoon) is already grasped by the robot.
+- The necessary libraries and modules from PyCram are imported.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Define the Target Height:**
+   - Determine the height to which the object should be lifted. For example, if the object is on a counter at a height of 0.87 meters, you might want to lift it to 0.97 meters.
+
+2. **Get the Current Pose of the Gripper:**
+   - Retrieve the current pose of the robot's gripper to ensure that the lifting action is performed from the correct position.
+
+3. **Calculate the New Pose:**
+   - Create a new pose for the gripper that reflects the desired height. This involves modifying the z-coordinate of the current pose.
+
+4. **Execute the Lift Action:**
+   - Use the appropriate action designator to lift the object to the new height.
+
+### Key Concepts
+- **Pose:** Represents the position and orientation of the robot's gripper in 3D space.
+- **Action Designators:** High-level commands that encapsulate specific actions the robot can perform, such as lifting an object.
+
+### Relevant Functions
+- **SetGripperAction:** To set the state of the gripper (if needed).
+- **TransportAction:** To move the object to a new position.
+- **NavigateAction:** To adjust the robot's position if necessary.
+
+### Integration
+These steps integrate within the PyCram framework by utilizing the designators and actions that allow for high-level manipulation of the robot's capabilities.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippet
+
+```python
+from pycram.datastructures.pose import Pose
+from pycram.designators.action_designator import TransportAction
+from pycram.datastructures.enums import Arms
+
+# Assume the object is already grasped and we have its current pose
+current_gripper_pose = Pose([1.4, 1, 0.87])  # Current position of the gripper
+target_height = 0.97  # Desired height to lift the object
+
+# Calculate the new pose for lifting
+new_gripper_pose = Pose([current_gripper_pose.position[0], 
+                         current_gripper_pose.position[1], 
+                         target_height], 
+                         current_gripper_pose.orientation)
+
+# Execute the lift action
+with simulated_robot:
+    TransportAction(object_designator_description=grasped_object_designator, 
+                    target_locations=[new_gripper_pose], 
+                    arms=[Arms.RIGHT]).resolve().perform()
+```
+
+### Explanation
+- **Pose Creation:** The `Pose` object is created with the new height while keeping the x and y coordinates the same as the current gripper position.
+- **TransportAction:** This action is used to lift the object to the new pose. The `object_designator_description` should refer to the object that is currently grasped.
+
+### Adaptability
+This code can be adapted for different objects or heights by changing the `target_height` and the `object_designator_description`.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by demonstrating how to manipulate objects using high-level actions. It showcases the integration of designators and actions to achieve complex robotic behaviors.
+
+### Essential Components
+- **Action Designators:** These are crucial for defining what actions the robot can perform.
+- **Pose Management:** Understanding how to manipulate poses is essential for effective robotic control.
+
+### Conceptual Understanding
+The PyCram framework allows for modular and reusable code, enabling developers to create complex robotic behaviors by combining simple actions and designators.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always verify the current pose of the gripper before performing actions to avoid unexpected behavior.
+- Test the lifting action with different heights to ensure stability and control.
+
+### Potential Challenges
+- **Object Slippage:** Ensure that the gripper applies sufficient force to hold the object securely during the lift.
+- **Collision Avoidance:** Be mindful of the robot's surroundings to prevent collisions when lifting the object.
+
+### Solutions
+- Use force control features of the gripper to adjust the grip strength dynamically.
+- Implement path planning to ensure the robot's movements are collision-free.
+
+By following this guide, you should be able to successfully implement the task of lifting a grasped object to a specific height using the PyCram framework.= Retrieve[How can I make the PR2 robot lift a grasped object to a specific height in PyCram?]
+
+Plan: Retrieve the method for detecting an object by its color in PyCram.
+# Identifying and Locating an Object Based on Its Color in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task involves identifying and locating an object in a PyCram simulation based on its color. This is particularly useful in robotic applications where visual recognition is essential for interaction with objects in the environment.
+
+### Explain the Goal
+The objective is to enable a robot to recognize and locate a specific object (e.g., a blue spoon) by its color. This capability is significant for tasks such as picking up objects, navigating environments, and performing actions based on visual cues.
+
+### Prerequisites and Setup
+Before starting this task, ensure that:
+- The PyCram framework is properly set up and running.
+- The relevant objects (e.g., the spoon) are spawned in the BulletWorld with defined colors.
+- The robot is initialized and capable of performing actions.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Spawn the Object and Robot**
+   - Create instances of the objects and the robot in the BulletWorld.
+
+2. **Set Up Color Detection**
+   - Use the color attributes of the objects to identify them.
+
+3. **Locate the Object**
+   - Implement a method to search for the object based on its color.
+
+4. **Perform Actions Based on Detection**
+   - Once the object is located, the robot can perform actions such as picking it up.
+
+### Key Concepts
+- **Object Color:** Each object in PyCram can have a color attribute that can be used for identification.
+- **Pose and Position:** The position of the object is defined in 3D space, which is crucial for navigation and interaction.
+
+### Relevant Functions
+- `Object`: Class to create and manage objects in the BulletWorld.
+- `get_color()`: Method to retrieve the color of an object.
+- `set_position()`: Method to set the position of an object.
+- `resolve()`: Method to resolve designators to actual objects or locations.
+
+### Integration
+These steps integrate within the PyCram framework by utilizing the object management and action designators to facilitate interaction with the environment.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippets
+
+#### 1. Spawn the Object and Robot
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.pose import Pose
+
+# Create the BulletWorld
+world = BulletWorld()
+
+# Spawn the spoon object
+spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([1.4, 1, 0.87]), color=[0, 0, 1, 1])  # Blue color
+
+# Spawn the robot
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+#### 2. Set Up Color Detection
+```python
+# Function to identify an object by color
+def find_object_by_color(target_color):
+    for obj in world.objects:
+        if obj.get_color() == target_color:
+            return obj
+    return None
+```
+
+#### 3. Locate the Object
+```python
+# Define the target color (blue)
+target_color = [0, 0, 1, 1]  # RGBA format
+
+# Locate the spoon
+located_spoon = find_object_by_color(target_color)
+
+if located_spoon:
+    print(f"Found the object: {located_spoon.name} at position {located_spoon.get_position()}")
+else:
+    print("Object not found.")
+```
+
+#### 4. Perform Actions Based on Detection
+```python
+from pycram.designators.action_designator import PickUpAction
+from pycram.datastructures.enums import Arms
+
+if located_spoon:
+    # Navigate to the spoon's position
+    NavigateAction(target_locations=[located_spoon.get_position()]).resolve().perform()
+    
+    # Pick up the spoon
+    PickUpAction(object_designator_description=located_spoon, arms=[Arms.BOTH]).resolve().perform()
+```
+
+### Explanation
+- The code initializes the BulletWorld and spawns a blue spoon and a PR2 robot.
+- The `find_object_by_color` function iterates through the objects in the world, checking their colors.
+- If the spoon is found, its position is printed, and the robot navigates to it and picks it up.
+
+### Adaptability
+This code can be adapted to locate objects of different colors by changing the `target_color` variable. It can also be extended to include more complex detection algorithms or additional actions.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by demonstrating how to utilize object properties (like color) for robotic perception and interaction. It showcases the integration of object management, navigation, and action execution.
+
+### Essential Components
+- **BulletWorld:** The simulation environment where objects and robots interact.
+- **Object Class:** Represents the objects in the simulation, including their properties like color and position.
+- **Action Designators:** Facilitate high-level actions such as navigation and picking up objects.
+
+### Conceptual Understanding
+Understanding how to identify and locate objects based on their properties is crucial for developing intelligent robotic systems capable of interacting with their environments effectively.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Ensure that the colors of objects are defined correctly when spawning them.
+- Use consistent color formats (RGBA) to avoid mismatches during detection.
+
+### Potential Challenges
+- Objects may not be found if their colors are not set correctly or if there are multiple objects with similar colors.
+- The robot may require additional navigation logic to avoid obstacles when moving to the object.
+
+### Solutions
+- Implement logging to track the detection process and identify issues.
+- Use more sophisticated color detection algorithms if necessary, such as HSV color space for better accuracy.
+
+By following this guide, you can effectively identify and locate objects based on their color in a PyCram simulation, enabling your robot to interact intelligently with its environment.= Retrieve[How can I identify and locate an object based on its color in a PyCram simulation?]
+
+
+
+----
+Result:
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.process_module import simulated_robot
+from pycram.designators.action_designator import *
+from pycram.designators.location_designator import *
+from pycram.datastructures.enums import ObjectType, Arms, WorldMode
+from pycram.datastructures.pose import Pose
+
+world = BulletWorld(WorldMode.GUI)
+
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([1.4, 1, 0.87]), color=[0, 0, 1, 1])
+
+robot_desig = ObjectDesignatorDescription(names=["pr2"]).resolve()
+kitchen_desig = ObjectDesignatorDescription(names=["kitchen"]).resolve()
+spoon_desig = ObjectDesignatorDescription(names=["spoon"]).resolve()
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.25]).resolve().perform()
+
+    # Navigate to the kitchen counter
+    navigate_target = Pose([1.3, 0.9, 0])
+    NavigateAction(target_locations=[navigate_target]).resolve().perform()
+
+    # Position the robot's arm above the spoon
+    arm_target_pose = Pose([1.4, 1, 0.97])
+    MoveTCPMotion(target=arm_target_pose, arm=Arms.RIGHT).perform()
+
+    # Grasp the spoon
+    PickUpAction(object_designator_description=spoon_desig, arms=[Arms.RIGHT], grasps=[Grasp.TOP]).resolve().perform()
+
+    # Lift the spoon
+    lift_pose = Pose([1.4, 1, 1.07])
+    MoveTCPMotion(target=lift_pose, arm=Arms.RIGHT).perform()
+
+world.exit()
+
+----
+Iterations:
+3

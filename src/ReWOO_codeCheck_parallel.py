@@ -55,7 +55,7 @@ llm_with_tool = llm_solver.with_structured_output(code)
 # Regex to match expressions of the form E#... = ...[...]
 # Regex pattern to extract information from the plan format specified in the prompt
 regex_pattern = (
-    r"\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*"
+    r"\**Plan\s*\d*:\**\s*(.+?)\s*\**(#E\d+\s)\**\s*=\s*(\w+)\s*\[([^\]]+)\].*"
 )
 
 
@@ -104,9 +104,9 @@ async def async_tool_execution(state: ReWOO):
         if tool == "LLM":
             result = await llm.ainvoke(tool_input)
         elif tool == "Retrieve":
-            result = await chain_docs_docu.ainvoke(tool_input)
+            result = await chain_docs_docu.ainvoke({"task": tool_input, "instruction": task, "world": world})
         elif tool == "Code":
-            result = await chain_docs_code.ainvoke(tool_input)
+            result = await chain_docs_code.ainvoke({"task": tool_input, "instruction": task, "world": world})
         elif tool == "URDF":
             urdf_retriever = get_retriever(4, 1, {"source": tool_input})
             files = await urdf_retriever.ainvoke(tool_input)

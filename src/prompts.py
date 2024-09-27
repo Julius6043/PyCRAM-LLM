@@ -274,18 +274,27 @@ Corrected Code Response (Response structure: prefix("Description of the problem 
 
 ## Docu Tool Chain -----------------------------------------------------------------------------------------------
 # More complex template for tutorial writing, generating comprehensive documentation
-prompt_docs = """**You are an experienced technical writer and coding educator specializing in creating comprehensive guides for implementing specific tasks and workflows using the PyCram framework.**
+prompt_docs = """**You are an experienced technical writer and coding educator specializing in creating comprehensive guides for implementing specific tasks and workflows using the PyCram framework. You are a Tool in an LLM Agent structure and you get a subtask for which you gather information.**
 
-**Your task is to thoroughly explain how to accomplish the given task within PyCram, based on the provided context. Research and extract all relevant information, summarizing and organizing it in a way that enables another LLM agent to efficiently implement the workflow in code.**
+**Your task is to thoroughly explain how to accomplish the given task within PyCram, based on the provided context. Research and extract all relevant information, summarizing and organizing it in a way that enables another LLM agent to efficiently implement the workflow in code. Focus on using ActionDesignators over MotionDesignators. Do not provide information how to install and setup PyCRAM because it is already done.**
 
 ---
 
 ### Context:
+Here is the high level task and world knowledge. Use it just as context and only work on you subtask:
+<high_level_task_context>
+{instruction}
+
+World knowledge:
+{world}
+</high_level_task_context>
+Here is the retrieved context for your subtask:
 {context}
 
 ---
 
-### Task:
+
+### Your Subtask:
 {task}
 
 ---
@@ -338,10 +347,10 @@ prompt_docs = """**You are an experienced technical writer and coding educator s
 prompt_retriever_chain = ChatPromptTemplate.from_template(prompt_docs)
 # Chain to retrieve documents using a vector store retriever and formatting them
 retriever_gpt = get_retriever(2, 4)
-
+docu_retrieve_chain = retriever_gpt | format_docs
 # More complex template for tutorial writing, generating comprehensive documentation
 chain_docs_docu = (
-    {"context": retriever_gpt | format_docs, "task": RunnablePassthrough()}
+    {"context": itemgetter("task") | docu_retrieve_chain, "task": itemgetter("task"), "instruction": itemgetter("instruction"), "world": itemgetter("world")}
     | prompt_retriever_chain
     | llm_mini_main
     | StrOutputParser()
@@ -350,20 +359,26 @@ chain_docs_docu = (
 
 ## Code Tool Chain -----------------------------
 # PyCram Code Retriever
-prompt_code = """**You are an experienced technical writer and coding educator specializing in creating detailed and precise tutorials.**
+prompt_code = """**You are an experienced technical writer and coding educator specializing in creating detailed and precise tutorials. You are a Tool in an LLM Agent structure and you get a subtask for which you gather information.**
 
-**Your task is to craft a comprehensive guide on how to use the provided function within the PyCram framework, based on the given documentation and code context. You should not only explain the function itself but also describe its relationship with other relevant functions and components within the context.**
+**Your task is to craft a comprehensive guide on how to use the provided function within the PyCram framework, based on the given documentation and code context. You should not only explain the function itself but also describe its relationship with other relevant functions and components within the context. Do not provide information how to install and setup PyCRAM because it is already done.**
 
 ---
 
 ### Context:
+Here is the high level task and world knowledge. Use it just as context and only work on you subtask:
+<high_level_task_context>
+{instruction}
 
+World knowledge:
+{world}
+</high_level_task_context>
+Here is the retrieved context for your task:
 {context}
 
 ---
 
-### Task:
-
+### Your Subtask:
 **Function:** {task}
 
 ---
@@ -416,9 +431,9 @@ prompt_code = """**You are an experienced technical writer and coding educator s
 prompt_retriever_code = ChatPromptTemplate.from_template(prompt_code)
 
 retriever_code = get_retriever(1, 4)
-
+code_retrieve_chain = retriever_code | format_code
 chain_docs_code = (
-    {"context": retriever_code | format_code, "task": RunnablePassthrough()}
+    {"context": itemgetter("task") | code_retrieve_chain, "task": itemgetter("task"), "instruction": itemgetter("instruction"), "world": itemgetter("world")}
     | prompt_retriever_code
     | llm_mini_main
     | StrOutputParser()

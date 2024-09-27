@@ -1,7 +1,5 @@
 from langgraph_code_assistant import generate_plan
 from langgraph_code_assistant_parallel import generate_plan_parallel
-from langgraph_ReWOO import stream_rewoo
-from ReWOO_codeCheck import stream_rewoo_check
 from vector_store_SB import get_retriever
 from helper_func import extract_urdf_files
 from prompts import chain_docs_docu, preprocessing_chain, chain_docs_code
@@ -87,11 +85,21 @@ test_code_retriever = get_retriever(1, 2)
 test_docu_retriever = get_retriever(2, 2)
 
 
-def test_tool(tool_num, prompt):
+def test_tool(tool_num, test_num, prompt):
+    task = f"task_test{test_num}"
+    world = f"world_test{test_num}"
+
+    if task in globals() and world in globals():
+        task = globals()[task]
+        world = globals()[world]
+    else:
+        return "Der Test existiert nicht"
     if tool_num == 1:
-        result = chain_docs_docu.invoke(prompt)
+        result = chain_docs_docu.invoke({"task": prompt, "instruction": task, "world": world})
     elif tool_num == 2:
-        result = chain_docs_code.invoke(prompt)
+        result = chain_docs_code.invoke({"task": prompt, "instruction": task, "world": world})
+    elif tool_num == 3:
+        result = preprocessing_chain.invoke({"prompt": task, "world": world})
     else:
         raise Exception("Invalid tool number")
     return result
@@ -107,9 +115,13 @@ def make_test(test_num, run_num=1):
     else:
         return "Der Test existiert nicht"
 
-    result, plan, filled_plan, final_iter = generate_plan_parallel(task, world)
+    result, plan, filled_plan, final_iter, success = generate_plan_parallel(task, world)
+    if success:
+        success = "Yes"
+    else:
+        success = "No"
     with open(f"../test_files/test{test_num}v{run_num}.txt", "w") as file:
-        test_string = f"Plan:\n{plan}\n\n----\nFilled Plan:\n{filled_plan}\n\n----\nResult:\n{result}\n\n----\nIterations:\n{final_iter}"
+        test_string = f"Plan:\n{plan}\n\n----\nFilled Plan:\n{filled_plan}\n\n----\nResult:\n{result}\n\n----\nIterations:\n{final_iter}\n\nSuccess: {success}"
         file.write(test_string)
     return result
 
@@ -121,7 +133,7 @@ def make_test(test_num, run_num=1):
 print(pre_thinking)"""
 # print(result_retriever_code)
 
-print(make_test(5, 2))
+print(make_test(1, 3))
 """code_retrieve = test_code_retriever.invoke("How is CostmapLocation defined?")
 docu_retieve = test_docu_retriever.invoke(
     "What are Action Designators and how do i use them?"

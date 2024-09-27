@@ -2,6 +2,9 @@ import asyncio
 from typing import Dict, TypedDict
 from langgraph.graph import END, StateGraph
 from operator import itemgetter
+
+from twisted.mail.scripts.mailmail import success
+
 from vector_store_SB import get_retriever, load_in_vector_store
 from ReWOO_parallel import stream_rewoo
 from ReWOO_codeCheck_parallel import stream_rewoo_check
@@ -66,8 +69,11 @@ def generate(state: GraphState):
 
     else:
         # Question und worldknowledge können hier nochmal vorverarbeitet werden
-        pre_thinking = preprocessing_chain.invoke({"prompt": question, "world": world})
-        question = f"User Instruction: {question}\n---\nThe following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:\n<thinking>{pre_thinking}</thinking>\n\n"
+        should_prethink = state_dict["should_prethink"]
+        if should_prethink:
+            print("---Prethinking---")
+            pre_thinking = preprocessing_chain.invoke({"prompt": question, "world": world})
+            question = f"User Instruction: {question}\n---\nThe following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:\n<thinking>{pre_thinking}</thinking>\n\n"
         print("---GENERATE SOLUTION---")
         code_solution, plan, filled_plan = asyncio.run(stream_rewoo(question, world))
         print("----CodePlan Versuch 1----")
@@ -184,12 +190,13 @@ def check_code_execution(state: GraphState):
         # No errors occurred
         error = "None"
         # Load the result as a new example in the database
-
         load_in_vector_store([full_result], 3)
+        success = True
     else:
         print("---CODE BLOCK CHECK: FAILED---")
         # Catch any error during execution (e.g., ImportError, SyntaxError)
         error = exec_result
+        success = False
         if "error" in state_dict:
             error_prev_runs = state_dict["error"]
             error = error_prev_runs + "\n --- Most recent run error --- \n" + error
@@ -207,6 +214,7 @@ def check_code_execution(state: GraphState):
             "world": world,
             "max_iter": max_iter,
             "full_result": full_result,
+            "success": success,
         }
     }
 
@@ -302,12 +310,13 @@ def model(input: dict):
     return app.invoke({"keys": {**input, "iterations": 0}}, config=config)
 
 
-def generate_plan_parallel(question, world, max_iterations=3):
+def generate_plan_parallel(question, world, max_iterations=3, should_prethink = True):
     result_dic = model(
         {
             "question": question,
             "world": world,
             "max_iter": max_iterations,
+            "should_prethink": should_prethink,
         }
     )
     result_code = result_dic["keys"]["generation"]
@@ -315,7 +324,8 @@ def generate_plan_parallel(question, world, max_iterations=3):
     full_result = result_dic["keys"]["full_result"]
     filled_plan = result_dic["keys"]["filled_plan"]
     final_iter = result_dic["keys"]["iterations"]
-    return result_plan, full_result, filled_plan, final_iter
+    success = result_dic["keys"]["success"]
+    return result_plan, full_result, filled_plan, final_iter, success
 
 
 task_test = """Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?"""
