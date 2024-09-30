@@ -19,7 +19,7 @@ llm_mini_main = llm_tools
 rewoo_planer_prompt = """You are a renowned AI engineer and programmer. You receive world knowledge and a task. Your task is to develop a sequenz of plans to geather 
 resources and break down the given task for a other LLM Agent to generate PyCramPlanCode. PyCramPlanCode is a plan instruction for a robot that should enable it to perform the provided high level task. For each plan, indicate which external tool, along with the input for the tool, is used to gather evidence. You 
 can store the evidence in a variable #E, which can be called upon by other tools later. (Plan, #E1, Plan, #E2, Plan, 
-...). Don't use **...** to highlight anything.
+...).
 
 The tools can be one of the following: 
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functionality. The input should be a specific search query as a detailed question. 
@@ -42,12 +42,13 @@ BulletWorld Close
 
 Here are some examples of PyCramPlanCode with its corresponding building plan (use them just as examples to learn the 
 code format and the plan structure): 
+<examples>
 {examples}
+</examples>
 
---- end of examples ---
 
 Below you find all the Infos for your current task.
-Describe your plans with rich details. Each plan should follow only one #E and it should be exactly in the given structure. Don't use any highlighting with markdown and co. You do not need to consider how 
+Describe your plans with rich details. Each plan should follow only one #E and it should be exactly in the given structure. DO NOT use any highlighting with markdown and co. You DO NOT need to consider how 
 PyCram is installed and set up in the plans, as this is already given.
 
 World knowledge: {world}
@@ -106,14 +107,14 @@ code was already executed resulting in the provided error message. Your task is 
 resources and correct the given PyCramPlanCode. PyCramPlanCode is a plan instruction for a robot that should enable the 
 robot to perform the provided high level task. For each plan, indicate which external tool, along with the input for 
 the tool, is used to gather evidence. You can store the evidence in a variable #E, which can be called upon by other 
-tools later. (Plan, #E1, Plan, #E2, Plan, ...). Don't use **...** to highlight something.
+tools later. (Plan, #E1, Plan, #E2, Plan, ...).
 
 The tools can be one of the following: 
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functionality. The input should be a specific search query as a detailed question. 
 (2) Code[input]: A vector database retriever to search and look directly into the PyCram package code. As input give the exact Function and a little description.
 (3) URDF[input]: A database retriver which returns the URDF file text. Use this tool when you need information about the URDF files used in the world. Provide the URDF file name as input.
 
-PyCramPlanCode follow the following structure:
+PyCramPlanCode follow the following structure (Focus on useing ActionDesignators for the basic moves of the Robot):
 Imports
 BulletWorld Definition
 Objects
@@ -128,6 +129,7 @@ BulletWorld Close
 
 
 Here is an PyCramPlanCode with its corresponding correction plan (use them just as examples to learn the plan structure):
+<example>
 Failed PyCramPlanCode: 
 <failed_code>
 from pycram.bullet_world import BulletWorld, Object
@@ -197,17 +199,17 @@ Task:
 Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?
 ---
 Corresponding output plan: 
-Plan 1: Research the Code of the function SemanticCostmapLocation. #E1 = CodeRetrieve[SemanticCostmapLocation]
+Plan 1: Research the Code of the function SemanticCostmapLocation. #E1 = Code[SemanticCostmapLocation]
 Plan 2: Verify the correct usage of the resolve method on Object instances in PyCram. This will help us understand whether kitchen.resolve() and cereal.resolve() in the line that caused the error are being used appropriately. #E2 = Retrieve[How to correctly use the 'resolve' method with Object instances in PyCram] 
 Plan 3: Confirm the proper way to reference PyCram objects when setting up locations or actions that involve these objects. This ensures that we correctly interact with kitchen and cereal objects in our plan, especially in context to SemanticCostmapLocation. #E3 = Retrieve[How to reference objects for actions and locations in PyCram without using the 'resolve' method.]
 Plan 4: Acquire knowledge on the proper instantiation and usage of SemanticCostmapLocation. Understanding its parameters and usage will help us correctly position the cereal on the kitchen island. #E4 = Retrieve[Correct instantiation and usage of SemanticCostmapLocation in PyCram.]
 Plan 5: Ensure we have a clear understanding of how to use the PlaceAction correctly, especially how to specify the object_to_place and target_locations. This will correct the final action where the cereal is to be placed 3 steps to the right. #E5 = Retrieve[How to use PlaceAction correctly in PyCram, including specifying object_to_place and target_locations.]
 Plan 6: Given the task to move the cereal 3 steps to the right, we need to understand how to calculate the new position based on the current position of the cereal. This will involve modifying the target pose for the MoveMotion or directly in the PlaceAction to achieve the desired placement. #E6 = LLM[Given an object's current position, calculate a new position that is 3 steps to the right in a coordinate system.] 
---- end of example ---
+</example>
 
 Below you find all the Infos for your current task.
 Describe your plans with rich details. Each plan should follow only one #E and it should be exactly in the given structure. Do not include other characters for highlighting because this can break the Regex Pattern.
-Don't use any highlighting with markdown and co. You do not need to consider how PyCram is installed and set up in the plans, as this is already given.
+DO NOT use any highlighting with markdown and co. You DO NOT need to consider how PyCram is installed and set up in the plans, as this is already given.
 Your task is to make a plan to correct the error but also include a general check up for unseen errors in the plan.
 
 Failed PyCramPlanCode: {code}
@@ -276,7 +278,7 @@ Corrected Code Response (Response structure: prefix("Description of the problem 
 # More complex template for tutorial writing, generating comprehensive documentation
 prompt_docs = """**You are an experienced technical writer and coding educator specializing in creating comprehensive guides for implementing specific tasks and workflows using the PyCram framework. You are a Tool in an LLM Agent structure and you get a subtask for which you gather information.**
 
-**Your task is to thoroughly explain how to accomplish the given task within PyCram, based on the provided context. Research and extract all relevant information, summarizing and organizing it in a way that enables another LLM agent to efficiently implement the workflow in code. Focus on using ActionDesignators over MotionDesignators. Do not provide information how to install and setup PyCRAM because it is already done.**
+**Your task is to thoroughly explain how to accomplish the given task within PyCram, based on the provided context. Research and extract all relevant information, summarizing and organizing it in a way that enables another LLM agent to efficiently implement the workflow in code. Focus on using ActionDesignators over MotionDesignators. DO NOT provide information how to install and setup PyCRAM because it is already done.**
 
 ---
 
@@ -350,7 +352,12 @@ retriever_gpt = get_retriever(2, 4)
 docu_retrieve_chain = retriever_gpt | format_docs
 # More complex template for tutorial writing, generating comprehensive documentation
 chain_docs_docu = (
-    {"context": itemgetter("task") | docu_retrieve_chain, "task": itemgetter("task"), "instruction": itemgetter("instruction"), "world": itemgetter("world")}
+    {
+        "context": itemgetter("task") | docu_retrieve_chain,
+        "task": itemgetter("task"),
+        "instruction": itemgetter("instruction"),
+        "world": itemgetter("world"),
+    }
     | prompt_retriever_chain
     | llm_mini_main
     | StrOutputParser()
@@ -361,7 +368,7 @@ chain_docs_docu = (
 # PyCram Code Retriever
 prompt_code = """**You are an experienced technical writer and coding educator specializing in creating detailed and precise tutorials. You are a Tool in an LLM Agent structure and you get a subtask for which you gather information.**
 
-**Your task is to craft a comprehensive guide on how to use the provided function within the PyCram framework, based on the given documentation and code context. You should not only explain the function itself but also describe its relationship with other relevant functions and components within the context. Do not provide information how to install and setup PyCRAM because it is already done.**
+**Your task is to craft a comprehensive guide on how to use the provided function within the PyCram framework, based on the given documentation and code context. You should not only explain the function itself but also describe its relationship with other relevant functions and components within the context. DO NOT provide information how to install and setup PyCRAM because it is already done.**
 
 ---
 
@@ -433,7 +440,12 @@ prompt_retriever_code = ChatPromptTemplate.from_template(prompt_code)
 retriever_code = get_retriever(1, 4)
 code_retrieve_chain = retriever_code | format_code
 chain_docs_code = (
-    {"context": itemgetter("task") | code_retrieve_chain, "task": itemgetter("task"), "instruction": itemgetter("instruction"), "world": itemgetter("world")}
+    {
+        "context": itemgetter("task") | code_retrieve_chain,
+        "task": itemgetter("task"),
+        "instruction": itemgetter("instruction"),
+        "world": itemgetter("world"),
+    }
     | prompt_retriever_code
     | llm_mini_main
     | StrOutputParser()
@@ -494,7 +506,8 @@ Now do the Task for the Input:
 """
 
 preprocessing_template = ChatPromptTemplate.from_template(preprocessing_prompt)
-urdf_tool_template = ChatPromptTemplate.from_template("""You are a file summariser tool. You get a urdf file for an environment, a robot or an object. You also get a instruction and world knowledge. 
+urdf_tool_template = ChatPromptTemplate.from_template(
+    """You are a file summariser tool. You get a urdf file for an environment, a robot or an object. You also get a instruction and world knowledge. 
 Your task is to summarize and compress the urdf-file and list the important data in it. Be sure that you list all the Data in the file which is important for the world understanding to accomplish the instruction.
 Combine the summary and the listing with the world knowledge and create a world model in natural language with it. Be sure that the used information is correct.
 
@@ -507,10 +520,15 @@ Here is the input. Remember that the instruction is just to understand the conte
 <urdf>
 {urdf}
 </urdf>
-""")
+"""
+)
 
 urdf_clean = (
-    {"urdf": itemgetter("world") | RunnableLambda(extract_urdf_files), "prompt": itemgetter("prompt"), "world": itemgetter("world")}
+    {
+        "urdf": itemgetter("world") | RunnableLambda(extract_urdf_files),
+        "prompt": itemgetter("prompt"),
+        "world": itemgetter("world"),
+    }
     | urdf_tool_template
     | llm_mini_main
     | StrOutputParser()
@@ -523,7 +541,8 @@ preprocessing_chain = (
     {
         "prompt": itemgetter("prompt"),
         "world": itemgetter("world"),
-        "urdf": {"world": itemgetter("world"), "prompt": itemgetter("prompt")} | urdf_clean,
+        "urdf": {"world": itemgetter("world"), "prompt": itemgetter("prompt")}
+        | urdf_clean,
     }
     | preprocessing_template
     | llm_GP
@@ -536,7 +555,7 @@ urdf_tool = (
     {
         "prompt": itemgetter("prompt"),
         "world": itemgetter("world"),
-        "urdf": itemgetter("urdf")
+        "urdf": itemgetter("urdf"),
     }
     | urdf_tool_template
     | llm_mini_main

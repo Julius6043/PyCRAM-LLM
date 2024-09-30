@@ -2,9 +2,6 @@ import asyncio
 from typing import Dict, TypedDict
 from langgraph.graph import END, StateGraph
 from operator import itemgetter
-
-from twisted.mail.scripts.mailmail import success
-
 from vector_store_SB import get_retriever, load_in_vector_store
 from ReWOO_parallel import stream_rewoo
 from ReWOO_codeCheck_parallel import stream_rewoo_check
@@ -72,7 +69,9 @@ def generate(state: GraphState):
         should_prethink = state_dict["should_prethink"]
         if should_prethink:
             print("---Prethinking---")
-            pre_thinking = preprocessing_chain.invoke({"prompt": question, "world": world})
+            pre_thinking = preprocessing_chain.invoke(
+                {"prompt": question, "world": world}
+            )
             question = f"User Instruction: {question}\n---\nThe following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:\n<thinking>{pre_thinking}</thinking>\n\n"
         print("---GENERATE SOLUTION---")
         code_solution, plan, filled_plan = asyncio.run(stream_rewoo(question, world))
@@ -310,7 +309,7 @@ def model(input: dict):
     return app.invoke({"keys": {**input, "iterations": 0}}, config=config)
 
 
-def generate_plan_parallel(question, world, max_iterations=3, should_prethink = True):
+def generate_plan_parallel(question, world, max_iterations=3, should_prethink=True):
     result_dic = model(
         {
             "question": question,
