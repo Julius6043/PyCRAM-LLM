@@ -34,7 +34,8 @@ class ReWOO(TypedDict):
     plan_string: str
     steps: List
     results: dict
-    result: str
+    result: any
+    result_plan: str
 
 
 ###pyDanticToolParser
@@ -149,8 +150,8 @@ def solve(state: ReWOO):
             tool_input = tool_input.replace(k, v)
             step_name = step_name.replace(k, v)
         plan += f"Plan: {_plan}\n{step_name} = {tool}[{tool_input}]"
-    code_example = re_chain_example_solve.invoke(task)
-    # code_example_filler = """Here is also an example of a similar PyCRAM plan code (use this as a semantic and syntactic example for the code structure and not for the world knowledge):
+    # code_example = re_chain_example_solve.invoke(task)
+    # code_example_filler = """Here is also an example of a similar PyCRAM plan code with the corresponding example plan (use this as a semantic and syntactic example for the code structure of a PyCRAM Plan and NOT for the world knowledge AND NOT as the task):
     # <Code example>""" + code_example + "\n</Code example>"
     code_example_filler = ""
     prompt = codecheck_solve_prompt.format(
@@ -163,7 +164,7 @@ def solve(state: ReWOO):
     )
     result_chain = llm_with_tool
     result = result_chain.invoke(prompt)
-    return {"result": result}
+    return {"result": result, "result_plan": plan}
 
 
 # Function to route the graph based on the current state
@@ -193,18 +194,26 @@ app = graph.compile()
 
 # Function to stream the execution of the application
 async def stream_rewoo_check(task, world, code_input, error):
+    plan = ""
     async for s in app.astream(
         {"task": task, "world": world, "code": code_input, "error": error}
     ):
+        if "plan" in s:
+            plan = s["plan"]["plan_string"]
         print(s)
         print("---")
-    if "result" in s:
+    if "plan_string" in s and "result" in s:
         final_result = s["result"]
+        plan = s["plan_string"]
+        filled_plan = s["result_plan"]
     else:
         final_result = s["solve"]["result"]
+        filled_plan = s["solve"]["result_plan"]
     result_print = final_result.imports + "\n" + final_result.code
+    print("-------------")
     print(result_print)
-    return final_result
+    print("-------------")
+    return final_result, plan, filled_plan
 
 
 # Example task and world knowledge strings...

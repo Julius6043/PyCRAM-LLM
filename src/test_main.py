@@ -115,13 +115,22 @@ def make_test(test_num, run_num=1):
     else:
         return "Der Test existiert nicht"
 
-    result, plan, filled_plan, final_iter, success = generate_plan_parallel(task, world)
+    result, first_plan, first_filled_plan, final_iter, success, plans_code_check, first_solution = generate_plan_parallel(task, world)
+    if final_iter > 1:
+        plans_code_check_string = f"All Iterations with Plan and Solution:\nRun 1:\nPlan: \n{first_plan}\n\n Filled Plan:\n{first_filled_plan}\n\nCode Solution:\n{first_solution}\n\n---\n"
+        i = 2
+        for plan in plans_code_check:
+            plan_string, filled_plan_string, code_solution = plan
+            plans_code_check_string += f"Code Check Run {i}:\nPlan: \n{plan_string}\n\n Filled Plan:\n{filled_plan_string}\n\nCode Solution:\n{code_solution}\n\n---\n"
+            i += 1
+    else:
+        plans_code_check_string = ""
     if success:
         success = "Yes"
     else:
         success = "No"
     with open(f"../test_files/test{test_num}v{run_num}.txt", "w") as file:
-        test_string = f"Plan:\n{plan}\n\n----\nFilled Plan:\n{filled_plan}\n\n----\nResult:\n{result}\n\n----\nIterations:\n{final_iter}\n\nSuccess: {success}"
+        test_string = f"Iterations:\n{final_iter}\n\nSuccess: {success}\n---\n\nPlan:\n{first_plan}\n\n----\nResult:\n{result}\n\n----\nFilled Plan:\n{first_filled_plan}\n\n------\n\n{plans_code_check_string}"
         file.write(test_string)
     return result
 
@@ -133,7 +142,7 @@ def make_test(test_num, run_num=1):
 print(pre_thinking)"""
 # print(result_retriever_code)
 
-print(make_test(1, 3))
+print(make_test(8, 3))
 """code_retrieve = test_code_retriever.invoke("How is CostmapLocation defined?")
 docu_retieve = test_docu_retriever.invoke(
     "What are Action Designators and how do i use them?"

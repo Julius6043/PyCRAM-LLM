@@ -1,13 +1,11 @@
 import asyncio
 from typing import Dict, TypedDict
 from langgraph.graph import END, StateGraph
-from operator import itemgetter
+
 from vector_store_SB import get_retriever, load_in_vector_store
 from ReWOO_parallel import stream_rewoo
 from ReWOO_codeCheck_parallel import stream_rewoo_check
 from dotenv import load_dotenv
-from helper_func import format_docs, extract_urdf_files
-import re
 from code_exec import execute_code_in_process
 from prompts import preprocessing_chain
 
@@ -51,16 +49,21 @@ def generate(state: GraphState):
         plan = state_dict["plan"]
     else:
         plan = ""
-
+    if "plans_code_check" in state_dict:
+        plans_code_check = state_dict["plans_code_check"]
+    else:
+        plans_code_check = []
+    iter = iter + 1
     # Generation
     if "error" in state_dict:
         print("---RE-GENERATE SOLUTION w/ ERROR FEEDBACK---")
 
         error = state_dict["error"]
         code_solution = state_dict["generation"]
-        code_solution = asyncio.run(
+        code_solution, plan_check, filled_plan_check = asyncio.run(
             stream_rewoo_check(question, world, str(code_solution), error)
         )
+        plans_code_check.append((plan_check, filled_plan_check, code_solution))
         print(f"----CodePlan Versuch {iter}----")
         print(code_solution)
 
@@ -73,12 +76,15 @@ def generate(state: GraphState):
                 {"prompt": question, "world": world}
             )
             question = f"User Instruction: {question}\n---\nThe following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:\n<thinking>{pre_thinking}</thinking>\n\n"
+            print(question)
         print("---GENERATE SOLUTION---")
         code_solution, plan, filled_plan = asyncio.run(stream_rewoo(question, world))
         print("----CodePlan Versuch 1----")
         print(code_solution)
-
-    iter = iter + 1
+    if iter == 1:
+        first_code_solution = code_solution
+    else:
+        first_code_solution = state_dict["first_solution"]
     return {
         "keys": {
             "generation": code_solution,
@@ -88,6 +94,8 @@ def generate(state: GraphState):
             "filled_plan": filled_plan,
             "iterations": iter,
             "max_iter": max_iter,
+            "plans_code_check": plans_code_check,
+            "first_solution": first_code_solution,
         }
     }
 
@@ -112,8 +120,10 @@ def check_code_imports(state: GraphState):
     imports = code_solution.imports
     plan = state_dict["plan"]
     filled_plan = state_dict["filled_plan"]
+    plans_code_check = state_dict["plans_code_check"]
     iter = state_dict["iterations"]
     max_iter = state_dict["max_iter"]
+    first_solution = state_dict["first_solution"]
     # Code Execution
     exec_import_result = execute_code_in_process(imports)
     print(exec_import_result)
@@ -139,6 +149,8 @@ def check_code_imports(state: GraphState):
             "filled_plan": filled_plan,
             "iterations": iter,
             "max_iter": max_iter,
+            "plans_code_check": plans_code_check,
+            "first_solution": first_solution,
         }
     }
 
@@ -165,6 +177,8 @@ def check_code_execution(state: GraphState):
     code_block = imports + "\n" + code
     plan = state_dict["plan"]
     filled_plan = state_dict["filled_plan"]
+    plans_code_check = state_dict["plans_code_check"]
+    first_solution = state_dict["first_solution"]
     iter = state_dict["iterations"]
     max_iter = state_dict["max_iter"]
     full_result = (
@@ -209,11 +223,13 @@ def check_code_execution(state: GraphState):
             "iterations": iter,
             "plan": plan,
             "filled_plan": filled_plan,
+            "plans_code_check": plans_code_check,
             "code": code,
             "world": world,
             "max_iter": max_iter,
             "full_result": full_result,
             "success": success,
+            "first_solution": first_solution,
         }
     }
 
@@ -323,8 +339,10 @@ def generate_plan_parallel(question, world, max_iterations=3, should_prethink=Tr
     full_result = result_dic["keys"]["full_result"]
     filled_plan = result_dic["keys"]["filled_plan"]
     final_iter = result_dic["keys"]["iterations"]
+    plans_code_check = result_dic["keys"]["plans_code_check"]
     success = result_dic["keys"]["success"]
-    return result_plan, full_result, filled_plan, final_iter, success
+    first_solution = result_dic["keys"]["first_solution"]
+    return result_plan, full_result, filled_plan, final_iter, success, plans_code_check, first_solution
 
 
 task_test = """Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?"""

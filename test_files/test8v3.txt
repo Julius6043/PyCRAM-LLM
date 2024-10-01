@@ -1,0 +1,3572 @@
+Iterations:
+3
+
+Success: No
+---
+
+Plan:
+User Instruction: Pick up a spoon, but not one that's already on a table.
+---
+The following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:
+<thinking>- **Initial stage:**  
+    - **PR2 Robot:** Positioned at **[1, 2, 0]**.
+    - **Spoon1:** Located at **[2.4, 2.2, 0.85]**, attached to 'cabinet10_drawer_top'.
+    - **Spoon2:** Located at **[2.5, 2.3, 1.00]**.
+    - **Spoon3:** Located at **[0.4, 3.1, 0.96]**.
+
+- **Goal stage:**  
+    - **PR2 Robot:** Holding either **Spoon2** or **Spoon3**.
+
+- **Step-by-step plan:**
+
+    1. **Assess Spoon Availability:**
+    - **Action:** Identify spoons that are not on a table (Spoon2 and Spoon3).
+
+    2. **Choose a Target Spoon:**
+    - **Action:** Select the closest spoon not on a table (Spoon2).
+
+    3. **Navigate to Target Spoon:**
+    - **Action:** Move the PR2 robot to a position near Spoon2 (e.g., **[2.3, 2.3, 0]**)
+
+    4. **Grab the Spoon:**
+    - **Action:** Extend the robot's arm and grasp Spoon2 at **[2.5, 2.3, 1.00]**.
+
+    5. **Task Completion:**
+    - **Action:** The robot now holds Spoon2 and the task is complete. 
+
+
+**Note:** 
+- The plan assumes that "on a table" refers to being attached to a table-like surface in the apartment URDF. 
+- Spoon2 was chosen for its proximity, but Spoon3 could also be a valid target.
+- The exact navigation path and grasping actions would depend on the detailed information in the 'pr2.urdf' and 'apartment.urdf' files, which are not fully provided here.</thinking>
+
+
+World Knowledge:
+<world_knowledge>
+[robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf', pose=Pose([1, 2, 0])), 
+apartment = Object('apartment', ObjectType.ENVIRONMENT, 'apartment.urdf'),
+milk = Object('milk', ObjectType.MILK, 'milk.stl', pose=Pose([2.5, 2, 1.02]), color=[1, 0, 0, 1]), 
+spoon1 = Object('spoon1', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.4, 2.2, 0.85]), color=[0, 0, 1, 1]),
+spoon2 = Object('spoon2', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.5, 2.3, 1.00]), color=[0, 0, 1, 1]), 
+spoon3 = Object('spoon3', ObjectType.SPOON, 'spoon.stl', pose=Pose([0.4, 3.1, 0.96]), color=[0, 0, 1, 1]), 
+bowl = Object('bowl', ObjectType.BOWL, 'bowl.stl', pose=Pose([2.5, 2.2, 1.00]), color=[1, 1, 0, 1]),
+apartment.attach(spoon1, 'cabinet10_drawer_top')]
+</world_knowledge>
+
+PyCramPlanCode:
+<code>
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.action_designator import NavigateAction, PickUpAction
+from pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode
+from pycram.process_module import simulated_robot
+import pycram.world_reasoning as wr
+import numpy as np
+world = BulletWorld(WorldMode.GUI)
+
+# Define the environment and objects
+apartment = Object('apartment', ObjectType.ENVIRONMENT, 'apartment.urdf')
+robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf', pose=Pose([1, 2, 0]))
+spoon1 = Object('spoon1', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.4, 2.2, 0.85]))
+spoon2 = Object('spoon2', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.5, 2.3, 1.00]))
+spoon3 = Object('spoon3', ObjectType.SPOON, 'spoon.stl', pose=Pose([0.4, 3.1, 0.96]))
+
+# Attach spoon1 to the cabinet
+apartment.attach(spoon1, 'cabinet10_drawer_top')
+
+# Create object designators
+robot_desig = BelieveObject(names=['pr2']).resolve()
+spoon2_desig = BelieveObject(names=['spoon2'])
+spoon3_desig = BelieveObject(names=['spoon3'])
+
+# Check which spoons are not attached
+free_spoons = []
+if not wr.contact(spoon2, apartment):
+    free_spoons.append(spoon2)
+if not wr.contact(spoon3, apartment):
+    free_spoons.append(spoon3)
+
+# Calculate distances to the free spoons
+robot_position = np.array([robot.get_position().x, robot.get_position().y, robot.get_position().z])
+closest_spoon = None
+min_distance = float('inf')
+for spoon in free_spoons:
+    spoon_position = np.array([spoon.get_position().x, spoon.get_position().y, spoon.get_position().z])
+    distance = np.linalg.norm(spoon_position - robot_position)
+    if distance < min_distance:
+        min_distance = distance
+        closest_spoon = spoon
+
+# Create a designator for the closest spoon
+closest_spoon_desig = BelieveObject(names=[closest_spoon.name])
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.25]).resolve().perform()
+
+    # Locate the closest spoon
+    location_desig = CostmapLocation(target=closest_spoon_desig.resolve(), reachable_for=robot_desig)
+
+    # Navigate to the closest spoon
+    navigate_action = NavigateAction(target_locations=[location_desig.resolve()])
+    navigate_action.resolve().perform()
+
+    # Pick up the closest spoon
+    pickup_action = PickUpAction(object_designator_description=closest_spoon_desig, arms=[Arms.RIGHT], grasps=[Grasp.TOP])
+    pickup_action.resolve().perform()
+
+world.exit()
+</code>
+
+This is the corresponding plan:
+## Plans for Picking up a Spoon (Not on a Table)
+
+**Plan 1: Get the URDF file of the apartment.** 
+#E1 = URDF[apartment.urdf]
+
+**Plan 2: Get the URDF file of the pr2 robot.** 
+#E2 = URDF[pr2.urdf]
+
+**Plan 3: Create object designators for the robot, spoon2, and spoon3.**
+#E3 = Retrieve[How to create an object designator in PyCram for multiple objects with the same type?]
+
+**Plan 4: Retrieve the method for checking if an object is attached to another object in PyCram.**
+#E4 = Retrieve[How can I check if an object is attached to another object, like a table or cabinet, using PyCram?]
+
+**Plan 5: Retrieve the method for calculating the distance between the robot and an object in PyCram.**
+#E5 = Retrieve[How can I calculate the distance between the robot and another object in PyCram? I need to find the closest spoon.]
+
+**Plan 6: Retrieve the method for navigating the robot to a specific position in PyCram.**
+#E6 = Retrieve[How to navigate the robot to a specific position in PyCram, considering obstacles?]
+
+**Plan 7: Retrieve the method to locate and pick up an object with a specific grasp type in PyCram.**
+#E7 = Retrieve[How to locate an object in PyCram and pick it up using a specific grasp type, like a side grasp for a spoon?]
+
+**Plan 8: Close the BulletWorld.**
+#E8 = Retrieve[How do I close the BulletWorld in PyCram?] 
+
+
+----
+Result:
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.action_designator import NavigateAction, PickUpAction
+from pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode
+from pycram.process_module import simulated_robot
+import pycram.world_reasoning as wr
+import numpy as np
+
+world = BulletWorld(WorldMode.GUI)
+
+# Define the environment and objects
+apartment = Object('apartment', ObjectType.ENVIRONMENT, 'apartment.urdf')
+robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf', pose=Pose([1, 2, 0]))
+spoon1 = Object('spoon1', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.4, 2.2, 0.85]))
+spoon2 = Object('spoon2', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.5, 2.3, 1.00]))
+spoon3 = Object('spoon3', ObjectType.SPOON, 'spoon.stl', pose=Pose([0.4, 3.1, 0.96]))
+
+# Attach spoon1 to the cabinet
+apartment.attach(spoon1, 'cabinet10_drawer_top')
+
+# Create object designators
+robot_desig = BelieveObject(names=['pr2']).resolve()
+spoon2_desig = BelieveObject(names=['spoon2'])
+spoon3_desig = BelieveObject(names=['spoon3'])
+
+# Check which spoons are not attached
+free_spoons = []
+if not wr.contact(spoon2, apartment):
+    free_spoons.append(spoon2)
+if not wr.contact(spoon3, apartment):
+    free_spoons.append(spoon3)
+
+# Calculate distances to the free spoons
+robot_position = np.array([robot.get_position().x, robot.get_position().y, robot.get_position().z])
+closest_spoon = None
+min_distance = float('inf')
+for spoon in free_spoons:
+    spoon_position = np.array([spoon.get_position().x, spoon.get_position().y, spoon.get_position().z])
+    distance = np.linalg.norm(spoon_position - robot_position)
+    if distance < min_distance:
+        min_distance = distance
+        closest_spoon = spoon
+
+# Create a designator for the closest spoon
+closest_spoon_desig = BelieveObject(names=[closest_spoon.name])
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.25]).resolve().perform()
+
+    # Locate the closest spoon
+    location_desig = CostmapLocation(target=closest_spoon_desig.resolve(), reachable_for=robot_desig)
+
+    # Navigate to the closest spoon
+    navigate_action = NavigateAction(target_locations=[location_desig.resolve()])
+    navigate_action.resolve().perform()
+
+    # Pick up the closest spoon
+    pickup_action = PickUpAction(object_designator_description=closest_spoon_desig, arms=[Arms.RIGHT], grasps=[Grasp.TOP])
+    pickup_action.resolve().perform()
+
+world.exit()
+
+----
+Filled Plan:
+Plan: Get the URDF file of the apartment.**
+### Summary of the URDF File
+
+The provided URDF file describes a kitchen environment, specifically an apartment with various furniture and appliances. The key components include cabinets, a sink, a cooktop, and a table area. The environment is structured with fixed joints connecting different elements, allowing for a realistic representation of the kitchen layout.
+
+### Important Data from the URDF File
+
+1. **Robot and Environment:**
+   - **Robot Name:** PR2
+   - **Initial Position:** [1, 2, 0]
+
+2. **Spoons:**
+   - **Spoon1:** 
+     - Location: [2.4, 2.2, 0.85]
+     - Attached to: `cabinet10_drawer_top`
+   - **Spoon2:** 
+     - Location: [2.5, 2.3, 1.00]
+   - **Spoon3:** 
+     - Location: [0.4, 3.1, 0.96]
+
+3. **Cabinets and Drawers:**
+   - **Cabinet10:**
+     - Contains Spoon1 in the top drawer.
+   - **Cabinet1, Cabinet2, Cabinet3, etc.:** 
+     - Various drawers and doors with prismatic and revolute joints for access.
+
+4. **Kitchen Appliances:**
+   - **Sink:** 
+     - Located on the island countertop.
+   - **Cooktop:** 
+     - Also located on the island countertop.
+
+5. **Table Area:**
+   - **Table Area Main:**
+     - Positioned at [5, 4, 0] with a height of 0.3619.
+
+### World Model
+
+In this kitchen environment, the PR2 robot is positioned at coordinates [1, 2, 0]. The robot's task is to pick up a spoon that is not already on a table. There are three spoons available: Spoon1 is located in the top drawer of Cabinet10, while Spoon2 and Spoon3 are freely accessible. Spoon2 is located at [2.5, 2.3, 1.00], and Spoon3 is at [0.4, 3.1, 0.96]. 
+
+The robot will first assess the availability of the spoons, identifying that Spoon2 and Spoon3 are not on a table. It will then choose Spoon2 due to its proximity, navigate to its location, and extend its arm to grasp it. The kitchen is equipped with various cabinets, a sink, and a cooktop, all contributing to the overall functionality of the space. The robot's successful completion of the task will involve navigating through this environment while avoiding any obstacles, such as the table area located at [5, 4, 0]. 
+
+This structured environment allows the robot to perform tasks efficiently, utilizing the available tools and appliances while adhering to the constraints of the task at hand.= URDF[apartment.urdf]
+--
+
+Plan: Get the URDF file of the pr2 robot.**
+### Summary of the URDF File
+
+The provided URDF file describes the PR2 robot, which is a mobile manipulator designed for various tasks, including object manipulation. The robot consists of multiple links and joints that allow for complex movements. Key components include:
+
+- **Base and Mobility**: The robot has a base link with wheels for movement, equipped with sensors for navigation and obstacle detection.
+- **Arm Structure**: The robot features a two-arm structure with multiple joints (revolute and prismatic) allowing for a wide range of motion. Each arm consists of shoulder, elbow, and wrist joints, enabling dexterous manipulation.
+- **Gripper**: The PR2 is equipped with a gripper at the end of each arm, consisting of multiple joints for finger movement, allowing it to grasp and manipulate objects.
+- **Sensors**: The robot includes various sensors, such as cameras and laser range finders, for perception and interaction with the environment.
+
+### Important Data from the URDF File
+
+1. **Robot Name**: PR2
+2. **Base Link**:
+   - Mass: 116.0 kg
+   - Inertia: Defined with specific values for x, y, z axes.
+3. **Arm Links**:
+   - Each arm has links for shoulder, upper arm, forearm, and wrist.
+   - Each joint has defined limits for movement (effort, velocity, and safety).
+4. **Gripper**:
+   - Each gripper has multiple joints for fingers (left and right).
+   - Gripper joints have defined limits and dynamics for grasping.
+5. **Sensors**:
+   - Cameras for visual perception (e.g., high-definition camera, stereo cameras).
+   - Laser sensors for distance measurement and obstacle detection.
+6. **Joint Types**: Various joint types including revolute, prismatic, and fixed, allowing for complex movements.
+7. **Material Properties**: Various materials defined for visual representation and collision detection.
+
+### World Model
+
+In the context of the instruction to "pick up a spoon, but not one that's already on a table," the PR2 robot is positioned at coordinates [1, 2, 0]. The robot has the capability to navigate to the location of the spoons, which are identified as Spoon1, Spoon2, and Spoon3. 
+
+- **Spoon Locations**:
+  - **Spoon1**: Located at [2.4, 2.2, 0.85], attached to 'cabinet10_drawer_top'.
+  - **Spoon2**: Located at [2.5, 2.3, 1.00] (not on a table).
+  - **Spoon3**: Located at [0.4, 3.1, 0.96] (not on a table).
+
+The robot can assess the availability of spoons and choose Spoon2 as the target due to its proximity. The robot will navigate to Spoon2's location, extend its arm, and grasp the spoon, completing the task. The robot's gripper is designed to handle objects with precision, making it suitable for this task.
+
+In summary, the PR2 robot is equipped with advanced mobility and manipulation capabilities, allowing it to interact with its environment effectively, including picking up objects like spoons.= URDF[pr2.urdf]
+--
+
+Plan: Create object designators for the robot, spoon2, and spoon3.**
+# Creating an Object Designator for Multiple Objects in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task is to create an object designator in PyCram that can represent multiple objects of the same type. This allows the robot to identify and interact with all instances of a specific object type within the environment.
+
+### Explain the Goal
+The objective is to enable the robot to recognize and manipulate multiple objects of the same type, such as spoons or bowls, which is essential for tasks that require interaction with various instances of similar objects.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The relevant objects (e.g., spoons) are defined in the environment.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Import Necessary Modules**
+   Begin by importing the required classes from the PyCram framework.
+
+   ```python
+   from pycram.world_concepts.world_object import Object
+   from pycram.designators.object_designator import BelieveObject
+   from pycram.datastructures.enums import ObjectType
+   ```
+
+2. **Define the Objects**
+   Create instances of the objects you want to include in the designator. For example, if you have multiple spoons:
+
+   ```python
+   spoon1 = Object("spoon1", ObjectType.SPOON, "spoon.stl", pose=Pose([2.4, 2.2, 0.85]))
+   spoon2 = Object("spoon2", ObjectType.SPOON, "spoon.stl", pose=Pose([2.5, 2.3, 1.00]))
+   spoon3 = Object("spoon3", ObjectType.SPOON, "spoon.stl", pose=Pose([0.4, 3.1, 0.96]))
+   ```
+
+3. **Create an Object Designator**
+   Use the `BelieveObject` class to create a designator that describes all spoons. You can specify the type of objects you want to include.
+
+   ```python
+   spoon_designator = BelieveObject(types=[ObjectType.SPOON])
+   ```
+
+4. **Resolve the Designator**
+   Resolve the designator to get the actual objects that match the description.
+
+   ```python
+   resolved_spoons = spoon_designator.resolve()
+   ```
+
+5. **Iterate Over Resolved Objects**
+   You can iterate over the resolved objects to perform actions on each spoon.
+
+   ```python
+   for spoon in resolved_spoons:
+       print(f"Found: {spoon.name} at position {spoon.pose}")
+   ```
+
+### Key Concepts
+- **Object Designators:** These are used to describe and identify objects in the environment.
+- **BelieveObject:** This class allows you to create a designator based on the type of objects, which can be resolved to actual instances in the environment.
+
+### Relevant Functions
+- `BelieveObject`: Initializes an object designator based on specified types or names.
+- `resolve()`: Resolves the designator to return the actual objects that match the criteria.
+
+### Integration
+These steps integrate seamlessly within the PyCram framework, allowing for dynamic interaction with multiple objects based on their type.
+
+## 3. Code Examples and Implementation Guidance
+
+### Complete Code Example
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.designators.object_designator import BelieveObject
+from pycram.datastructures.pose import Pose
+
+# Initialize the BulletWorld
+world = BulletWorld()
+
+# Define the objects
+spoon1 = Object("spoon1", ObjectType.SPOON, "spoon.stl", pose=Pose([2.4, 2.2, 0.85]))
+spoon2 = Object("spoon2", ObjectType.SPOON, "spoon.stl", pose=Pose([2.5, 2.3, 1.00]))
+spoon3 = Object("spoon3", ObjectType.SPOON, "spoon.stl", pose=Pose([0.4, 3.1, 0.96]))
+
+# Create an object designator for spoons
+spoon_designator = BelieveObject(types=[ObjectType.SPOON])
+
+# Resolve the designator
+resolved_spoons = spoon_designator.resolve()
+
+# Iterate over resolved objects
+for spoon in resolved_spoons:
+    print(f"Found: {spoon.name} at position {spoon.pose}")
+
+# Close the world
+world.exit()
+```
+
+### Explanation
+- The code initializes a BulletWorld and defines three spoon objects.
+- It creates a `BelieveObject` designator for spoons and resolves it to get the actual spoon instances.
+- Finally, it iterates over the resolved spoons and prints their names and positions.
+
+### Adaptability
+This code can be easily adapted to include other object types by changing the `ObjectType` in the `BelieveObject` instantiation.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+Creating object designators is a fundamental aspect of the PyCram framework, enabling robots to interact with their environment intelligently.
+
+### Essential Components
+- **BelieveObject**: Central to creating object designators based on types.
+- **Object**: Represents the actual objects in the environment.
+
+### Conceptual Understanding
+Understanding how to create and resolve object designators is crucial for developing complex robotic behaviors in PyCram.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure that the objects you want to include in the designator are properly defined in the environment.
+- Use clear and descriptive names for your objects to avoid confusion.
+
+### Potential Challenges
+- If no objects match the designator criteria, the resolved list will be empty. Ensure that the objects are correctly instantiated and added to the world.
+
+### Solutions
+- Verify the object types and names before creating the designator.
+- Use logging or print statements to debug and confirm the presence of objects in the environment.
+
+By following this guide, you can effectively create and utilize object designators for multiple objects of the same type in the PyCram framework.= Retrieve[How to create an object designator in PyCram for multiple objects with the same type?]
+--
+
+Plan: Retrieve the method for checking if an object is attached to another object in PyCram.**
+# Checking Object Attachments in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task is to determine if one object is attached to another object within the PyCram framework. This is particularly useful in robotics and simulation scenarios where understanding the relationships between objects is crucial for planning and execution.
+
+### Explain the Goal
+The objective is to check if an object, such as a spoon or a bowl, is attached to another object, like a table or cabinet. This functionality is essential for ensuring that the robot can interact with objects correctly, avoiding attempts to manipulate objects that are not free.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The relevant objects (e.g., spoons, tables, cabinets) are instantiated in the BulletWorld.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Identify the Objects:**
+   - Create or reference the objects you want to check for attachment.
+
+2. **Use the `contact` Function:**
+   - Utilize the `contact` function from the `pycram.world_reasoning` module to check if two objects are in contact, which implies attachment.
+
+3. **Interpret the Results:**
+   - Analyze the output of the `contact` function to determine if the objects are attached.
+
+### Key Concepts
+- **Attachment:** In PyCram, two objects are considered attached if they are in contact and one is supporting the other.
+- **Contact Checking:** The `contact` function checks for physical contact between two objects, which is a prerequisite for attachment.
+
+### Relevant Functions
+- **`contact(object1, object2)`**: Checks if `object1` is in contact with `object2`.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet
+Here’s a complete example demonstrating how to check if a spoon is attached to a table:
+
+```python
+import pycram
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+import pycram.world_reasoning as wr
+
+# Create a BulletWorld
+world = BulletWorld()
+
+# Define objects
+table = Object("table", ObjectType.ENVIRONMENT, "table.stl", pose=Pose([1, 1, 0]))
+spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([1, 1, 0.1]))
+
+# Check if the spoon is attached to the table
+is_attached = wr.contact(spoon, table)
+
+# Output the result
+if is_attached:
+    print("The spoon is attached to the table.")
+else:
+    print("The spoon is not attached to the table.")
+```
+
+### Explanation
+- **Object Creation:** The `Object` class is used to create instances of the table and spoon.
+- **Contact Check:** The `contact` function checks if the spoon is in contact with the table.
+- **Result Interpretation:** The result is printed to indicate whether the spoon is attached to the table.
+
+### Adaptability
+This code can be adapted to check attachments between any two objects by changing the object instances passed to the `contact` function.
+
+## Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by enabling robots to make informed decisions based on the physical relationships between objects in their environment.
+
+### Essential Components
+- **BulletWorld:** The simulation environment where objects are instantiated and manipulated.
+- **World Reasoning Module:** Provides functions for geometric reasoning, including contact checking.
+
+### Conceptual Understanding
+Understanding object attachment is crucial for robotic manipulation tasks, as it helps prevent errors during object interaction.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure that the objects are correctly instantiated and positioned in the BulletWorld before checking for attachments.
+- Use meaningful names for objects to make the code more readable and maintainable.
+
+### Potential Challenges
+- Objects may not be correctly positioned, leading to false negatives in attachment checks.
+- Ensure that the physics simulation is running correctly to get accurate contact results.
+
+### Solutions
+- Verify object positions and orientations before performing checks.
+- Use debugging tools within PyCram to visualize object placements and interactions.
+
+By following this guide, you can effectively check for object attachments in the PyCram framework, enhancing your robotic applications and simulations.= Retrieve[How can I check if an object is attached to another object, like a table or cabinet, using PyCram?]
+--
+
+Plan: Retrieve the method for calculating the distance between the robot and an object in PyCram.**
+# Calculating the Distance Between the Robot and Another Object in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task is to calculate the distance between the PR2 robot and the closest spoon in the PyCram framework. This involves identifying the positions of the robot and the spoons, then computing the distance to determine which spoon is nearest.
+
+### Explain the Goal
+The objective is to find the closest spoon that the robot can interact with, which is essential for tasks such as picking up objects. This functionality is crucial in robotic manipulation and navigation tasks within the PyCram framework.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The PR2 robot and the spoons are instantiated in the BulletWorld.
+- The positions of the robot and the spoons are known.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Retrieve Robot and Spoon Positions:**
+   - Obtain the current position of the PR2 robot.
+   - Get the positions of all spoons in the environment.
+
+2. **Calculate Distances:**
+   - For each spoon, calculate the Euclidean distance from the robot to the spoon.
+
+3. **Identify the Closest Spoon:**
+   - Compare the calculated distances and identify the spoon with the minimum distance.
+
+### Key Concepts
+- **Euclidean Distance:** The straight-line distance between two points in 3D space, calculated using the formula:
+  \[
+  d = \sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2 + (z_2 - z_1)^2}
+  \]
+- **Object Positioning:** Understanding how to retrieve and manipulate object positions in the BulletWorld.
+
+### Relevant Functions
+- `get_position()`: Retrieves the current position of an object.
+- `set_position()`: Sets the position of an object (not directly used in this task but useful for context).
+
+### Integration
+These steps utilize the PyCram framework's capabilities to interact with objects and perform calculations, integrating object manipulation and distance measurement.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.datastructures.pose import Pose
+import numpy as np
+
+# Assuming the BulletWorld and objects are already initialized
+world = BulletWorld()
+
+# Retrieve the robot object
+robot = world.get_object("pr2")
+
+# Get the robot's position
+robot_position = robot.get_position()
+
+# List of spoons
+spoons = [world.get_object("spoon1"), world.get_object("spoon2"), world.get_object("spoon3")]
+
+# Initialize variables to find the closest spoon
+closest_spoon = None
+min_distance = float('inf')
+
+# Calculate distances to each spoon
+for spoon in spoons:
+    spoon_position = spoon.get_position()
+    # Calculate Euclidean distance
+    distance = np.linalg.norm(np.array(spoon_position) - np.array(robot_position))
+    
+    # Update closest spoon if this one is nearer
+    if distance < min_distance:
+        min_distance = distance
+        closest_spoon = spoon
+
+# Output the closest spoon and its distance
+print(f"The closest spoon is: {closest_spoon.name} at a distance of {min_distance:.2f} units.")
+```
+
+### Explanation
+- **Import Statements:** Necessary modules are imported for working with the BulletWorld and numerical calculations.
+- **Robot Positioning:** The robot's position is retrieved using `get_position()`.
+- **Distance Calculation:** The Euclidean distance is calculated using NumPy's `linalg.norm()` function, which simplifies the computation.
+- **Finding the Closest Spoon:** A loop iterates through each spoon, updating the closest spoon based on the minimum distance found.
+
+### Adaptability
+This code can be adapted to find the closest object of any type by modifying the list of objects and the criteria for selection.
+
+## Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by demonstrating how to interact with objects in a simulated environment, which is fundamental for robotic applications.
+
+### Essential Components
+- **BulletWorld:** The simulation environment where objects are instantiated and manipulated.
+- **Object Class:** Represents the robot and spoons, providing methods to interact with their properties.
+
+### Conceptual Understanding
+Understanding how to calculate distances and manipulate object positions is crucial for developing more complex robotic behaviors and interactions.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Ensure that all objects are correctly instantiated in the BulletWorld before performing calculations.
+- Use NumPy for efficient mathematical operations, especially when dealing with vectors.
+
+### Potential Challenges
+- Objects may not be initialized correctly, leading to errors when retrieving positions.
+- Ensure that the robot and objects are in the same coordinate frame to avoid discrepancies in distance calculations.
+
+### Solutions
+- Verify object initialization and positions before running distance calculations.
+- Use debugging statements to print positions if unexpected results occur.
+
+By following this guide, you can effectively calculate the distance between the PR2 robot and the closest spoon in the PyCram framework, facilitating further robotic manipulation tasks.= Retrieve[How can I calculate the distance between the robot and another object in PyCram? I need to find the closest spoon.]
+--
+
+Plan: Retrieve the method for navigating the robot to a specific position in PyCram.**
+# Navigating the Robot to a Specific Position in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task involves navigating a robot (specifically the PR2 robot) to a designated position within the PyCram framework while considering obstacles in the environment. This is crucial for ensuring that the robot can reach its target without colliding with any objects.
+
+### Explain the Goal
+The primary objective is to successfully move the robot to a specified location, taking into account the presence of obstacles. This task is significant as it demonstrates the robot's ability to navigate autonomously in a simulated environment, which is essential for real-world applications.
+
+### Prerequisites and Setup
+Before starting the navigation task, ensure that:
+- The PyCram framework is properly set up and running.
+- The BulletWorld is initialized with the robot and the environment loaded.
+- The robot's current position and the target position are defined.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Initialize the BulletWorld and Load Objects**
+   - Create an instance of the BulletWorld and load the robot and environment objects.
+
+2. **Define the Target Position**
+   - Specify the target position where the robot needs to navigate.
+
+3. **Create a Costmap**
+   - Generate an occupancy costmap to identify valid positions for navigation, avoiding obstacles.
+
+4. **Navigate to the Target Position**
+   - Use the `NavigateAction` to move the robot to the target position.
+
+### Key Concepts
+- **BulletWorld**: The simulation environment where the robot operates.
+- **Costmap**: A representation of the environment that helps the robot understand where it can move without colliding with obstacles.
+- **NavigateAction**: A high-level action that directs the robot to move to a specified location.
+
+### Relevant Functions
+- `BulletWorld()`: Initializes the simulation environment.
+- `OccupancyCostmap()`: Creates a costmap to evaluate navigable areas.
+- `NavigateAction()`: Executes the navigation command.
+
+### Integration
+These steps integrate within the PyCram framework by utilizing its object-oriented design to manage robot actions and environmental interactions effectively.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippets
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import ObjectType
+from pycram.costmaps import OccupancyCostmap
+from pycram.designators.action_designator import NavigateAction
+from pycram.process_module import simulated_robot
+
+# Step 1: Initialize the BulletWorld
+world = BulletWorld()
+
+# Load the robot and environment
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf", pose=Pose([1, 2, 0]))
+# Assume the environment is already loaded
+
+# Step 2: Define the target position
+target_position = Pose([2.5, 2.3, 0])  # Example target position
+
+# Step 3: Create an occupancy costmap
+costmap = OccupancyCostmap(size=300, resolution=0.02, origin=Pose([0, 0, 0.1], [0, 0, 0, 1]))
+
+# Step 4: Navigate to the target position
+with simulated_robot:
+    NavigateAction(target_locations=[target_position]).resolve().perform()
+```
+
+### Explanation
+- **Initialization**: The `BulletWorld` is created, and the robot is loaded into the environment.
+- **Target Position**: The target position is defined using a `Pose` object.
+- **Costmap Creation**: An occupancy costmap is generated to help the robot navigate safely.
+- **Navigation**: The `NavigateAction` is executed within a context manager for the simulated robot, directing it to the target position.
+
+### Adaptability
+This code can be adapted for different target positions or environments by changing the `target_position` and loading different objects into the `BulletWorld`.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+This navigation task is part of the larger PyCram framework, which facilitates robot simulation and interaction with the environment. It leverages the Bullet physics engine to provide realistic simulations.
+
+### Essential Components
+- **BulletWorld**: The core simulation environment.
+- **Costmaps**: Essential for safe navigation.
+- **Action Designators**: High-level commands that encapsulate complex behaviors.
+
+### Conceptual Understanding
+Understanding how these components interact is crucial for effectively using the PyCram framework for robotic tasks.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always check the robot's current position before defining the target position to avoid unnecessary movements.
+- Use visualizations of the costmap to debug navigation issues.
+
+### Potential Challenges
+- The robot may encounter unexpected obstacles not accounted for in the costmap.
+- Navigation may fail if the target position is unreachable due to obstacles.
+
+### Solutions
+- Regularly update the costmap to reflect changes in the environment.
+- Implement error handling to manage navigation failures gracefully.
+
+By following this guide, you can effectively navigate a robot to a specific position in PyCram while considering obstacles, ensuring safe and efficient movement within the simulation environment.= Retrieve[How to navigate the robot to a specific position in PyCram, considering obstacles?]
+--
+
+Plan: Retrieve the method to locate and pick up an object with a specific grasp type in PyCram.**
+# Locating and Picking Up an Object in PyCram Using a Specific Grasp Type
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task involves locating a specific object (in this case, a spoon) within the PyCram environment and executing a pick-up action using a designated grasp type, such as a side grasp.
+
+### Explain the Goal
+The objective is to enable a robot (e.g., PR2) to identify and pick up a spoon that is not on a table, demonstrating the use of PyCram's designators and action capabilities. This task is significant as it showcases the integration of object recognition, navigation, and manipulation within the PyCram framework.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The robot (PR2) and the spoon objects are instantiated in the BulletWorld.
+- The robot's initial position is set appropriately to allow for navigation.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Identify the Spoon Object**
+   - Use an object designator to specify the spoon you want to pick up.
+
+2. **Determine the Grasp Type**
+   - Define the grasp type you want to use (e.g., side grasp).
+
+3. **Locate the Spoon**
+   - Use a location designator to find a reachable position near the spoon.
+
+4. **Navigate to the Spoon**
+   - Command the robot to move to the identified location.
+
+5. **Pick Up the Spoon**
+   - Execute the pick-up action using the specified grasp type.
+
+### Key Concepts
+- **Object Designator:** Represents the spoon object in the environment.
+- **Location Designator:** Determines a valid position for the robot to approach the spoon.
+- **Action Designator:** Executes the pick-up action with the specified grasp type.
+
+### Relevant Functions
+- `BelieveObject`: Resolves the object designator for the spoon.
+- `CostmapLocation`: Finds a reachable location near the spoon.
+- `NavigateAction`: Commands the robot to move to a specified location.
+- `PickUpAction`: Executes the action to pick up the spoon.
+
+### Integration
+These steps integrate to form a cohesive workflow that allows the robot to interact with its environment effectively, leveraging PyCram's designators and action capabilities.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippets
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.action_designator import NavigateAction, PickUpAction
+from pycram.datastructures.enums import Arms, Grasp
+
+# Initialize the BulletWorld
+world = BulletWorld()
+
+# Instantiate the PR2 robot and the spoon
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+spoon = Object("spoon2", ObjectType.SPOON, "spoon.stl", pose=Pose([2.5, 2.3, 1.00]))
+
+# Step 1: Identify the Spoon Object
+spoon_desig = BelieveObject(names=["spoon2"])
+
+# Step 2: Determine the Grasp Type
+grasp_type = Grasp.SIDE  # Define the grasp type
+
+# Step 3: Locate the Spoon
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+location_desig = CostmapLocation(target=spoon_desig.resolve(), reachable_for=robot_desig)
+
+# Step 4: Navigate to the Spoon
+navigate_action = NavigateAction(target_locations=[location_desig.resolve()])
+navigate_action.resolve().perform()
+
+# Step 5: Pick Up the Spoon
+pickup_action = PickUpAction(object_designator_description=spoon_desig, arms=[Arms.BOTH], grasps=[grasp_type])
+pickup_action.resolve().perform()
+```
+
+### Explanation
+- **Initialization:** The BulletWorld is created, and the PR2 robot and spoon are instantiated.
+- **Object Designation:** The spoon is identified using `BelieveObject`.
+- **Grasp Type:** The grasp type is set to `Grasp.SIDE`.
+- **Location Resolution:** The `CostmapLocation` designator finds a reachable position near the spoon.
+- **Navigation:** The robot navigates to the identified location using `NavigateAction`.
+- **Pick-Up Action:** The robot picks up the spoon using the specified grasp type with `PickUpAction`.
+
+### Adaptability
+This code can be adapted for different objects or grasp types by changing the object names and grasp definitions.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by demonstrating how to utilize designators for object manipulation, which is a fundamental aspect of robotic operations.
+
+### Essential Components
+- **Designators:** Key to abstracting the details of objects, locations, and actions.
+- **Actions:** Enable the robot to perform tasks based on the resolved designators.
+
+### Conceptual Understanding
+Understanding how designators work together allows for more complex robotic behaviors and interactions within the PyCram environment.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always verify that the object and location designators resolve correctly before performing actions.
+- Test different grasp types to ensure compatibility with the object being manipulated.
+
+### Potential Challenges
+- Objects may not be reachable due to environmental constraints.
+- The robot may not have sufficient joint configurations to perform the desired grasp.
+
+### Solutions
+- Use visibility and occupancy costmaps to ensure the robot can navigate effectively.
+- Adjust the robot's joint states if necessary to facilitate the grasping action.
+
+By following this guide, you can effectively locate and pick up objects in the PyCram framework using specific grasp types, enhancing your robotic manipulation capabilities.= Retrieve[How to locate an object in PyCram and pick it up using a specific grasp type, like a side grasp for a spoon?]
+--
+
+Plan: Close the BulletWorld.**
+# Closing the BulletWorld in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task is to properly close the BulletWorld in the PyCram framework. This involves terminating the simulation environment and ensuring that all associated threads are stopped.
+
+### Explain the Goal
+The objective of closing the BulletWorld is to free up system resources and ensure that the simulation environment is properly shut down after use. This is crucial for maintaining system performance and preventing memory leaks.
+
+### Prerequisites and Setup
+Before closing the BulletWorld, ensure that:
+- The BulletWorld has been initialized and is currently running.
+- All necessary actions or simulations have been completed.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Ensure BulletWorld is Active:**
+   - Confirm that the BulletWorld is currently running and that you have completed all necessary tasks within it.
+
+2. **Call the Exit Method:**
+   - Use the `exit()` method provided by the BulletWorld class to close the simulation.
+
+### Key Concepts
+- **BulletWorld:** This is the internal simulation environment of PyCram where objects and robots are rendered and manipulated.
+- **Exit Method:** The `exit()` method is designed to terminate the BulletWorld and clean up resources.
+
+### Relevant Functions
+- `BulletWorld.exit()`: This function is called to close the BulletWorld and terminate any background threads.
+
+### Integration
+These steps integrate within the PyCram framework by ensuring that the simulation environment is properly managed, which is essential for any robotic simulation or task execution.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet
+Here is a simple code example demonstrating how to close the BulletWorld:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+
+# Initialize the BulletWorld
+world = BulletWorld()
+
+# Perform your tasks here...
+
+# Close the BulletWorld
+world.exit()
+```
+
+### Explanation
+- **Initialization:** The `BulletWorld` is created and assigned to the variable `world`.
+- **Task Execution:** Placeholder comments indicate where you would perform your tasks within the BulletWorld.
+- **Closing the World:** The `exit()` method is called on the `world` object to properly close the simulation.
+
+### Adaptability
+This code can be adapted to any scenario where the BulletWorld is used, ensuring that it is always closed after tasks are completed.
+
+## Framework Integration and Concepts
+
+### Broader Context
+Closing the BulletWorld is a fundamental part of managing resources in the PyCram framework. It ensures that the simulation environment does not remain active unnecessarily, which could lead to performance issues.
+
+### Essential Components
+- **BulletWorld Class:** Central to the simulation environment, managing all objects and interactions.
+- **Exit Method:** A critical function for resource management.
+
+### Conceptual Understanding
+Understanding how to manage the lifecycle of the BulletWorld is essential for effective use of the PyCram framework, especially in scenarios involving multiple simulations or iterative testing.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure that all tasks are completed before calling the `exit()` method.
+- Consider wrapping the BulletWorld initialization and exit in a try-finally block to ensure it closes even if an error occurs.
+
+### Potential Challenges
+- Forgetting to close the BulletWorld can lead to memory leaks or performance degradation.
+- Errors during simulation may prevent the exit method from being called.
+
+### Solutions
+- Implement error handling to ensure that the `exit()` method is always called, even in the event of an exception.
+
+By following these guidelines, you can effectively manage the BulletWorld in PyCram, ensuring that your simulations run smoothly and resources are properly managed.= Retrieve[How do I close the BulletWorld in PyCram?]
+--
+
+
+
+------
+
+All Iterations with Plan and Solution:
+Run 1:
+Plan: 
+User Instruction: Pick up a spoon, but not one that's already on a table.
+---
+The following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:
+<thinking>- **Initial stage:**  
+    - **PR2 Robot:** Positioned at **[1, 2, 0]**.
+    - **Spoon1:** Located at **[2.4, 2.2, 0.85]**, attached to 'cabinet10_drawer_top'.
+    - **Spoon2:** Located at **[2.5, 2.3, 1.00]**.
+    - **Spoon3:** Located at **[0.4, 3.1, 0.96]**.
+
+- **Goal stage:**  
+    - **PR2 Robot:** Holding either **Spoon2** or **Spoon3**.
+
+- **Step-by-step plan:**
+
+    1. **Assess Spoon Availability:**
+    - **Action:** Identify spoons that are not on a table (Spoon2 and Spoon3).
+
+    2. **Choose a Target Spoon:**
+    - **Action:** Select the closest spoon not on a table (Spoon2).
+
+    3. **Navigate to Target Spoon:**
+    - **Action:** Move the PR2 robot to a position near Spoon2 (e.g., **[2.3, 2.3, 0]**)
+
+    4. **Grab the Spoon:**
+    - **Action:** Extend the robot's arm and grasp Spoon2 at **[2.5, 2.3, 1.00]**.
+
+    5. **Task Completion:**
+    - **Action:** The robot now holds Spoon2 and the task is complete. 
+
+
+**Note:** 
+- The plan assumes that "on a table" refers to being attached to a table-like surface in the apartment URDF. 
+- Spoon2 was chosen for its proximity, but Spoon3 could also be a valid target.
+- The exact navigation path and grasping actions would depend on the detailed information in the 'pr2.urdf' and 'apartment.urdf' files, which are not fully provided here.</thinking>
+
+
+World Knowledge:
+<world_knowledge>
+[robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf', pose=Pose([1, 2, 0])), 
+apartment = Object('apartment', ObjectType.ENVIRONMENT, 'apartment.urdf'),
+milk = Object('milk', ObjectType.MILK, 'milk.stl', pose=Pose([2.5, 2, 1.02]), color=[1, 0, 0, 1]), 
+spoon1 = Object('spoon1', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.4, 2.2, 0.85]), color=[0, 0, 1, 1]),
+spoon2 = Object('spoon2', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.5, 2.3, 1.00]), color=[0, 0, 1, 1]), 
+spoon3 = Object('spoon3', ObjectType.SPOON, 'spoon.stl', pose=Pose([0.4, 3.1, 0.96]), color=[0, 0, 1, 1]), 
+bowl = Object('bowl', ObjectType.BOWL, 'bowl.stl', pose=Pose([2.5, 2.2, 1.00]), color=[1, 1, 0, 1]),
+apartment.attach(spoon1, 'cabinet10_drawer_top')]
+</world_knowledge>
+
+PyCramPlanCode:
+<code>
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.action_designator import NavigateAction, PickUpAction
+from pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode
+from pycram.process_module import simulated_robot
+import pycram.world_reasoning as wr
+import numpy as np
+world = BulletWorld(WorldMode.GUI)
+
+# Define the environment and objects
+apartment = Object('apartment', ObjectType.ENVIRONMENT, 'apartment.urdf')
+robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf', pose=Pose([1, 2, 0]))
+spoon1 = Object('spoon1', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.4, 2.2, 0.85]))
+spoon2 = Object('spoon2', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.5, 2.3, 1.00]))
+spoon3 = Object('spoon3', ObjectType.SPOON, 'spoon.stl', pose=Pose([0.4, 3.1, 0.96]))
+
+# Attach spoon1 to the cabinet
+apartment.attach(spoon1, 'cabinet10_drawer_top')
+
+# Create object designators
+robot_desig = BelieveObject(names=['pr2']).resolve()
+spoon2_desig = BelieveObject(names=['spoon2'])
+spoon3_desig = BelieveObject(names=['spoon3'])
+
+# Check which spoons are not attached
+free_spoons = []
+if not wr.contact(spoon2, apartment):
+    free_spoons.append(spoon2)
+if not wr.contact(spoon3, apartment):
+    free_spoons.append(spoon3)
+
+# Calculate distances to the free spoons
+robot_position = np.array([robot.get_position().x, robot.get_position().y, robot.get_position().z])
+closest_spoon = None
+min_distance = float('inf')
+for spoon in free_spoons:
+    spoon_position = np.array([spoon.get_position().x, spoon.get_position().y, spoon.get_position().z])
+    distance = np.linalg.norm(spoon_position - robot_position)
+    if distance < min_distance:
+        min_distance = distance
+        closest_spoon = spoon
+
+# Create a designator for the closest spoon
+closest_spoon_desig = BelieveObject(names=[closest_spoon.name])
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.25]).resolve().perform()
+
+    # Locate the closest spoon
+    location_desig = CostmapLocation(target=closest_spoon_desig.resolve(), reachable_for=robot_desig)
+
+    # Navigate to the closest spoon
+    navigate_action = NavigateAction(target_locations=[location_desig.resolve()])
+    navigate_action.resolve().perform()
+
+    # Pick up the closest spoon
+    pickup_action = PickUpAction(object_designator_description=closest_spoon_desig, arms=[Arms.RIGHT], grasps=[Grasp.TOP])
+    pickup_action.resolve().perform()
+
+world.exit()
+</code>
+
+This is the corresponding plan:
+## Plans for Picking up a Spoon (Not on a Table)
+
+**Plan 1: Get the URDF file of the apartment.** 
+#E1 = URDF[apartment.urdf]
+
+**Plan 2: Get the URDF file of the pr2 robot.** 
+#E2 = URDF[pr2.urdf]
+
+**Plan 3: Create object designators for the robot, spoon2, and spoon3.**
+#E3 = Retrieve[How to create an object designator in PyCram for multiple objects with the same type?]
+
+**Plan 4: Retrieve the method for checking if an object is attached to another object in PyCram.**
+#E4 = Retrieve[How can I check if an object is attached to another object, like a table or cabinet, using PyCram?]
+
+**Plan 5: Retrieve the method for calculating the distance between the robot and an object in PyCram.**
+#E5 = Retrieve[How can I calculate the distance between the robot and another object in PyCram? I need to find the closest spoon.]
+
+**Plan 6: Retrieve the method for navigating the robot to a specific position in PyCram.**
+#E6 = Retrieve[How to navigate the robot to a specific position in PyCram, considering obstacles?]
+
+**Plan 7: Retrieve the method to locate and pick up an object with a specific grasp type in PyCram.**
+#E7 = Retrieve[How to locate an object in PyCram and pick it up using a specific grasp type, like a side grasp for a spoon?]
+
+**Plan 8: Close the BulletWorld.**
+#E8 = Retrieve[How do I close the BulletWorld in PyCram?] 
+
+
+ Filled Plan:
+Plan: Get the URDF file of the apartment.**
+### Summary of the URDF File
+
+The provided URDF file describes a kitchen environment, specifically an apartment with various furniture and appliances. The key components include cabinets, a sink, a cooktop, and a table area. The environment is structured with fixed joints connecting different elements, allowing for a realistic representation of the kitchen layout.
+
+### Important Data from the URDF File
+
+1. **Robot and Environment:**
+   - **Robot Name:** PR2
+   - **Initial Position:** [1, 2, 0]
+
+2. **Spoons:**
+   - **Spoon1:** 
+     - Location: [2.4, 2.2, 0.85]
+     - Attached to: `cabinet10_drawer_top`
+   - **Spoon2:** 
+     - Location: [2.5, 2.3, 1.00]
+   - **Spoon3:** 
+     - Location: [0.4, 3.1, 0.96]
+
+3. **Cabinets and Drawers:**
+   - **Cabinet10:**
+     - Contains Spoon1 in the top drawer.
+   - **Cabinet1, Cabinet2, Cabinet3, etc.:** 
+     - Various drawers and doors with prismatic and revolute joints for access.
+
+4. **Kitchen Appliances:**
+   - **Sink:** 
+     - Located on the island countertop.
+   - **Cooktop:** 
+     - Also located on the island countertop.
+
+5. **Table Area:**
+   - **Table Area Main:**
+     - Positioned at [5, 4, 0] with a height of 0.3619.
+
+### World Model
+
+In this kitchen environment, the PR2 robot is positioned at coordinates [1, 2, 0]. The robot's task is to pick up a spoon that is not already on a table. There are three spoons available: Spoon1 is located in the top drawer of Cabinet10, while Spoon2 and Spoon3 are freely accessible. Spoon2 is located at [2.5, 2.3, 1.00], and Spoon3 is at [0.4, 3.1, 0.96]. 
+
+The robot will first assess the availability of the spoons, identifying that Spoon2 and Spoon3 are not on a table. It will then choose Spoon2 due to its proximity, navigate to its location, and extend its arm to grasp it. The kitchen is equipped with various cabinets, a sink, and a cooktop, all contributing to the overall functionality of the space. The robot's successful completion of the task will involve navigating through this environment while avoiding any obstacles, such as the table area located at [5, 4, 0]. 
+
+This structured environment allows the robot to perform tasks efficiently, utilizing the available tools and appliances while adhering to the constraints of the task at hand.= URDF[apartment.urdf]
+--
+
+Plan: Get the URDF file of the pr2 robot.**
+### Summary of the URDF File
+
+The provided URDF file describes the PR2 robot, which is a mobile manipulator designed for various tasks, including object manipulation. The robot consists of multiple links and joints that allow for complex movements. Key components include:
+
+- **Base and Mobility**: The robot has a base link with wheels for movement, equipped with sensors for navigation and obstacle detection.
+- **Arm Structure**: The robot features a two-arm structure with multiple joints (revolute and prismatic) allowing for a wide range of motion. Each arm consists of shoulder, elbow, and wrist joints, enabling dexterous manipulation.
+- **Gripper**: The PR2 is equipped with a gripper at the end of each arm, consisting of multiple joints for finger movement, allowing it to grasp and manipulate objects.
+- **Sensors**: The robot includes various sensors, such as cameras and laser range finders, for perception and interaction with the environment.
+
+### Important Data from the URDF File
+
+1. **Robot Name**: PR2
+2. **Base Link**:
+   - Mass: 116.0 kg
+   - Inertia: Defined with specific values for x, y, z axes.
+3. **Arm Links**:
+   - Each arm has links for shoulder, upper arm, forearm, and wrist.
+   - Each joint has defined limits for movement (effort, velocity, and safety).
+4. **Gripper**:
+   - Each gripper has multiple joints for fingers (left and right).
+   - Gripper joints have defined limits and dynamics for grasping.
+5. **Sensors**:
+   - Cameras for visual perception (e.g., high-definition camera, stereo cameras).
+   - Laser sensors for distance measurement and obstacle detection.
+6. **Joint Types**: Various joint types including revolute, prismatic, and fixed, allowing for complex movements.
+7. **Material Properties**: Various materials defined for visual representation and collision detection.
+
+### World Model
+
+In the context of the instruction to "pick up a spoon, but not one that's already on a table," the PR2 robot is positioned at coordinates [1, 2, 0]. The robot has the capability to navigate to the location of the spoons, which are identified as Spoon1, Spoon2, and Spoon3. 
+
+- **Spoon Locations**:
+  - **Spoon1**: Located at [2.4, 2.2, 0.85], attached to 'cabinet10_drawer_top'.
+  - **Spoon2**: Located at [2.5, 2.3, 1.00] (not on a table).
+  - **Spoon3**: Located at [0.4, 3.1, 0.96] (not on a table).
+
+The robot can assess the availability of spoons and choose Spoon2 as the target due to its proximity. The robot will navigate to Spoon2's location, extend its arm, and grasp the spoon, completing the task. The robot's gripper is designed to handle objects with precision, making it suitable for this task.
+
+In summary, the PR2 robot is equipped with advanced mobility and manipulation capabilities, allowing it to interact with its environment effectively, including picking up objects like spoons.= URDF[pr2.urdf]
+--
+
+Plan: Create object designators for the robot, spoon2, and spoon3.**
+# Creating an Object Designator for Multiple Objects in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task is to create an object designator in PyCram that can represent multiple objects of the same type. This allows the robot to identify and interact with all instances of a specific object type within the environment.
+
+### Explain the Goal
+The objective is to enable the robot to recognize and manipulate multiple objects of the same type, such as spoons or bowls, which is essential for tasks that require interaction with various instances of similar objects.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The relevant objects (e.g., spoons) are defined in the environment.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Import Necessary Modules**
+   Begin by importing the required classes from the PyCram framework.
+
+   ```python
+   from pycram.world_concepts.world_object import Object
+   from pycram.designators.object_designator import BelieveObject
+   from pycram.datastructures.enums import ObjectType
+   ```
+
+2. **Define the Objects**
+   Create instances of the objects you want to include in the designator. For example, if you have multiple spoons:
+
+   ```python
+   spoon1 = Object("spoon1", ObjectType.SPOON, "spoon.stl", pose=Pose([2.4, 2.2, 0.85]))
+   spoon2 = Object("spoon2", ObjectType.SPOON, "spoon.stl", pose=Pose([2.5, 2.3, 1.00]))
+   spoon3 = Object("spoon3", ObjectType.SPOON, "spoon.stl", pose=Pose([0.4, 3.1, 0.96]))
+   ```
+
+3. **Create an Object Designator**
+   Use the `BelieveObject` class to create a designator that describes all spoons. You can specify the type of objects you want to include.
+
+   ```python
+   spoon_designator = BelieveObject(types=[ObjectType.SPOON])
+   ```
+
+4. **Resolve the Designator**
+   Resolve the designator to get the actual objects that match the description.
+
+   ```python
+   resolved_spoons = spoon_designator.resolve()
+   ```
+
+5. **Iterate Over Resolved Objects**
+   You can iterate over the resolved objects to perform actions on each spoon.
+
+   ```python
+   for spoon in resolved_spoons:
+       print(f"Found: {spoon.name} at position {spoon.pose}")
+   ```
+
+### Key Concepts
+- **Object Designators:** These are used to describe and identify objects in the environment.
+- **BelieveObject:** This class allows you to create a designator based on the type of objects, which can be resolved to actual instances in the environment.
+
+### Relevant Functions
+- `BelieveObject`: Initializes an object designator based on specified types or names.
+- `resolve()`: Resolves the designator to return the actual objects that match the criteria.
+
+### Integration
+These steps integrate seamlessly within the PyCram framework, allowing for dynamic interaction with multiple objects based on their type.
+
+## 3. Code Examples and Implementation Guidance
+
+### Complete Code Example
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.designators.object_designator import BelieveObject
+from pycram.datastructures.pose import Pose
+
+# Initialize the BulletWorld
+world = BulletWorld()
+
+# Define the objects
+spoon1 = Object("spoon1", ObjectType.SPOON, "spoon.stl", pose=Pose([2.4, 2.2, 0.85]))
+spoon2 = Object("spoon2", ObjectType.SPOON, "spoon.stl", pose=Pose([2.5, 2.3, 1.00]))
+spoon3 = Object("spoon3", ObjectType.SPOON, "spoon.stl", pose=Pose([0.4, 3.1, 0.96]))
+
+# Create an object designator for spoons
+spoon_designator = BelieveObject(types=[ObjectType.SPOON])
+
+# Resolve the designator
+resolved_spoons = spoon_designator.resolve()
+
+# Iterate over resolved objects
+for spoon in resolved_spoons:
+    print(f"Found: {spoon.name} at position {spoon.pose}")
+
+# Close the world
+world.exit()
+```
+
+### Explanation
+- The code initializes a BulletWorld and defines three spoon objects.
+- It creates a `BelieveObject` designator for spoons and resolves it to get the actual spoon instances.
+- Finally, it iterates over the resolved spoons and prints their names and positions.
+
+### Adaptability
+This code can be easily adapted to include other object types by changing the `ObjectType` in the `BelieveObject` instantiation.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+Creating object designators is a fundamental aspect of the PyCram framework, enabling robots to interact with their environment intelligently.
+
+### Essential Components
+- **BelieveObject**: Central to creating object designators based on types.
+- **Object**: Represents the actual objects in the environment.
+
+### Conceptual Understanding
+Understanding how to create and resolve object designators is crucial for developing complex robotic behaviors in PyCram.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure that the objects you want to include in the designator are properly defined in the environment.
+- Use clear and descriptive names for your objects to avoid confusion.
+
+### Potential Challenges
+- If no objects match the designator criteria, the resolved list will be empty. Ensure that the objects are correctly instantiated and added to the world.
+
+### Solutions
+- Verify the object types and names before creating the designator.
+- Use logging or print statements to debug and confirm the presence of objects in the environment.
+
+By following this guide, you can effectively create and utilize object designators for multiple objects of the same type in the PyCram framework.= Retrieve[How to create an object designator in PyCram for multiple objects with the same type?]
+--
+
+Plan: Retrieve the method for checking if an object is attached to another object in PyCram.**
+# Checking Object Attachments in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task is to determine if one object is attached to another object within the PyCram framework. This is particularly useful in robotics and simulation scenarios where understanding the relationships between objects is crucial for planning and execution.
+
+### Explain the Goal
+The objective is to check if an object, such as a spoon or a bowl, is attached to another object, like a table or cabinet. This functionality is essential for ensuring that the robot can interact with objects correctly, avoiding attempts to manipulate objects that are not free.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The relevant objects (e.g., spoons, tables, cabinets) are instantiated in the BulletWorld.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Identify the Objects:**
+   - Create or reference the objects you want to check for attachment.
+
+2. **Use the `contact` Function:**
+   - Utilize the `contact` function from the `pycram.world_reasoning` module to check if two objects are in contact, which implies attachment.
+
+3. **Interpret the Results:**
+   - Analyze the output of the `contact` function to determine if the objects are attached.
+
+### Key Concepts
+- **Attachment:** In PyCram, two objects are considered attached if they are in contact and one is supporting the other.
+- **Contact Checking:** The `contact` function checks for physical contact between two objects, which is a prerequisite for attachment.
+
+### Relevant Functions
+- **`contact(object1, object2)`**: Checks if `object1` is in contact with `object2`.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet
+Here’s a complete example demonstrating how to check if a spoon is attached to a table:
+
+```python
+import pycram
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+import pycram.world_reasoning as wr
+
+# Create a BulletWorld
+world = BulletWorld()
+
+# Define objects
+table = Object("table", ObjectType.ENVIRONMENT, "table.stl", pose=Pose([1, 1, 0]))
+spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([1, 1, 0.1]))
+
+# Check if the spoon is attached to the table
+is_attached = wr.contact(spoon, table)
+
+# Output the result
+if is_attached:
+    print("The spoon is attached to the table.")
+else:
+    print("The spoon is not attached to the table.")
+```
+
+### Explanation
+- **Object Creation:** The `Object` class is used to create instances of the table and spoon.
+- **Contact Check:** The `contact` function checks if the spoon is in contact with the table.
+- **Result Interpretation:** The result is printed to indicate whether the spoon is attached to the table.
+
+### Adaptability
+This code can be adapted to check attachments between any two objects by changing the object instances passed to the `contact` function.
+
+## Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by enabling robots to make informed decisions based on the physical relationships between objects in their environment.
+
+### Essential Components
+- **BulletWorld:** The simulation environment where objects are instantiated and manipulated.
+- **World Reasoning Module:** Provides functions for geometric reasoning, including contact checking.
+
+### Conceptual Understanding
+Understanding object attachment is crucial for robotic manipulation tasks, as it helps prevent errors during object interaction.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure that the objects are correctly instantiated and positioned in the BulletWorld before checking for attachments.
+- Use meaningful names for objects to make the code more readable and maintainable.
+
+### Potential Challenges
+- Objects may not be correctly positioned, leading to false negatives in attachment checks.
+- Ensure that the physics simulation is running correctly to get accurate contact results.
+
+### Solutions
+- Verify object positions and orientations before performing checks.
+- Use debugging tools within PyCram to visualize object placements and interactions.
+
+By following this guide, you can effectively check for object attachments in the PyCram framework, enhancing your robotic applications and simulations.= Retrieve[How can I check if an object is attached to another object, like a table or cabinet, using PyCram?]
+--
+
+Plan: Retrieve the method for calculating the distance between the robot and an object in PyCram.**
+# Calculating the Distance Between the Robot and Another Object in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task is to calculate the distance between the PR2 robot and the closest spoon in the PyCram framework. This involves identifying the positions of the robot and the spoons, then computing the distance to determine which spoon is nearest.
+
+### Explain the Goal
+The objective is to find the closest spoon that the robot can interact with, which is essential for tasks such as picking up objects. This functionality is crucial in robotic manipulation and navigation tasks within the PyCram framework.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The PR2 robot and the spoons are instantiated in the BulletWorld.
+- The positions of the robot and the spoons are known.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Retrieve Robot and Spoon Positions:**
+   - Obtain the current position of the PR2 robot.
+   - Get the positions of all spoons in the environment.
+
+2. **Calculate Distances:**
+   - For each spoon, calculate the Euclidean distance from the robot to the spoon.
+
+3. **Identify the Closest Spoon:**
+   - Compare the calculated distances and identify the spoon with the minimum distance.
+
+### Key Concepts
+- **Euclidean Distance:** The straight-line distance between two points in 3D space, calculated using the formula:
+  \[
+  d = \sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2 + (z_2 - z_1)^2}
+  \]
+- **Object Positioning:** Understanding how to retrieve and manipulate object positions in the BulletWorld.
+
+### Relevant Functions
+- `get_position()`: Retrieves the current position of an object.
+- `set_position()`: Sets the position of an object (not directly used in this task but useful for context).
+
+### Integration
+These steps utilize the PyCram framework's capabilities to interact with objects and perform calculations, integrating object manipulation and distance measurement.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.datastructures.pose import Pose
+import numpy as np
+
+# Assuming the BulletWorld and objects are already initialized
+world = BulletWorld()
+
+# Retrieve the robot object
+robot = world.get_object("pr2")
+
+# Get the robot's position
+robot_position = robot.get_position()
+
+# List of spoons
+spoons = [world.get_object("spoon1"), world.get_object("spoon2"), world.get_object("spoon3")]
+
+# Initialize variables to find the closest spoon
+closest_spoon = None
+min_distance = float('inf')
+
+# Calculate distances to each spoon
+for spoon in spoons:
+    spoon_position = spoon.get_position()
+    # Calculate Euclidean distance
+    distance = np.linalg.norm(np.array(spoon_position) - np.array(robot_position))
+    
+    # Update closest spoon if this one is nearer
+    if distance < min_distance:
+        min_distance = distance
+        closest_spoon = spoon
+
+# Output the closest spoon and its distance
+print(f"The closest spoon is: {closest_spoon.name} at a distance of {min_distance:.2f} units.")
+```
+
+### Explanation
+- **Import Statements:** Necessary modules are imported for working with the BulletWorld and numerical calculations.
+- **Robot Positioning:** The robot's position is retrieved using `get_position()`.
+- **Distance Calculation:** The Euclidean distance is calculated using NumPy's `linalg.norm()` function, which simplifies the computation.
+- **Finding the Closest Spoon:** A loop iterates through each spoon, updating the closest spoon based on the minimum distance found.
+
+### Adaptability
+This code can be adapted to find the closest object of any type by modifying the list of objects and the criteria for selection.
+
+## Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by demonstrating how to interact with objects in a simulated environment, which is fundamental for robotic applications.
+
+### Essential Components
+- **BulletWorld:** The simulation environment where objects are instantiated and manipulated.
+- **Object Class:** Represents the robot and spoons, providing methods to interact with their properties.
+
+### Conceptual Understanding
+Understanding how to calculate distances and manipulate object positions is crucial for developing more complex robotic behaviors and interactions.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Ensure that all objects are correctly instantiated in the BulletWorld before performing calculations.
+- Use NumPy for efficient mathematical operations, especially when dealing with vectors.
+
+### Potential Challenges
+- Objects may not be initialized correctly, leading to errors when retrieving positions.
+- Ensure that the robot and objects are in the same coordinate frame to avoid discrepancies in distance calculations.
+
+### Solutions
+- Verify object initialization and positions before running distance calculations.
+- Use debugging statements to print positions if unexpected results occur.
+
+By following this guide, you can effectively calculate the distance between the PR2 robot and the closest spoon in the PyCram framework, facilitating further robotic manipulation tasks.= Retrieve[How can I calculate the distance between the robot and another object in PyCram? I need to find the closest spoon.]
+--
+
+Plan: Retrieve the method for navigating the robot to a specific position in PyCram.**
+# Navigating the Robot to a Specific Position in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task involves navigating a robot (specifically the PR2 robot) to a designated position within the PyCram framework while considering obstacles in the environment. This is crucial for ensuring that the robot can reach its target without colliding with any objects.
+
+### Explain the Goal
+The primary objective is to successfully move the robot to a specified location, taking into account the presence of obstacles. This task is significant as it demonstrates the robot's ability to navigate autonomously in a simulated environment, which is essential for real-world applications.
+
+### Prerequisites and Setup
+Before starting the navigation task, ensure that:
+- The PyCram framework is properly set up and running.
+- The BulletWorld is initialized with the robot and the environment loaded.
+- The robot's current position and the target position are defined.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Initialize the BulletWorld and Load Objects**
+   - Create an instance of the BulletWorld and load the robot and environment objects.
+
+2. **Define the Target Position**
+   - Specify the target position where the robot needs to navigate.
+
+3. **Create a Costmap**
+   - Generate an occupancy costmap to identify valid positions for navigation, avoiding obstacles.
+
+4. **Navigate to the Target Position**
+   - Use the `NavigateAction` to move the robot to the target position.
+
+### Key Concepts
+- **BulletWorld**: The simulation environment where the robot operates.
+- **Costmap**: A representation of the environment that helps the robot understand where it can move without colliding with obstacles.
+- **NavigateAction**: A high-level action that directs the robot to move to a specified location.
+
+### Relevant Functions
+- `BulletWorld()`: Initializes the simulation environment.
+- `OccupancyCostmap()`: Creates a costmap to evaluate navigable areas.
+- `NavigateAction()`: Executes the navigation command.
+
+### Integration
+These steps integrate within the PyCram framework by utilizing its object-oriented design to manage robot actions and environmental interactions effectively.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippets
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import ObjectType
+from pycram.costmaps import OccupancyCostmap
+from pycram.designators.action_designator import NavigateAction
+from pycram.process_module import simulated_robot
+
+# Step 1: Initialize the BulletWorld
+world = BulletWorld()
+
+# Load the robot and environment
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf", pose=Pose([1, 2, 0]))
+# Assume the environment is already loaded
+
+# Step 2: Define the target position
+target_position = Pose([2.5, 2.3, 0])  # Example target position
+
+# Step 3: Create an occupancy costmap
+costmap = OccupancyCostmap(size=300, resolution=0.02, origin=Pose([0, 0, 0.1], [0, 0, 0, 1]))
+
+# Step 4: Navigate to the target position
+with simulated_robot:
+    NavigateAction(target_locations=[target_position]).resolve().perform()
+```
+
+### Explanation
+- **Initialization**: The `BulletWorld` is created, and the robot is loaded into the environment.
+- **Target Position**: The target position is defined using a `Pose` object.
+- **Costmap Creation**: An occupancy costmap is generated to help the robot navigate safely.
+- **Navigation**: The `NavigateAction` is executed within a context manager for the simulated robot, directing it to the target position.
+
+### Adaptability
+This code can be adapted for different target positions or environments by changing the `target_position` and loading different objects into the `BulletWorld`.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+This navigation task is part of the larger PyCram framework, which facilitates robot simulation and interaction with the environment. It leverages the Bullet physics engine to provide realistic simulations.
+
+### Essential Components
+- **BulletWorld**: The core simulation environment.
+- **Costmaps**: Essential for safe navigation.
+- **Action Designators**: High-level commands that encapsulate complex behaviors.
+
+### Conceptual Understanding
+Understanding how these components interact is crucial for effectively using the PyCram framework for robotic tasks.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always check the robot's current position before defining the target position to avoid unnecessary movements.
+- Use visualizations of the costmap to debug navigation issues.
+
+### Potential Challenges
+- The robot may encounter unexpected obstacles not accounted for in the costmap.
+- Navigation may fail if the target position is unreachable due to obstacles.
+
+### Solutions
+- Regularly update the costmap to reflect changes in the environment.
+- Implement error handling to manage navigation failures gracefully.
+
+By following this guide, you can effectively navigate a robot to a specific position in PyCram while considering obstacles, ensuring safe and efficient movement within the simulation environment.= Retrieve[How to navigate the robot to a specific position in PyCram, considering obstacles?]
+--
+
+Plan: Retrieve the method to locate and pick up an object with a specific grasp type in PyCram.**
+# Locating and Picking Up an Object in PyCram Using a Specific Grasp Type
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task involves locating a specific object (in this case, a spoon) within the PyCram environment and executing a pick-up action using a designated grasp type, such as a side grasp.
+
+### Explain the Goal
+The objective is to enable a robot (e.g., PR2) to identify and pick up a spoon that is not on a table, demonstrating the use of PyCram's designators and action capabilities. This task is significant as it showcases the integration of object recognition, navigation, and manipulation within the PyCram framework.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The robot (PR2) and the spoon objects are instantiated in the BulletWorld.
+- The robot's initial position is set appropriately to allow for navigation.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Identify the Spoon Object**
+   - Use an object designator to specify the spoon you want to pick up.
+
+2. **Determine the Grasp Type**
+   - Define the grasp type you want to use (e.g., side grasp).
+
+3. **Locate the Spoon**
+   - Use a location designator to find a reachable position near the spoon.
+
+4. **Navigate to the Spoon**
+   - Command the robot to move to the identified location.
+
+5. **Pick Up the Spoon**
+   - Execute the pick-up action using the specified grasp type.
+
+### Key Concepts
+- **Object Designator:** Represents the spoon object in the environment.
+- **Location Designator:** Determines a valid position for the robot to approach the spoon.
+- **Action Designator:** Executes the pick-up action with the specified grasp type.
+
+### Relevant Functions
+- `BelieveObject`: Resolves the object designator for the spoon.
+- `CostmapLocation`: Finds a reachable location near the spoon.
+- `NavigateAction`: Commands the robot to move to a specified location.
+- `PickUpAction`: Executes the action to pick up the spoon.
+
+### Integration
+These steps integrate to form a cohesive workflow that allows the robot to interact with its environment effectively, leveraging PyCram's designators and action capabilities.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippets
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.action_designator import NavigateAction, PickUpAction
+from pycram.datastructures.enums import Arms, Grasp
+
+# Initialize the BulletWorld
+world = BulletWorld()
+
+# Instantiate the PR2 robot and the spoon
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+spoon = Object("spoon2", ObjectType.SPOON, "spoon.stl", pose=Pose([2.5, 2.3, 1.00]))
+
+# Step 1: Identify the Spoon Object
+spoon_desig = BelieveObject(names=["spoon2"])
+
+# Step 2: Determine the Grasp Type
+grasp_type = Grasp.SIDE  # Define the grasp type
+
+# Step 3: Locate the Spoon
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+location_desig = CostmapLocation(target=spoon_desig.resolve(), reachable_for=robot_desig)
+
+# Step 4: Navigate to the Spoon
+navigate_action = NavigateAction(target_locations=[location_desig.resolve()])
+navigate_action.resolve().perform()
+
+# Step 5: Pick Up the Spoon
+pickup_action = PickUpAction(object_designator_description=spoon_desig, arms=[Arms.BOTH], grasps=[grasp_type])
+pickup_action.resolve().perform()
+```
+
+### Explanation
+- **Initialization:** The BulletWorld is created, and the PR2 robot and spoon are instantiated.
+- **Object Designation:** The spoon is identified using `BelieveObject`.
+- **Grasp Type:** The grasp type is set to `Grasp.SIDE`.
+- **Location Resolution:** The `CostmapLocation` designator finds a reachable position near the spoon.
+- **Navigation:** The robot navigates to the identified location using `NavigateAction`.
+- **Pick-Up Action:** The robot picks up the spoon using the specified grasp type with `PickUpAction`.
+
+### Adaptability
+This code can be adapted for different objects or grasp types by changing the object names and grasp definitions.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by demonstrating how to utilize designators for object manipulation, which is a fundamental aspect of robotic operations.
+
+### Essential Components
+- **Designators:** Key to abstracting the details of objects, locations, and actions.
+- **Actions:** Enable the robot to perform tasks based on the resolved designators.
+
+### Conceptual Understanding
+Understanding how designators work together allows for more complex robotic behaviors and interactions within the PyCram environment.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always verify that the object and location designators resolve correctly before performing actions.
+- Test different grasp types to ensure compatibility with the object being manipulated.
+
+### Potential Challenges
+- Objects may not be reachable due to environmental constraints.
+- The robot may not have sufficient joint configurations to perform the desired grasp.
+
+### Solutions
+- Use visibility and occupancy costmaps to ensure the robot can navigate effectively.
+- Adjust the robot's joint states if necessary to facilitate the grasping action.
+
+By following this guide, you can effectively locate and pick up objects in the PyCram framework using specific grasp types, enhancing your robotic manipulation capabilities.= Retrieve[How to locate an object in PyCram and pick it up using a specific grasp type, like a side grasp for a spoon?]
+--
+
+Plan: Close the BulletWorld.**
+# Closing the BulletWorld in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task is to properly close the BulletWorld in the PyCram framework. This involves terminating the simulation environment and ensuring that all associated threads are stopped.
+
+### Explain the Goal
+The objective of closing the BulletWorld is to free up system resources and ensure that the simulation environment is properly shut down after use. This is crucial for maintaining system performance and preventing memory leaks.
+
+### Prerequisites and Setup
+Before closing the BulletWorld, ensure that:
+- The BulletWorld has been initialized and is currently running.
+- All necessary actions or simulations have been completed.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Ensure BulletWorld is Active:**
+   - Confirm that the BulletWorld is currently running and that you have completed all necessary tasks within it.
+
+2. **Call the Exit Method:**
+   - Use the `exit()` method provided by the BulletWorld class to close the simulation.
+
+### Key Concepts
+- **BulletWorld:** This is the internal simulation environment of PyCram where objects and robots are rendered and manipulated.
+- **Exit Method:** The `exit()` method is designed to terminate the BulletWorld and clean up resources.
+
+### Relevant Functions
+- `BulletWorld.exit()`: This function is called to close the BulletWorld and terminate any background threads.
+
+### Integration
+These steps integrate within the PyCram framework by ensuring that the simulation environment is properly managed, which is essential for any robotic simulation or task execution.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet
+Here is a simple code example demonstrating how to close the BulletWorld:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+
+# Initialize the BulletWorld
+world = BulletWorld()
+
+# Perform your tasks here...
+
+# Close the BulletWorld
+world.exit()
+```
+
+### Explanation
+- **Initialization:** The `BulletWorld` is created and assigned to the variable `world`.
+- **Task Execution:** Placeholder comments indicate where you would perform your tasks within the BulletWorld.
+- **Closing the World:** The `exit()` method is called on the `world` object to properly close the simulation.
+
+### Adaptability
+This code can be adapted to any scenario where the BulletWorld is used, ensuring that it is always closed after tasks are completed.
+
+## Framework Integration and Concepts
+
+### Broader Context
+Closing the BulletWorld is a fundamental part of managing resources in the PyCram framework. It ensures that the simulation environment does not remain active unnecessarily, which could lead to performance issues.
+
+### Essential Components
+- **BulletWorld Class:** Central to the simulation environment, managing all objects and interactions.
+- **Exit Method:** A critical function for resource management.
+
+### Conceptual Understanding
+Understanding how to manage the lifecycle of the BulletWorld is essential for effective use of the PyCram framework, especially in scenarios involving multiple simulations or iterative testing.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure that all tasks are completed before calling the `exit()` method.
+- Consider wrapping the BulletWorld initialization and exit in a try-finally block to ensure it closes even if an error occurs.
+
+### Potential Challenges
+- Forgetting to close the BulletWorld can lead to memory leaks or performance degradation.
+- Errors during simulation may prevent the exit method from being called.
+
+### Solutions
+- Implement error handling to ensure that the `exit()` method is always called, even in the event of an exception.
+
+By following these guidelines, you can effectively manage the BulletWorld in PyCram, ensuring that your simulations run smoothly and resources are properly managed.= Retrieve[How do I close the BulletWorld in PyCram?]
+--
+
+
+
+Code Solution:
+prefix="The task is to program the PR2 robot to pick up a spoon that is not on a table. The robot should identify spoons that are not attached to any surface, choose the closest one, navigate to it, and pick it up using a specific grasp type. The environment is set up in a simulated BulletWorld with the PR2 robot and three spoons, where Spoon1 is attached to a cabinet drawer, and Spoon2 and Spoon3 are freely accessible. The robot will use PyCram's designators and action capabilities to perform the task." imports='from pycram.worlds.bullet_world import BulletWorld\nfrom pycram.world_concepts.world_object import Object\nfrom pycram.datastructures.pose import Pose\nfrom pycram.designators.object_designator import BelieveObject\nfrom pycram.designators.location_designator import CostmapLocation\nfrom pycram.designators.action_designator import NavigateAction, PickUpAction\nfrom pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode\nfrom pycram.process_module import simulated_robot\nimport pycram.world_reasoning as wr\nimport numpy as np' code="world = BulletWorld(WorldMode.GUI)\n\n# Define the environment and objects\napartment = Object('apartment', ObjectType.ENVIRONMENT, 'apartment.urdf')\nrobot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf', pose=Pose([1, 2, 0]))\nspoon1 = Object('spoon1', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.4, 2.2, 0.85]))\nspoon2 = Object('spoon2', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.5, 2.3, 1.00]))\nspoon3 = Object('spoon3', ObjectType.SPOON, 'spoon.stl', pose=Pose([0.4, 3.1, 0.96]))\n\n# Attach spoon1 to the cabinet\napartment.attach(spoon1, 'cabinet10_drawer_top')\n\n# Create object designators\nrobot_desig = BelieveObject(names=['pr2']).resolve()\nspoon2_desig = BelieveObject(names=['spoon2'])\nspoon3_desig = BelieveObject(names=['spoon3'])\n\n# Check which spoons are not attached\nfree_spoons = []\nif not wr.contact(spoon2, apartment):\n    free_spoons.append(spoon2)\nif not wr.contact(spoon3, apartment):\n    free_spoons.append(spoon3)\n\n# Calculate distances to the free spoons\nrobot_position = robot.get_position()\nclosest_spoon = None\nmin_distance = float('inf')\nfor spoon in free_spoons:\n    spoon_position = spoon.get_position()\n    distance = np.linalg.norm(np.array(spoon_position) - np.array(robot_position))\n    if distance < min_distance:\n        min_distance = distance\n        closest_spoon = spoon\n\n# Create a designator for the closest spoon\nclosest_spoon_desig = BelieveObject(names=[closest_spoon.name])\n\nwith simulated_robot:\n    ParkArmsAction([Arms.BOTH]).resolve().perform()\n    MoveTorsoAction([0.25]).resolve().perform()\n\n    # Locate the closest spoon\n    location_desig = CostmapLocation(target=closest_spoon_desig.resolve(), reachable_for=robot_desig)\n\n    # Navigate to the closest spoon\n    navigate_action = NavigateAction(target_locations=[location_desig.resolve()])\n    navigate_action.resolve().perform()\n\n    # Pick up the closest spoon\n    pickup_action = PickUpAction(object_designator_description=closest_spoon_desig, arms=[Arms.BOTH], grasps=[Grasp.SIDE])\n    pickup_action.resolve().perform()\n\nworld.exit()" description='Schema for code solutions for robot tasks.'
+
+---
+Code Check Run 2:
+Plan: 
+Plan 1: Investigate the cause of the TypeError in the code. The error message indicates an issue with subtracting 'Point' objects, which suggests that the robot's and spoon's positions might be represented as 'Point' objects instead of numerical arrays. #E1 = Code[Object.get_position, A brief description of the function get_position in the Object class.]
+Plan 2: Research how to convert 'Point' objects to numerical arrays in PyCram, if necessary. This will enable us to perform the distance calculation correctly. #E2 = Retrieve[How to convert 'Point' objects to numerical arrays or lists in PyCram.]
+Plan 3: Verify the correct usage of the 'contact' function from pycram.world_reasoning. Ensure that it correctly determines whether a spoon is attached to the apartment object. #E3 = Retrieve[How to use the 'contact' function in pycram.world_reasoning to check for contact between objects.]
+Plan 4: Examine the URDF file of the apartment to understand how objects are attached and how to identify attachment points. This will help in verifying the 'contact' function's behavior and ensuring that spoons are correctly identified as attached or unattached. #E4 = URDF[apartment.urdf]
+Plan 5: Check the documentation of the CostmapLocation designator to ensure that it is being used correctly with the closest_spoon_desig and robot_desig. #E5 = Retrieve[How to use the CostmapLocation designator in PyCram, including its parameters and expected inputs.]
+Plan 6: Verify the usage of the NavigateAction and PickUpAction designators, ensuring that their parameters are correctly set and that they are compatible with the CostmapLocation and closest_spoon_desig. #E6 = Retrieve[How to use the NavigateAction and PickUpAction designators in PyCram, including their parameters and expected inputs.]
+Plan 7: Investigate the available grasp types in PyCram and determine the most suitable grasp type for picking up a spoon. This will ensure that the PickUpAction uses an appropriate grasp for the spoon object. #E7 = Retrieve[What are the available grasp types in PyCram and how to choose the appropriate grasp type for an object?]
+Plan 8: Analyze the spoon's geometry from its STL file to understand its shape and identify suitable grasping points. This will help in choosing the correct grasp type and potentially adjusting the grasping parameters in the PickUpAction. #E8 = URDF[spoon.stl] 
+Plan 9: Review the overall logic of the code to ensure that it correctly identifies unattached spoons, selects the closest one, navigates to it, and picks it up using the appropriate grasp type. This will help in catching any potential logical errors or inefficiencies in the code. #E9 = LLM[Review the provided PyCram code for logical correctness and efficiency in achieving the task of picking up the closest unattached spoon.]
+
+ Filled Plan:
+Plan: Investigate the cause of the TypeError in the code. The error message indicates an issue with subtracting 'Point' objects, which suggests that the robot's and spoon's positions might be represented as 'Point' objects instead of numerical arrays.
+# Comprehensive Guide to Using `Object.get_position` in the PyCram Framework
+
+## 1. Function Explanation and Contextualization
+
+### Detailed Description
+The `get_position` function in the `Object` class of the PyCram framework is designed to retrieve the current position of an object within the simulated environment. This function is crucial for tasks that require knowledge of an object's spatial location, such as navigation, manipulation, and interaction tasks involving robotic agents.
+
+### Syntax and Parameters
+The typical syntax for the `get_position` function is as follows:
+
+```python
+def get_position(self) -> Pose:
+```
+
+- **Return Value:** The function returns a `Pose` object, which encapsulates the position and orientation of the object in the 3D space.
+
+### Integration
+The `get_position` function integrates seamlessly into the PyCram framework, allowing robotic agents to make informed decisions based on the spatial relationships of objects in their environment. It is often used in conjunction with other functions that manipulate or interact with objects, such as movement commands or grasping actions.
+
+### Relationship with Other Components
+The `get_position` function interacts with various components of the PyCram framework, including:
+- **Pose Class:** The returned `Pose` object can be used in navigation and manipulation tasks.
+- **Object Designators:** It works alongside object designators that identify and describe objects in the environment, enabling the robot to locate and interact with them effectively.
+
+## 2. Code Examples and Implementation
+
+### Full Function Code
+Here is the complete code for the `get_position` function:
+
+```python
+class Object(PoseMixin, Base):
+    ...
+    def get_position(self) -> Pose:
+        return self.pose
+```
+
+### Demonstration Snippets
+To demonstrate the use of `get_position`, consider the following example where a robot retrieves the position of a spoon:
+
+```python
+# Assuming 'spoon' is an instance of the Object class
+spoon_position = spoon.get_position()
+print(f"Spoon Position: {spoon_position}")
+```
+
+### Step-by-Step Explanation
+1. **Object Instantiation:** An object (e.g., a spoon) is instantiated within the PyCram framework.
+2. **Position Retrieval:** The `get_position` method is called on the object instance.
+3. **Return Value:** The method returns the current `Pose` of the object, which includes its coordinates and orientation.
+
+### Adaptation
+To adapt this function for similar tasks, you can create a new object and call `get_position` to determine its location before performing actions like moving or grasping:
+
+```python
+# Example of adapting the function for a new object
+bowl_position = bowl.get_position()
+print(f"Bowl Position: {bowl_position}")
+```
+
+## 3. General Framework Functionality
+
+### Fundamental Concepts
+The PyCram framework is built around the concept of simulating robotic interactions in a 3D environment. Objects are represented as instances of the `Object` class, which encapsulates their properties and behaviors.
+
+### Key Principles
+- **Object-Oriented Design:** The framework employs an object-oriented approach, allowing for modular and reusable code.
+- **Pose Representation:** The `Pose` class is central to representing the spatial attributes of objects, facilitating navigation and manipulation.
+
+### Importance
+Understanding the `get_position` function is essential for effectively utilizing the PyCram framework, as it provides the foundational capability to interact with and manipulate objects based on their spatial locations.
+
+## 4. Best Practices and Recommendations
+
+### Effective Usage
+- Always ensure that the object is initialized and properly placed in the environment before calling `get_position`.
+- Use the retrieved position in conjunction with navigation functions to plan movements effectively.
+
+### Common Pitfalls
+- Attempting to call `get_position` on an uninitialized object may lead to errors. Always check the object's state before invoking the method.
+
+### Optimization Tips
+- Cache the position if it is used multiple times within a short period to reduce computational overhead.
+
+## 5. Planning and Implementation for Developers
+
+### Implementation Plan
+1. **Object Creation:** Create instances of the `Object` class for all relevant items in the environment.
+2. **Position Retrieval:** Use the `get_position` method to obtain the current location of each object as needed.
+
+### Integration Steps
+1. Import the necessary classes from the PyCram framework.
+2. Instantiate the objects you wish to manipulate.
+3. Call `get_position` to retrieve their locations.
+
+### Customization Guidance
+- You can extend the `Object` class to include additional properties or methods that suit your specific application needs, such as custom behaviors based on position.
+
+By following this guide, developers can effectively utilize the `get_position` function within the PyCram framework to enhance their robotic applications. = Code[Object.get_position, A brief description of the function get_position in the Object class.]Plan: Research how to convert 'Point' objects to numerical arrays in PyCram, if necessary. This will enable us to perform the distance calculation correctly.
+# Converting 'Point' Objects to Numerical Arrays or Lists in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task involves converting `Point` objects from the PyCram framework into numerical arrays or lists. This is essential for various operations, such as mathematical computations, data manipulation, or interfacing with other libraries that require numerical input.
+
+### Explain the Goal
+The objective is to facilitate the use of `Point` objects in numerical contexts by converting them into a format that is easily usable in Python, such as lists or arrays. This conversion is significant as it allows for seamless integration with numerical libraries like NumPy or for further processing in algorithms that require numerical data.
+
+### Prerequisites and Setup
+Before starting this task, ensure that:
+- You have a working knowledge of the PyCram framework.
+- The PyCram library is properly imported in your Python environment.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Import Required Modules**
+   - Import the necessary classes from the PyCram library.
+
+2. **Create or Obtain a Point Object**
+   - You can either create a new `Point` object or obtain one from an existing context within your PyCram application.
+
+3. **Convert the Point Object to a List**
+   - Use the `get_point_as_list` function to convert the `Point` object into a numerical list.
+
+### Key Concepts
+- **Point Object**: Represents a point in 3D space with x, y, and z coordinates.
+- **Numerical Array/List**: A standard Python list or array that can be used for mathematical operations.
+
+### Relevant Functions
+- `get_point_as_list(point: pycram.datastructures.pose.Point)`: This function takes a `Point` object as input and returns its coordinates as a list.
+
+### Integration
+These steps integrate within the PyCram framework by allowing users to manipulate spatial data effectively, enabling further computations or visualizations.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippet
+
+```python
+from pycram.datastructures.pose import Point
+from pycram.datastructures.dataclasses import get_point_as_list
+
+# Step 1: Create a Point object
+point = Point([1.0, 2.0, 3.0])  # Example coordinates
+
+# Step 2: Convert the Point object to a list
+point_list = get_point_as_list(point)
+
+# Step 3: Output the result
+print("Point as list:", point_list)
+```
+
+### Explanation
+- **Step 1**: A `Point` object is created with specified coordinates.
+- **Step 2**: The `get_point_as_list` function is called with the `Point` object, converting it to a list of numerical values.
+- **Step 3**: The resulting list is printed, showing the coordinates in a numerical format.
+
+### Adaptability
+This code can be easily adapted to convert multiple `Point` objects by iterating through a collection of points and applying the conversion function.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+This task fits into the larger PyCram framework by enhancing the usability of spatial data. Converting `Point` objects to numerical lists allows for easier integration with other libraries and frameworks that require numerical input.
+
+### Essential Components
+- **Point Class**: Fundamental for representing spatial coordinates.
+- **get_point_as_list Function**: Key utility for converting `Point` objects to a usable format.
+
+### Conceptual Understanding
+Understanding how to manipulate `Point` objects and convert them into numerical formats is crucial for tasks involving spatial reasoning, robotics, and simulations within the PyCram framework.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always check the validity of the `Point` object before conversion to avoid errors.
+- Use list comprehensions for batch conversions if dealing with multiple points.
+
+### Potential Challenges
+- Ensure that the `Point` object is properly initialized; otherwise, the conversion may fail.
+- Be aware of the dimensionality of the data; `Point` objects should always represent 3D coordinates.
+
+### Solutions
+- Implement error handling to manage cases where the `Point` object may not be valid.
+- Validate the output to ensure it meets the expected format for subsequent operations.
+
+By following this guide, you can effectively convert `Point` objects to numerical arrays or lists in PyCram, facilitating further data manipulation and integration within your projects. = Retrieve[How to convert 'Point' objects to numerical arrays or lists in PyCram.]Plan: Verify the correct usage of the 'contact' function from pycram.world_reasoning. Ensure that it correctly determines whether a spoon is attached to the apartment object.
+# Using the 'contact' Function in PyCram for Object Interaction
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task is to utilize the `contact` function from the `pycram.world_reasoning` module to determine if two objects in the PyCram environment are in contact with each other. This is essential for understanding interactions between objects, which is crucial for robotic manipulation tasks.
+
+### Explain the Goal
+The objective is to check the contact status between two specified objects, which can help in scenarios such as grasping, placing, or avoiding collisions. This functionality is significant in robotic applications where the physical interaction between objects must be monitored.
+
+### Prerequisites and Setup
+Before using the `contact` function, ensure that:
+- The PyCram framework is properly set up and running.
+- The objects you want to check for contact are instantiated and positioned within the BulletWorld.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Import Required Modules**
+   - Import the necessary PyCram modules to access the `contact` function and create objects.
+
+2. **Create Objects**
+   - Instantiate the objects you want to check for contact. Ensure they are positioned appropriately in the BulletWorld.
+
+3. **Check for Contact**
+   - Use the `contact` function to determine if the two objects are in contact.
+
+### Key Concepts
+- **Contact Detection:** The `contact` function checks if two objects are touching each other, which is vital for tasks like picking up or placing objects.
+- **Object Instances:** Each object in PyCram is an instance of the `Object` class, which contains properties like position and type.
+
+### Relevant Functions
+- `contact(object1, object2)`: Checks if `object1` and `object2` are in contact.
+
+### Integration
+These steps integrate within the PyCram framework by leveraging the physics simulation capabilities of BulletWorld to assess object interactions.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippet
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+import pycram.world_reasoning as wr
+
+# Step 1: Create a BulletWorld instance
+world = BulletWorld()
+
+# Step 2: Create objects
+spoon1 = Object("spoon1", ObjectType.SPOON, "spoon.stl", pose=Pose([2.4, 2.2, 0.85]))
+spoon2 = Object("spoon2", ObjectType.SPOON, "spoon.stl", pose=Pose([2.5, 2.3, 1.00]))
+
+# Step 3: Check for contact
+is_contact = wr.contact(spoon1, spoon2)
+
+# Output the result
+print(f"Spoon1 and Spoon2 are in contact: {is_contact}")
+```
+
+### Explanation
+- **BulletWorld Creation:** Initializes the simulation environment.
+- **Object Creation:** Two spoon objects are created with specified positions.
+- **Contact Check:** The `contact` function checks if the two spoons are touching and returns a boolean value.
+
+### Adaptability
+This code can be adapted to check contact between any two objects by changing the object instances and their positions.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+The `contact` function is part of the world reasoning capabilities in PyCram, which allows for geometric reasoning about object interactions in a simulated environment.
+
+### Essential Components
+- **BulletWorld:** The simulation environment where objects are instantiated and manipulated.
+- **Object Class:** Represents the physical entities in the simulation.
+
+### Conceptual Understanding
+Understanding how to check for contact between objects enhances the ability to program robots for complex tasks involving physical interactions.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Ensure that the objects are correctly positioned before checking for contact to avoid false negatives.
+- Use the `contact` function in conjunction with other reasoning functions (like `reachable` or `blocking`) for comprehensive interaction assessments.
+
+### Potential Challenges
+- Objects may not be in contact due to slight positioning errors. Always verify object positions before contact checks.
+- The simulation may not reflect real-world physics perfectly; consider this when interpreting results.
+
+### Solutions
+- Adjust object positions slightly if contact detection fails unexpectedly.
+- Use visual debugging tools in PyCram to confirm object placements.
+
+By following this guide, you can effectively utilize the `contact` function in PyCram to assess interactions between objects, enhancing your robotic manipulation capabilities. = Retrieve[How to use the 'contact' function in pycram.world_reasoning to check for contact between objects.]Plan: Examine the URDF file of the apartment to understand how objects are attached and how to identify attachment points. This will help in verifying the 'contact' function's behavior and ensuring that spoons are correctly identified as attached or unattached.
+### Summary of the URDF File
+
+The provided URDF file describes a kitchen environment, specifically an apartment with various furniture and appliances. Key components include cabinets, a sink, a cooktop, and a table area. The environment is structured with fixed joints connecting different elements, allowing for a realistic representation of the kitchen layout.
+
+### Important Data from the URDF File
+
+1. **Robot and Environment:**
+   - **Robot Name:** apartment
+   - **Materials:** Various materials defined for surfaces (sink, cabinet, cooktop, etc.)
+   - **Links:** 
+     - `apartment_root`
+     - `furnitures_root`
+     - `walls`
+     - `windows`
+     - `kitchen_root`
+     - `table_area_main`
+
+2. **Furniture and Appliances:**
+   - **Cabinets:** Multiple cabinets (cabinet1 to cabinet11) with doors and drawers.
+   - **Sink:** Positioned on the island countertop.
+   - **Cooktop:** Located on the island countertop.
+   - **Table Area:** A main table area with collision and visual properties.
+
+3. **Joints:**
+   - **Fixed Joints:** Connecting various furniture elements (e.g., cabinets, countertops).
+   - **Revolute Joints:** For doors and handles allowing rotation.
+   - **Prismatic Joints:** For drawers allowing sliding motion.
+
+4. **Positions:**
+   - **Cabinet10:** Contains Spoon1, which is attached to `cabinet10_drawer_top`.
+   - **Spoon2:** Located at **[2.5, 2.3, 1.00]** (not on a table).
+   - **Spoon3:** Located at **[0.4, 3.1, 0.96]** (not on a table).
+
+### World Model
+
+In this kitchen environment, the PR2 robot is positioned at coordinates **[1, 2, 0]**. The robot's task is to pick up a spoon that is not already on a table. There are three spoons in the environment:
+
+- **Spoon1** is located at **[2.4, 2.2, 0.85]** and is attached to the top drawer of **Cabinet10**.
+- **Spoon2** is located at **[2.5, 2.3, 1.00]** and is not on a table.
+- **Spoon3** is located at **[0.4, 3.1, 0.96]** and is also not on a table.
+
+The robot can choose either Spoon2 or Spoon3 to pick up, with Spoon2 being the closest option. The robot will navigate to Spoon2's location, extend its arm, and grasp the spoon, completing the task. The environment is designed to facilitate such interactions, with various cabinets and surfaces that define the spatial relationships between objects. 
+
+This model provides a clear understanding of the environment and the robot's capabilities, allowing for effective task execution based on the given instruction. = URDF[apartment.urdf]Plan: Check the documentation of the CostmapLocation designator to ensure that it is being used correctly with the closest_spoon_desig and robot_desig.
+# Using the CostmapLocation Designator in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task is to utilize the `CostmapLocation` designator in the PyCram framework to identify valid locations for a robot to navigate to, based on specific constraints such as reachability or visibility of a target object.
+
+### Explain the Goal
+The objective is to find a location where the robot can be placed or moved to, ensuring that it can reach or see a specified target object without colliding with obstacles in the environment. This is crucial for enabling robots to perform tasks effectively in dynamic environments.
+
+### Prerequisites and Setup
+Before using the `CostmapLocation` designator, ensure that:
+- The PyCram framework is properly set up and running.
+- The robot and the environment (e.g., a kitchen or apartment) are instantiated in the simulation world.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Instantiate the World and Objects**
+   - Create a `BulletWorld` instance and add the robot and target objects to the world.
+
+   ```python
+   from pycram.worlds.bullet_world import BulletWorld
+   from pycram.world_concepts.world_object import Object
+   from pycram.datastructures.pose import Pose
+
+   world = BulletWorld()
+   pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+   target_object = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([2.5, 2, 1.02]))
+   ```
+
+2. **Set Up the CostmapLocation Designator**
+   - Create a `CostmapLocation` designator description that specifies the target object and the robot that should be able to reach it.
+
+   ```python
+   from pycram.designators.location_designator import CostmapLocation
+   from pycram.designators.object_designator import BelieveObject
+
+   target = BelieveObject(names=["milk"]).resolve()
+   robot_desig = BelieveObject(names=["pr2"]).resolve()
+
+   location_description = CostmapLocation(target=target, reachable_for=robot_desig)
+   ```
+
+3. **Resolve the Location**
+   - Call the `resolve()` method on the `CostmapLocation` designator to get a valid pose where the robot can be placed.
+
+   ```python
+   valid_pose = location_description.resolve()
+   print(valid_pose.pose)
+   ```
+
+### Key Concepts
+- **CostmapLocation**: A designator that generates locations based on costmaps, which represent valid positions in the environment.
+- **Reachable_for Parameter**: Specifies which robot can reach the target location, ensuring that the returned pose is accessible by the specified robot.
+
+### Relevant Functions
+- **resolve()**: This method resolves the designator to a specific pose based on the constraints defined in the designator description.
+
+### Integration
+The `CostmapLocation` designator integrates with the PyCram framework by leveraging the underlying costmap algorithms to ensure that the robot can navigate safely and effectively within its environment.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippets
+
+#### Example 1: Finding a Reachable Location
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.pose import Pose
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+# Initialize the world and objects
+world = BulletWorld()
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([2.5, 2, 1.02]))
+
+# Create the location designator
+target = BelieveObject(names=["milk"]).resolve()
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+location_description = CostmapLocation(target=target, reachable_for=robot_desig)
+
+# Resolve to find a valid pose
+valid_pose = location_description.resolve()
+print(f"Valid pose for PR2 to reach milk: {valid_pose.pose}")
+```
+
+### Explanation
+- The code initializes the simulation world and adds the robot and target object.
+- It creates a `CostmapLocation` designator that specifies the target object (milk) and the robot (PR2).
+- The `resolve()` method is called to find a valid pose for the robot to reach the target.
+
+### Adaptability
+This code can be adapted to find locations for different robots or target objects by changing the parameters in the `BelieveObject` calls.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+The `CostmapLocation` designator is part of the PyCram framework's designator system, which allows for high-level task planning and execution in robotic applications. It enables robots to make informed decisions about navigation and interaction with objects in their environment.
+
+### Essential Components
+- **Costmaps**: Used to represent valid positions in the environment, taking into account obstacles and reachability.
+- **Designators**: Provide a way to abstract and manage actions, objects, and locations within the PyCram framework.
+
+### Conceptual Understanding
+Understanding how `CostmapLocation` works within the PyCram framework is essential for developing complex robotic behaviors that require navigation and interaction with various objects.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure that the robot's joint states are set appropriately before resolving locations to avoid unreachable poses.
+- Test the resolved poses in the simulation to verify that the robot can navigate to them without collisions.
+
+### Potential Challenges
+- The robot may not find a valid pose if the target object is obstructed or if the environment is too cluttered.
+- Ensure that the costmap is updated regularly to reflect changes in the environment.
+
+### Solutions
+- Use multiple iterations of the `resolve()` method to find alternative poses if the first attempt fails.
+- Implement error handling to manage cases where no valid poses are found.
+
+By following this guide, you can effectively utilize the `CostmapLocation` designator in PyCram to enhance your robotic applications. = Retrieve[How to use the CostmapLocation designator in PyCram, including its parameters and expected inputs.]Plan: Verify the usage of the NavigateAction and PickUpAction designators, ensuring that their parameters are correctly set and that they are compatible with the CostmapLocation and closest_spoon_desig.
+# Using NavigateAction and PickUpAction Designators in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task involves using the `NavigateAction` and `PickUpAction` designators in the PyCram framework to enable a robot to navigate to a specific location and pick up an object. This is a fundamental operation in robotic manipulation and navigation.
+
+### Explain the Goal
+The objective is to programmatically direct a robot to a target location and have it grasp an object, which is essential for tasks such as picking up items in a kitchen or performing assembly tasks. This workflow demonstrates the integration of navigation and manipulation capabilities within the PyCram framework.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- A robot (e.g., PR2) and the target object (e.g., a spoon) are defined in the simulation environment.
+- The robot's initial position and the object's position are known.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Define the Target Location:**
+   - Create a `Pose` object representing the target location where the robot should navigate.
+
+2. **Create the NavigateAction Designator:**
+   - Use the `NavigateAction` designator to specify the target location for the robot to move to.
+
+3. **Perform Navigation:**
+   - Execute the navigation action to move the robot to the specified location.
+
+4. **Define the Object to Pick Up:**
+   - Create an object designator for the item you want the robot to pick up.
+
+5. **Create the PickUpAction Designator:**
+   - Use the `PickUpAction` designator to specify the object and the arm to use for picking it up.
+
+6. **Perform the Pick Up Action:**
+   - Execute the pick-up action to grasp the object.
+
+### Key Concepts
+- **Pose:** Represents a position and orientation in 3D space.
+- **Action Designators:** High-level descriptions of actions that the robot can perform, such as navigating or picking up objects.
+
+### Relevant Functions
+- `NavigateAction(target_locations)`: Creates a designator for navigating to specified locations.
+- `PickUpAction(object_designator_description, arms)`: Creates a designator for picking up an object with specified arms.
+
+### Integration
+These steps integrate seamlessly within the PyCram framework, allowing for complex robotic behaviors to be scripted in a straightforward manner.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet for Navigation and Picking Up an Object
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.designators.action_designator import NavigateAction, PickUpAction
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+from pycram.designators.object_designator import BelieveObject
+from pycram.process_module import simulated_robot
+
+# Initialize the BulletWorld
+world = BulletWorld()
+
+# Define the target pose for navigation
+target_pose = Pose([2.5, 2.3, 0], [0, 0, 0, 1])  # Example coordinates
+
+# Create the NavigateAction designator
+navigate_action = NavigateAction(target_locations=[target_pose]).resolve()
+
+# Define the object to pick up
+spoon_designator = BelieveObject(names=["spoon2"]).resolve()  # Assuming spoon2 is the target
+
+# Create the PickUpAction designator
+pickup_action = PickUpAction(object_designator_description=spoon_designator, arms=[Arms.RIGHT]).resolve()
+
+# Execute the actions in a simulated robot environment
+with simulated_robot:
+    navigate_action.perform()  # Move to the target location
+    pickup_action.perform()     # Pick up the object
+```
+
+### Explanation
+- **Initialization:** The `BulletWorld` is initialized to create a simulation environment.
+- **Target Pose:** A `Pose` object is created to define where the robot should navigate.
+- **NavigateAction:** The `NavigateAction` designator is created with the target pose and resolved to a performable action.
+- **Object Designator:** The `BelieveObject` designator is used to identify the object to be picked up.
+- **PickUpAction:** The `PickUpAction` designator is created and resolved to specify which arm to use.
+- **Execution:** The actions are performed within a `simulated_robot` context to execute the navigation and pick-up actions.
+
+## Framework Integration and Concepts
+
+### Broader Context
+This task exemplifies how PyCram allows for high-level robotic programming by combining navigation and manipulation actions. It showcases the modular design of PyCram, where actions can be composed and executed in a straightforward manner.
+
+### Essential Components
+- **Action Designators:** These are crucial for defining complex behaviors in robots.
+- **Object Designators:** They allow the robot to identify and interact with objects in the environment.
+
+### Conceptual Understanding
+Understanding how to use action designators like `NavigateAction` and `PickUpAction` is fundamental for developing more complex robotic behaviors, such as multi-step tasks involving navigation, manipulation, and interaction with the environment.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always verify the positions of the robot and objects before executing actions to avoid collisions.
+- Use logging or print statements to debug and track the robot's actions during development.
+
+### Potential Challenges
+- Objects may not be reachable due to obstacles; ensure the navigation path is clear.
+- The robot's gripper may not be properly configured for certain objects; check the gripper state before picking up.
+
+### Solutions
+- Utilize costmaps to assess the environment and plan paths that avoid obstacles.
+- Test the gripper's functionality with different objects to ensure compatibility.
+
+By following this guide, you can effectively implement navigation and pick-up actions using the PyCram framework, enabling your robot to perform basic manipulation tasks. = Retrieve[How to use the NavigateAction and PickUpAction designators in PyCram, including their parameters and expected inputs.]Plan: Investigate the available grasp types in PyCram and determine the most suitable grasp type for picking up a spoon. This will ensure that the PickUpAction uses an appropriate grasp for the spoon object.
+# Choosing the Appropriate Grasp Type in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task involves selecting the appropriate grasp type for an object within the PyCram framework. Grasp types are essential for ensuring that the robot can effectively and securely hold various objects, which is crucial for successful manipulation tasks.
+
+### Explain the Goal
+The objective is to identify and implement the correct grasp type for a specific object (in this case, a spoon) to facilitate its pickup by the robot. This is significant as it directly impacts the robot's ability to perform tasks accurately and safely.
+
+### Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The robot and objects are defined in the environment, including their poses and types.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Identify the Object Type**
+   - Determine the type of object you are working with. In this case, we are dealing with a spoon.
+
+2. **Select Grasp Types**
+   - PyCram provides several grasp types defined in the `Grasp` enum. The available grasp types include:
+     - `FRONT`: Grasping from the front.
+     - `LEFT`: Grasping from the left side.
+     - `RIGHT`: Grasping from the right side.
+     - `TOP`: Grasping from the top.
+
+3. **Evaluate Object Characteristics**
+   - Consider the object's shape, size, and orientation. For a spoon, a top or front grasp might be more suitable due to its elongated shape.
+
+4. **Choose the Grasp Type**
+   - Based on the evaluation, select the grasp type that best fits the object's characteristics. For a spoon, `TOP` or `FRONT` would typically be appropriate.
+
+5. **Implement the Grasp in Code**
+   - Use the selected grasp type in the robot's grasping action.
+
+### Key Concepts
+- **Grasp Types**: Different grasp types are suited for different objects based on their geometry and intended manipulation.
+- **Object Designator**: This is used to specify which object the robot will interact with.
+
+### Relevant Functions
+- **GripAction**: This action is used to grip an object with the robot, utilizing the selected grasp type.
+
+### Integration
+These steps integrate into the PyCram framework by allowing the robot to perform actions based on the selected grasp type, ensuring effective manipulation of objects.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet
+Here’s how to implement the grasping action for a spoon using the selected grasp type:
+
+```python
+from pycram.datastructures.enums import Grasp, Arms
+from pycram.designators.action_designator import GripAction
+from pycram.designators.object_designator import ObjectDesignatorDescription
+
+# Define the object designator for the spoon
+spoon_designator = ObjectDesignatorDescription('spoon2')
+
+# Choose the grasp type
+grasp_type = Grasp.TOP  # or Grasp.FRONT based on evaluation
+
+# Create the grip action
+grip_action = GripAction(
+    grippers=[Arms.RIGHT],  # Assuming we are using the right arm
+    object_designator=spoon_designator,
+    efforts=[0.5],  # Example effort value
+)
+
+# Perform the grip action
+grip_action.ground().perform()
+```
+
+### Explanation
+- **ObjectDesignatorDescription**: This specifies which object (spoon) the robot will interact with.
+- **GripAction**: This action is created with the selected grasp type and the designated object.
+- **perform()**: This method executes the grip action, allowing the robot to grasp the spoon.
+
+### Adaptability
+The code can be easily adapted for other objects by changing the `ObjectDesignatorDescription` and the `grasp_type` based on the object's characteristics.
+
+## Framework Integration and Concepts
+
+### Broader Context
+Choosing the appropriate grasp type is a fundamental aspect of robotic manipulation within the PyCram framework. It ensures that the robot can effectively interact with various objects in its environment.
+
+### Essential Components
+- **Grasp Enum**: Defines the available grasp types.
+- **GripAction**: Facilitates the action of gripping an object.
+
+### Conceptual Understanding
+Understanding how to select and implement grasp types enhances the robot's manipulation capabilities, making it more versatile in performing tasks.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always evaluate the object's characteristics before selecting a grasp type.
+- Test different grasp types to determine which works best for specific objects.
+
+### Potential Challenges
+- Selecting an inappropriate grasp type may lead to failed grasp attempts or dropped objects.
+
+### Solutions
+- If a grasp fails, analyze the object's characteristics and adjust the grasp type accordingly. Testing different configurations can help identify the most effective approach.
+
+By following this guide, you can effectively choose and implement the appropriate grasp type for objects in the PyCram framework, enhancing the robot's manipulation capabilities. = Retrieve[What are the available grasp types in PyCram and how to choose the appropriate grasp type for an object?]Plan: Analyze the spoon's geometry from its STL file to understand its shape and identify suitable grasping points. This will help in choosing the correct grasp type and potentially adjusting the grasping parameters in the PickUpAction.
+The URDF spoon.stl is not in the database. = URDF[spoon.stl]Plan: Review the overall logic of the code to ensure that it correctly identifies unattached spoons, selects the closest one, navigates to it, and picks it up using the appropriate grasp type. This will help in catching any potential logical errors or inefficiencies in the code.
+content="To review the provided PyCram code for logical correctness and efficiency, I'll need to see the actual code. Please provide the code snippet you would like me to review, and I'll be happy to help you assess its logic and efficiency." additional_kwargs={'refusal': None} response_metadata={'token_usage': {'completion_tokens': 47, 'prompt_tokens': 32, 'total_tokens': 79, 'prompt_tokens_details': {'cached_tokens': 0}, 'completion_tokens_details': {'reasoning_tokens': 0}}, 'model_name': 'gpt-4o-2024-08-06', 'system_fingerprint': 'fp_e5e4913e83', 'finish_reason': 'stop', 'logprobs': None} id='run-6b180089-c4eb-4c0f-a04e-26afb1b7e8b8-0' usage_metadata={'input_tokens': 32, 'output_tokens': 47, 'total_tokens': 79} = LLM[Review the provided PyCram code for logical correctness and efficiency in achieving the task of picking up the closest unattached spoon.]
+
+Code Solution:
+prefix="The task is to program the PR2 robot to pick up a spoon that is not on a table. The robot should identify spoons that are not attached to any surface, choose the closest one, navigate to it, and pick it up using a specific grasp type. The environment is set up in a simulated BulletWorld with the PR2 robot and three spoons, where Spoon1 is attached to a cabinet drawer, and Spoon2 and Spoon3 are freely accessible. The robot will use PyCram's designators and action capabilities to perform the task." imports='from pycram.worlds.bullet_world import BulletWorld\nfrom pycram.world_concepts.world_object import Object\nfrom pycram.datastructures.pose import Pose\nfrom pycram.designators.object_designator import BelieveObject\nfrom pycram.designators.location_designator import CostmapLocation\nfrom pycram.designators.action_designator import NavigateAction, PickUpAction\nfrom pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode\nfrom pycram.process_module import simulated_robot\nimport pycram.world_reasoning as wr\nimport numpy as np' code="world = BulletWorld(WorldMode.GUI)\n\n# Define the environment and objects\napartment = Object('apartment', ObjectType.ENVIRONMENT, 'apartment.urdf')\nrobot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf', pose=Pose([1, 2, 0]))\nspoon1 = Object('spoon1', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.4, 2.2, 0.85]))\nspoon2 = Object('spoon2', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.5, 2.3, 1.00]))\nspoon3 = Object('spoon3', ObjectType.SPOON, 'spoon.stl', pose=Pose([0.4, 3.1, 0.96]))\n\n# Attach spoon1 to the cabinet\napartment.attach(spoon1, 'cabinet10_drawer_top')\n\n# Create object designators\nrobot_desig = BelieveObject(names=['pr2']).resolve()\nspoon2_desig = BelieveObject(names=['spoon2'])\nspoon3_desig = BelieveObject(names=['spoon3'])\n\n# Check which spoons are not attached\nfree_spoons = []\nif not wr.contact(spoon2, apartment):\n    free_spoons.append(spoon2)\nif not wr.contact(spoon3, apartment):\n    free_spoons.append(spoon3)\n\n# Calculate distances to the free spoons\nrobot_position = np.array(robot.get_position().position)\nclosest_spoon = None\nmin_distance = float('inf')\nfor spoon in free_spoons:\n    spoon_position = np.array(spoon.get_position().position)\n    distance = np.linalg.norm(spoon_position - robot_position)\n    if distance < min_distance:\n        min_distance = distance\n        closest_spoon = spoon\n\n# Create a designator for the closest spoon\nclosest_spoon_desig = BelieveObject(names=[closest_spoon.name])\n\nwith simulated_robot:\n    ParkArmsAction([Arms.BOTH]).resolve().perform()\n    MoveTorsoAction([0.25]).resolve().perform()\n\n    # Locate the closest spoon\n    location_desig = CostmapLocation(target=closest_spoon_desig.resolve(), reachable_for=robot_desig)\n\n    # Navigate to the closest spoon\n    navigate_action = NavigateAction(target_locations=[location_desig.resolve()])\n    navigate_action.resolve().perform()\n\n    # Pick up the closest spoon\n    pickup_action = PickUpAction(object_designator_description=closest_spoon_desig, arms=[Arms.RIGHT], grasps=[Grasp.TOP])\n    pickup_action.resolve().perform()\n\nworld.exit()" description='Schema for code solutions for robot tasks.'
+
+---
+Code Check Run 3:
+Plan: 
+Plan 1: Investigate the 'get_position()' method of the Object class in PyCram to understand what type of object it returns and what attributes it has. This is crucial because the error indicates that a 'Point' object, likely returned by 'get_position()', does not have a 'position' attribute. #E1 = Code[Object.get_position, Returns the position of the object in the world.]
+Plan 2: Research how to access the position coordinates (x, y, z) of an object in PyCram, specifically when dealing with the object returned by the 'get_position()' method. This will help us correctly extract the position information needed for distance calculations. #E2 = Retrieve[How to access the x, y, z coordinates of an object's position in PyCram.]
+Plan 3: Verify the intended behavior of the 'contact' function from 'pycram.world_reasoning'. We need to ensure that it correctly identifies whether an object like 'spoon2' is in contact with the 'apartment' environment as expected. #E3 = Retrieve[How does the 'contact' function in pycram.world_reasoning work? How does it determine if two objects are in contact?]
+Plan 4: Analyze the logic for selecting the closest spoon. Ensure that the loop correctly iterates through the 'free_spoons' list, calculates distances using the appropriate position coordinates, and updates 'closest_spoon' and 'min_distance' as intended. #E4 = LLM[Review the following Python code snippet for calculating the closest object and identify any potential logical errors or inefficiencies:\n\n```python\nclosest_spoon = None\nmin_distance = float('inf')\nfor spoon in free_spoons:\n    spoon_position = np.array(spoon.get_position().position)\n    distance = np.linalg.norm(spoon_position - robot_position)\n    if distance < min_distance:\n        min_distance = distance\n        closest_spoon = spoon\n```]
+Plan 5: Examine the usage of 'BelieveObject' designators, particularly when they are resolved with '.resolve()'. Ensure that 'closest_spoon_desig.resolve()' correctly resolves to the intended spoon object based on its name. #E5 = Retrieve[How does the 'BelieveObject' designator work in PyCram, and what is the purpose of the 'resolve()' method?]
+Plan 6: Investigate the 'CostmapLocation' designator and its parameters, specifically how 'target' and 'reachable_for' are used. Ensure that the 'location_desig' is correctly created and resolved to a valid location near the 'closest_spoon'. #E6 = Retrieve[Explain the 'CostmapLocation' designator in PyCram. How are the 'target' and 'reachable_for' parameters used?]
+Plan 7: Analyze the 'NavigateAction' and ensure that it receives a valid target location from 'location_desig.resolve()'. Verify that the robot's navigation capabilities are correctly utilized to reach the desired location near the spoon. #E7 = Retrieve[How does the 'NavigateAction' work in PyCram? What type of input does it expect for the 'target_locations' parameter?]
+Plan 8: Review the 'PickUpAction' and its parameters, focusing on 'object_designator_description', 'arms', and 'grasps'. Ensure that the action is correctly set up to pick up the 'closest_spoon' using the specified arm (Arms.RIGHT) and grasp type (Grasp.TOP). #E8 = Retrieve[Explain the 'PickUpAction' in PyCram. How are the 'object_designator_description', 'arms', and 'grasps' parameters used?]
+Plan 9: Verify that the 'ParkArmsAction' and 'MoveTorsoAction' at the beginning of the 'with simulated_robot' block are correctly used and do not interfere with subsequent actions. #E9 = Retrieve[Explain the purpose and usage of 'ParkArmsAction' and 'MoveTorsoAction' in PyCram.]
+
+ Filled Plan:
+Plan: Investigate the 'get_position()' method of the Object class in PyCram to understand what type of object it returns and what attributes it has. This is crucial because the error indicates that a 'Point' object, likely returned by 'get_position()', does not have a 'position' attribute.
+# Comprehensive Guide to Using `Object.get_position` in the PyCram Framework
+
+## 1. Function Explanation and Contextualization
+
+### Detailed Description
+The `get_position` function is a method of the `Object` class in the PyCram framework. Its primary purpose is to retrieve the current position of an object within the simulated world. This function is crucial for tasks that require knowledge of an object's spatial location, such as navigation, manipulation, and interaction with other objects.
+
+### Syntax and Parameters
+```python
+def get_position(self) -> Point:
+```
+- **Return Value:** The function returns a `Point` object representing the current position of the object in the world.
+
+### Integration
+The `get_position` function integrates seamlessly into the PyCram framework, which is designed for robotic simulation and manipulation tasks. It allows users to access the spatial data of objects, which is essential for reasoning about their interactions and movements within the environment.
+
+### Relationship with Other Components
+- **`Object` Class:** The `get_position` function is part of the `Object` class, which represents entities in the simulation.
+- **`Pose` Class:** The position is part of the `Pose` class, which includes both position and orientation data.
+- **Other Methods:** This function can be used in conjunction with methods like `set_pose`, `get_link_pose`, and collision detection functions to facilitate complex robotic tasks.
+
+## 2. Code Examples and Implementation
+
+### Full Function Code
+```python
+def get_position(self) -> Point:
+    """
+    Returns the position of this Object as a list of xyz.
+
+    :return: The current position of this object
+    """
+    return self.get_pose().position
+```
+
+### Demonstration Snippets
+Here’s how you might use the `get_position` function in a practical scenario:
+```python
+# Assuming 'spoon2' is an instance of Object
+spoon2_position = spoon2.get_position()
+print(f"Spoon2 is located at: {spoon2_position}")
+```
+
+### Step-by-Step Explanation
+1. **Method Call:** When `get_position` is called on an object instance (e.g., `spoon2`), it invokes the method.
+2. **Pose Retrieval:** The method calls `get_pose()`, which retrieves the complete pose of the object, including both position and orientation.
+3. **Position Extraction:** The method accesses the `position` attribute of the `Pose` object, which is a `Point` representing the object's coordinates in the world.
+4. **Return Value:** The function returns the `Point` object containing the x, y, and z coordinates.
+
+### Adaptation
+To adapt this function for similar tasks, you can create a new method that combines position retrieval with additional logic, such as checking if the object is within a certain range of another object.
+
+## 3. General Framework Functionality
+
+### Fundamental Concepts
+The PyCram framework is built around the concept of simulating robotic interactions in a virtual environment. Objects are represented as instances of the `Object` class, which encapsulates their properties and behaviors.
+
+### Key Principles
+- **Object-Oriented Design:** The framework uses object-oriented principles, allowing for modular and reusable code.
+- **Simulation Environment:** The framework provides a simulated environment where physical interactions can be modeled and tested.
+
+### Importance
+Understanding how to retrieve and manipulate object positions is fundamental for developing effective robotic applications, as it directly impacts navigation, manipulation, and interaction capabilities.
+
+## 4. Best Practices and Recommendations
+
+### Effective Usage
+- Always ensure that the object has been initialized and is part of the current world before calling `get_position`.
+- Use the position data in conjunction with other methods to perform complex tasks, such as collision avoidance or path planning.
+
+### Common Pitfalls
+- Attempting to call `get_position` on an object that has not been added to the world may result in errors or unexpected behavior.
+- Not accounting for the object's orientation when using its position for navigation tasks can lead to inaccuracies.
+
+### Optimization Tips
+- Cache the position data if it is needed multiple times within a short period to reduce computational overhead.
+- Use the position data in conjunction with other spatial reasoning functions to enhance decision-making processes.
+
+## 5. Planning and Implementation for Developers
+
+### Implementation Plan
+1. **Initialize Object:** Ensure that the object is properly instantiated and added to the world.
+2. **Call `get_position`:** Use the `get_position` method to retrieve the object's current position.
+3. **Utilize Position Data:** Implement logic that uses the position data for navigation, manipulation, or interaction tasks.
+
+### Integration Steps
+1. Import the necessary classes from the PyCram framework.
+2. Create instances of the `Object` class and add them to the world.
+3. Call the `get_position` method as needed in your application logic.
+
+### Customization Guidance
+- Modify the `get_position` method to include additional functionality, such as logging or event triggering when the position is accessed.
+- Create wrapper functions that combine position retrieval with other actions, such as moving the robot towards the object.
+
+By following this guide, developers can effectively utilize the `get_position` function within the PyCram framework to enhance their robotic applications. = Code[Object.get_position, Returns the position of the object in the world.]Plan: Research how to access the position coordinates (x, y, z) of an object in PyCram, specifically when dealing with the object returned by the 'get_position()' method. This will help us correctly extract the position information needed for distance calculations.
+# Accessing Object Position Coordinates in PyCram
+
+## 1. Task Overview and Objectives
+
+### Define the Task
+The task is to access the x, y, and z coordinates of an object's position within the PyCram framework. This is essential for understanding the spatial arrangement of objects in the simulation environment.
+
+### Explain the Goal
+The objective is to retrieve the position of an object, which can be crucial for tasks such as navigation, manipulation, and interaction with other objects. Knowing the position allows for effective planning and execution of robotic actions.
+
+### Prerequisites and Setup
+Before starting this task, ensure that:
+- The PyCram framework is properly set up and running.
+- The BulletWorld is initialized, and the relevant objects are spawned within it.
+
+## 2. Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Import Necessary Modules**
+   - Import the required classes from the PyCram framework.
+
+2. **Create a BulletWorld Instance**
+   - Initialize the BulletWorld where the objects will be managed.
+
+3. **Spawn Objects**
+   - Create instances of objects (e.g., a spoon) and set their positions.
+
+4. **Access Object Position**
+   - Use the appropriate methods to retrieve the position of the object.
+
+### Key Concepts
+- **Object Class**: Represents entities in the BulletWorld, including their properties like position and orientation.
+- **Pose Class**: Encapsulates the position and orientation of an object in 3D space.
+
+### Relevant Functions
+- `get_position()`: Retrieves the current position of an object as a Pose object.
+- `position`: A property of the Pose class that provides access to the x, y, z coordinates.
+
+## 3. Code Examples and Implementation Guidance
+
+### Code Snippet
+
+```python
+# Step 1: Import necessary modules
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.pose import Pose
+
+# Step 2: Create a BulletWorld instance
+world = BulletWorld()
+
+# Step 3: Spawn an object (e.g., a spoon)
+spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([2.5, 2.3, 1.00]))
+
+# Step 4: Access the position of the spoon
+spoon_position = spoon.get_position()  # This returns a Pose object
+
+# Extract x, y, z coordinates
+x_coordinate = spoon_position.position.x
+y_coordinate = spoon_position.position.y
+z_coordinate = spoon_position.position.z
+
+# Print the coordinates
+print(f"Spoon Position: x={x_coordinate}, y={y_coordinate}, z={z_coordinate}")
+```
+
+### Explanation
+- **Importing Modules**: Necessary classes are imported to work with the BulletWorld and objects.
+- **Creating BulletWorld**: Initializes the simulation environment.
+- **Spawning Objects**: An object (spoon) is created with a specified position.
+- **Accessing Position**: The `get_position()` method retrieves the position as a Pose object, from which x, y, and z coordinates are accessed.
+
+### Adaptability
+This code can be adapted to access the position of any object by changing the object name and type.
+
+## 4. Framework Integration and Concepts
+
+### Broader Context
+Accessing object positions is a fundamental operation in PyCram, enabling robots to interact with their environment effectively. This task integrates with other functionalities such as navigation and manipulation.
+
+### Essential Components
+- **BulletWorld**: The simulation environment where objects are managed.
+- **Object**: Represents entities within the BulletWorld.
+- **Pose**: Provides a structured way to handle position and orientation.
+
+### Conceptual Understanding
+Understanding how to access object positions is crucial for developing more complex robotic behaviors, such as path planning and object manipulation.
+
+## 5. Best Practices and Considerations
+
+### Implementation Tips
+- Always check if the object exists in the BulletWorld before attempting to access its position.
+- Use meaningful names for objects to avoid confusion when accessing their properties.
+
+### Potential Challenges
+- Objects may not be initialized correctly, leading to errors when accessing their properties.
+- Ensure that the BulletWorld is active and that the objects are properly spawned.
+
+### Solutions
+- Verify the initialization of the BulletWorld and the spawning of objects.
+- Use try-except blocks to handle potential errors gracefully.
+
+By following this guide, you can effectively access and utilize the position coordinates of objects within the PyCram framework, facilitating various robotic tasks and interactions. = Retrieve[How to access the x, y, z coordinates of an object's position in PyCram.]Plan: Verify the intended behavior of the 'contact' function from 'pycram.world_reasoning'. We need to ensure that it correctly identifies whether an object like 'spoon2' is in contact with the 'apartment' environment as expected.
+# Understanding the 'contact' Function in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task is to understand how the `contact` function in the `pycram.world_reasoning` module works. This function checks if two objects in the PyCram simulation are in contact with each other.
+
+### Explain the Goal
+The goal is to determine the conditions under which two objects are considered to be in contact. This is significant for tasks involving physical interactions between objects, such as grasping or moving items in a simulated environment.
+
+### Prerequisites and Setup
+Before using the `contact` function, ensure that:
+- You have a running instance of the PyCram framework with a BulletWorld created.
+- You have instantiated the objects you want to check for contact.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Instantiate Objects**: Create the objects you want to check for contact.
+   ```python
+   from pycram.worlds.bullet_world import BulletWorld
+   from pycram.world_concepts.world_object import Object
+
+   world = BulletWorld()
+   object1 = Object("object1", ObjectType.MILK, "milk.stl", pose=Pose([1, 0, 1]))
+   object2 = Object("object2", ObjectType.SPOON, "spoon.stl", pose=Pose([1, 0, 0.5]))
+   ```
+
+2. **Check for Contact**: Use the `contact` function to determine if the two objects are in contact.
+   ```python
+   import pycram.world_reasoning as wr
+
+   is_contact = wr.contact(object1, object2)
+   print(f"Objects in contact: {is_contact}")
+   ```
+
+### Key Concepts
+- **Contact Definition**: In the context of PyCram, two objects are considered in contact if they occupy the same space or are touching each other based on their physical properties.
+- **Physics Simulation**: The `contact` function relies on the underlying physics engine (Bullet) to determine if the objects are colliding.
+
+### Relevant Functions
+- **`contact(object1, object2, return_links=False)`**: This function checks if `object1` and `object2` are in contact. If `return_links` is set to `True`, it returns additional information about the specific links of the objects that are in contact.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet
+Here’s a complete example demonstrating how to use the `contact` function:
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+import pycram.world_reasoning as wr
+
+# Create a BulletWorld
+world = BulletWorld()
+
+# Instantiate objects
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1, 0, 1]))
+spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([1, 0, 0.5]))
+
+# Check for contact
+is_contact = wr.contact(milk, spoon)
+print(f"Objects in contact: {is_contact}")
+```
+
+### Explanation
+- **Object Creation**: Two objects (milk and spoon) are created with specific poses.
+- **Contact Check**: The `contact` function is called to check if the two objects are touching. The result is printed to the console.
+
+### Adaptability
+This code can be adapted to check contact between any two objects in the PyCram environment by changing the object instances and their poses.
+
+## Framework Integration and Concepts
+
+### Broader Context
+The `contact` function is part of the PyCram framework's world reasoning capabilities, which allow for geometric reasoning about the relationships between objects in a simulated environment.
+
+### Essential Components
+- **BulletWorld**: The physics simulation environment where objects are instantiated and manipulated.
+- **World Reasoning**: A module that provides functions for checking relationships between objects, such as contact, visibility, and reachability.
+
+### Conceptual Understanding
+Understanding how the `contact` function works is crucial for implementing tasks that involve physical interactions, such as picking up or moving objects, as it helps ensure that the robot's actions are feasible within the simulated environment.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure that the objects are properly instantiated and positioned before checking for contact.
+- Use the `return_links` parameter if you need detailed information about which parts of the objects are in contact.
+
+### Potential Challenges
+- Objects may not be in contact due to incorrect positioning or scaling. Ensure that the poses are set correctly.
+- The physics engine may not always reflect real-world behavior, so testing in various scenarios is essential.
+
+### Solutions
+- Adjust the poses of the objects and recheck for contact if the expected results are not achieved.
+- Use visualization tools within PyCram to better understand object placements and interactions.
+
+By following this guide, you can effectively utilize the `contact` function in PyCram to determine interactions between objects in your simulations. = Retrieve[How does the 'contact' function in pycram.world_reasoning work? How does it determine if two objects are in contact?]Plan: Analyze the logic for selecting the closest spoon. Ensure that the loop correctly iterates through the 'free_spoons' list, calculates distances using the appropriate position coordinates, and updates 'closest_spoon' and 'min_distance' as intended.
+content="The provided Python code snippet is designed to find the closest spoon to a given robot position from a list of spoons. Let's review it for potential logical errors or inefficiencies:\n\n1. **Initialization**: \n   - `closest_spoon` is initialized to `None`, which is appropriate for indicating that no spoon has been found yet.\n   - `min_distance` is initialized to `float('inf')`, which is a common practice to ensure that any actual distance calculated will be smaller.\n\n2. **Loop and Distance Calculation**:\n   - The code iterates over `free_spoons`, which is assumed to be a list of spoon objects.\n   - For each spoon, it retrieves the position using `spoon.get_position().position`. This assumes that `get_position()` returns an object with a `position` attribute that is compatible with `np.array()`. Ensure that this assumption holds true.\n   - The distance is calculated using `np.linalg.norm(spoon_position - robot_position)`, which is a standard way to compute the Euclidean distance between two points.\n\n3. **Comparison and Update**:\n   - The code correctly updates `min_distance` and `closest_spoon` if a closer spoon is found.\n\n4. **Potential Issues**:\n   - **Assumptions about Data Structures**: Ensure that `spoon.get_position().position` and `robot_position` are both compatible with NumPy arrays. If `robot_position` is not already a NumPy array, you should convert it before the loop to avoid repeated conversions.\n   - **Error Handling**: The code does not handle potential errors, such as if `free_spoons` is empty or if `spoon.get_position()` returns unexpected results. Consider adding error handling to manage these cases gracefully.\n   - **Efficiency**: The code is efficient for its purpose, as it only makes a single pass through the list of spoons. However, if `free_spoons` is very large, consider whether this approach is optimal for your specific use case.\n\n5. **Code Readability**:\n   - The code is generally readable, but adding comments to explain the purpose of each step could improve clarity, especially for those unfamiliar with the context.\n\nOverall, the code is logically sound for finding the closest spoon, assuming the data structures and methods behave as expected. Consider adding error handling and verifying assumptions about the data types to make the code more robust." additional_kwargs={'refusal': None} response_metadata={'token_usage': {'completion_tokens': 491, 'prompt_tokens': 106, 'total_tokens': 597, 'prompt_tokens_details': {'cached_tokens': 0}, 'completion_tokens_details': {'reasoning_tokens': 0}}, 'model_name': 'gpt-4o-2024-08-06', 'system_fingerprint': 'fp_e5e4913e83', 'finish_reason': 'stop', 'logprobs': None} id='run-5e1a1ac2-7104-4b2c-8dcf-cbf56e91a76d-0' usage_metadata={'input_tokens': 106, 'output_tokens': 491, 'total_tokens': 597} = LLM[Review the following Python code snippet for calculating the closest object and identify any potential logical errors or inefficiencies:\n\n```python\nclosest_spoon = None\nmin_distance = float('inf')\nfor spoon in free_spoons:\n    spoon_position = np.array(spoon.get_position().position)\n    distance = np.linalg.norm(spoon_position - robot_position)\n    if distance < min_distance:\n        min_distance = distance\n        closest_spoon = spoon\n```]Plan: Examine the usage of 'BelieveObject' designators, particularly when they are resolved with '.resolve()'. Ensure that 'closest_spoon_desig.resolve()' correctly resolves to the intended spoon object based on its name.
+# Understanding the 'BelieveObject' Designator in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task is to understand how the `BelieveObject` designator works within the PyCram framework, particularly focusing on its purpose and the functionality of the `resolve()` method.
+
+### Explain the Goal
+The goal is to utilize the `BelieveObject` designator to describe and interact with objects in the BulletWorld. This designator allows the robot to reference objects that it believes exist in the environment, facilitating actions such as picking up or manipulating these objects.
+
+### Prerequisites and Setup
+Before using the `BelieveObject` designator, ensure that:
+- The PyCram framework is properly set up and running.
+- A BulletWorld instance is created, and relevant objects are defined within it.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Create a BulletWorld Instance**
+   - Initialize the BulletWorld where the robot and objects will be simulated.
+   ```python
+   from pycram.worlds.bullet_world import BulletWorld
+   world = BulletWorld()
+   ```
+
+2. **Define Objects in the World**
+   - Create instances of objects that will be referenced by the `BelieveObject` designator.
+   ```python
+   from pycram.world_concepts.world_object import Object
+   from pycram.datastructures.enums import ObjectType
+   from pycram.datastructures.pose import Pose
+
+   spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([2.5, 2.3, 1.00]))
+   ```
+
+3. **Create a BelieveObject Designator**
+   - Instantiate the `BelieveObject` designator to describe the object you want to interact with.
+   ```python
+   from pycram.designators.object_designator import BelieveObject
+
+   spoon_desig = BelieveObject(names=["spoon"])
+   ```
+
+4. **Resolve the Designator**
+   - Use the `resolve()` method to obtain a specific instance of the object that matches the description.
+   ```python
+   resolved_spoon = spoon_desig.resolve()
+   ```
+
+### Key Concepts
+
+- **BelieveObject Designator**: This designator is used to describe objects that the robot believes exist in the environment. It can take a list of names or types to filter the objects it describes.
+  
+- **resolve() Method**: This method is crucial as it resolves the designator to a specific object instance in the BulletWorld. It checks the current state of the world and returns the first object that matches the criteria defined in the designator.
+
+### Relevant Functions
+
+- **BelieveObject**: Initializes the designator with specific names or types.
+- **resolve()**: Returns a specific object instance that matches the designator's description.
+
+### Integration
+The `BelieveObject` designator integrates seamlessly within the PyCram framework, allowing for symbolic representation of objects that can be manipulated by the robot. This designator is essential for high-level planning and execution of tasks involving object interaction.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet
+Here’s a complete example demonstrating the use of `BelieveObject` and its `resolve()` method:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+
+# Step 1: Create a BulletWorld instance
+world = BulletWorld()
+
+# Step 2: Define an object in the world
+spoon = Object("spoon", ObjectType.SPOON, "spoon.stl", pose=Pose([2.5, 2.3, 1.00]))
+
+# Step 3: Create a BelieveObject designator
+spoon_desig = BelieveObject(names=["spoon"])
+
+# Step 4: Resolve the designator to get the specific object
+resolved_spoon = spoon_desig.resolve()
+
+# Output the resolved object
+print(f"Resolved Object: {resolved_spoon.name}, Position: {resolved_spoon.pose.position}")
+```
+
+### Explanation
+- The code initializes a BulletWorld and defines a spoon object.
+- It creates a `BelieveObject` designator for the spoon and resolves it to get the actual object instance.
+- Finally, it prints the name and position of the resolved object.
+
+### Adaptability
+This example can be adapted to reference different objects by changing the names or types in the `BelieveObject` instantiation.
+
+## Framework Integration and Concepts
+
+### Broader Context
+The `BelieveObject` designator is part of the object designators in PyCram, which allow robots to interact with their environment based on their beliefs about the objects present. This is crucial for tasks like picking up, moving, or manipulating objects.
+
+### Essential Components
+- **Object Designators**: Represent objects in the environment.
+- **Action Designators**: Use object designators to perform actions involving those objects.
+
+### Conceptual Understanding
+Understanding how `BelieveObject` works enhances the ability to create complex robotic behaviors by allowing the robot to reference and manipulate objects based on its beliefs about the environment.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure that the objects you want to reference are defined in the BulletWorld before creating a `BelieveObject` designator.
+- Use descriptive names for objects to avoid confusion when resolving designators.
+
+### Potential Challenges
+- If the object is not found during resolution, ensure that the object is correctly defined and that the names match.
+
+### Solutions
+- Double-check the names and types used in the `BelieveObject` designator.
+- Use debugging statements to verify the state of the BulletWorld and the objects within it.
+
+By following this guide, you can effectively utilize the `BelieveObject` designator in PyCram to enhance your robotic applications. = Retrieve[How does the 'BelieveObject' designator work in PyCram, and what is the purpose of the 'resolve()' method?]Plan: Investigate the 'CostmapLocation' designator and its parameters, specifically how 'target' and 'reachable_for' are used. Ensure that the 'location_desig' is correctly created and resolved to a valid location near the 'closest_spoon'.
+# Understanding the CostmapLocation Designator in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task involves utilizing the `CostmapLocation` designator in the PyCram framework to identify valid locations for a robot to navigate to, based on specific constraints such as reachability and visibility.
+
+### Explain the Goal
+The primary objective is to enable a robot (e.g., the PR2) to find a suitable pose from which it can interact with objects in its environment. This is particularly useful in scenarios where the robot needs to pick up objects that are not on a table, as specified in the user instruction.
+
+### Prerequisites and Setup
+Before using the `CostmapLocation` designator, ensure that:
+- The PyCram framework is properly set up and running.
+- The robot and relevant objects (e.g., spoons) are instantiated in the environment.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Instantiate the Robot and Objects**
+   - Create instances of the robot and the objects (e.g., spoons) in the environment.
+
+   ```python
+   from pycram.worlds.bullet_world import BulletWorld
+   from pycram.world_concepts.world_object import Object
+   from pycram.datastructures.pose import Pose
+
+   world = BulletWorld()
+   pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf", pose=Pose([1, 2, 0]))
+   spoon2 = Object("spoon2", ObjectType.SPOON, "spoon.stl", pose=Pose([2.5, 2.3, 1.00]))
+   spoon3 = Object("spoon3", ObjectType.SPOON, "spoon.stl", pose=Pose([0.4, 3.1, 0.96]))
+   ```
+
+2. **Define the Target Object**
+   - Use an `ObjectDesignator` to specify the target object (e.g., spoon) that the robot should reach.
+
+   ```python
+   from pycram.designators.object_designator import BelieveObject
+
+   target_spoon = BelieveObject(names=["spoon2"]).resolve()
+   ```
+
+3. **Create the CostmapLocation Designator**
+   - Instantiate the `CostmapLocation` designator, specifying the target object and the robot that should reach it.
+
+   ```python
+   from pycram.designators.location_designator import CostmapLocation
+
+   location_description = CostmapLocation(target=target_spoon, reachable_for=pr2)
+   ```
+
+4. **Resolve the Location**
+   - Call the `resolve()` method to obtain a valid pose for the robot to navigate to.
+
+   ```python
+   valid_pose = location_description.resolve()
+   print(valid_pose)
+   ```
+
+### Key Concepts
+
+- **CostmapLocation**: This designator uses costmaps to identify valid locations based on constraints such as reachability and visibility. It generates a list of potential poses that the robot can occupy to interact with the target object.
+  
+- **Target Parameter**: The `target` parameter specifies the object that the robot should be able to reach. In this case, it is the spoon that the robot needs to pick up.
+
+- **Reachable_for Parameter**: The `reachable_for` parameter indicates which robot can reach the specified target. This is crucial for ensuring that the robot's arm can physically access the target object.
+
+### Relevant Functions
+- `resolve()`: This method generates and returns a valid pose based on the constraints defined in the `CostmapLocation` designator.
+
+## Code Examples and Implementation Guidance
+
+### Complete Code Example
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+from pycram.designators.location_designator import CostmapLocation
+
+# Initialize the world and objects
+world = BulletWorld()
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf", pose=Pose([1, 2, 0]))
+spoon2 = Object("spoon2", ObjectType.SPOON, "spoon.stl", pose=Pose([2.5, 2.3, 1.00]))
+
+# Define the target spoon
+target_spoon = BelieveObject(names=["spoon2"]).resolve()
+
+# Create the CostmapLocation designator
+location_description = CostmapLocation(target=target_spoon, reachable_for=pr2)
+
+# Resolve the location
+valid_pose = location_description.resolve()
+print(f"Valid pose for the robot to reach the spoon: {valid_pose}")
+```
+
+### Explanation
+- The code initializes the environment and creates instances of the robot and the spoon.
+- It defines the target spoon using an object designator.
+- The `CostmapLocation` designator is created with the target spoon and the robot.
+- Finally, it resolves the location and prints the valid pose.
+
+## Framework Integration and Concepts
+
+### Broader Context
+The `CostmapLocation` designator is part of the PyCram framework's designator system, which allows for high-level planning and execution of tasks by robots. It integrates with other components like object designators and action designators to facilitate complex behaviors.
+
+### Essential Components
+- **Costmaps**: These are used to evaluate the environment and determine valid positions for the robot based on various constraints.
+- **Designators**: They encapsulate the logic for identifying and interacting with objects and locations in the environment.
+
+### Conceptual Understanding
+Understanding how designators work together is crucial for effectively programming robots in PyCram. The `CostmapLocation` designator plays a key role in enabling robots to navigate and interact with their environment intelligently.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure that the robot's joint states are set appropriately before resolving locations.
+- Test the resolved poses in a simulation environment to verify that the robot can reach them without collisions.
+
+### Potential Challenges
+- The robot may not find a valid pose if the target object is obstructed or if the robot's reachability is limited.
+- Ensure that the costmaps are updated to reflect the current state of the environment.
+
+### Solutions
+- If no valid pose is found, consider adjusting the robot's position or the target object's location.
+- Use additional costmaps (e.g., visibility) to refine the search for valid poses.
+
+By following this guide, you can effectively utilize the `CostmapLocation` designator in PyCram to enable your robot to navigate and interact with objects in its environment. = Retrieve[Explain the 'CostmapLocation' designator in PyCram. How are the 'target' and 'reachable_for' parameters used?]Plan: Analyze the 'NavigateAction' and ensure that it receives a valid target location from 'location_desig.resolve()'. Verify that the robot's navigation capabilities are correctly utilized to reach the desired location near the spoon.
+# Navigating with NavigateAction in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task involves using the `NavigateAction` in the PyCram framework to move a robot to a specified location within a simulated environment. This action is crucial for enabling the robot to reach objects or positions necessary for completing various tasks.
+
+### Explain the Goal
+The primary objective is to effectively navigate the robot to a target location using the `NavigateAction`. This is significant as it forms the basis for many robotic operations, such as picking up objects, interacting with the environment, or performing complex tasks that require precise positioning.
+
+### Prerequisites and Setup
+Before implementing the `NavigateAction`, ensure that:
+- The PyCram framework is properly set up and running.
+- A robot (e.g., PR2) and an environment (e.g., a kitchen or apartment) are instantiated in the BulletWorld.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Instantiate the BulletWorld and Robot:**
+   - Create a BulletWorld instance and add the robot to it.
+
+2. **Define Target Locations:**
+   - Specify the target locations where the robot should navigate. This is done using a list of `Pose` objects.
+
+3. **Create NavigateAction Description:**
+   - Use the `NavigateAction` class to create a description that includes the target locations.
+
+4. **Resolve the Action:**
+   - Resolve the action description to obtain a performable action designator.
+
+5. **Perform the Navigation:**
+   - Execute the resolved action designator within a simulated robot context.
+
+### Key Concepts
+- **Pose:** Represents a position and orientation in 3D space, defined by coordinates and a quaternion.
+- **Action Designator:** A high-level description of an action that can be resolved into a specific executable action.
+
+### Relevant Functions
+- `NavigateAction(target_locations)`: Creates a description for navigating to specified locations.
+- `resolve()`: Resolves the action description into a performable action designator.
+- `perform()`: Executes the resolved action designator.
+
+### Integration
+These steps integrate seamlessly within the PyCram framework, allowing for high-level task execution through action designators that encapsulate complex behaviors.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.pose import Pose
+from pycram.designators.action_designator import NavigateAction
+from pycram.process_module import simulated_robot
+
+# Step 1: Instantiate the BulletWorld and Robot
+world = BulletWorld()
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+world.add_object(robot)
+
+# Step 2: Define Target Locations
+target_locations = [
+    Pose([2.3, 2.3, 0], [0, 0, 0, 1]),  # Example target position
+    Pose([2.5, 2.5, 0], [0, 0, 0, 1])   # Another target position
+]
+
+# Step 3: Create NavigateAction Description
+navigate_description = NavigateAction(target_locations=target_locations)
+
+# Step 4: Resolve the Action
+navigate_designator = navigate_description.resolve()
+
+# Step 5: Perform the Navigation
+with simulated_robot:
+    navigate_designator.perform()
+```
+
+### Explanation
+- **Instantiation:** The `BulletWorld` and robot are created and added to the world.
+- **Target Locations:** A list of `Pose` objects is defined, representing the locations to which the robot will navigate.
+- **Action Description:** The `NavigateAction` is instantiated with the target locations.
+- **Resolution and Execution:** The action is resolved and performed within a simulated robot context, allowing the robot to navigate to the specified locations.
+
+### Adaptability
+This code can be easily adapted for different robots or environments by changing the object types and poses.
+
+## Framework Integration and Concepts
+
+### Broader Context
+The `NavigateAction` is part of the action designators in PyCram, which allow for high-level planning and execution of robotic tasks. It is essential for enabling robots to interact with their environment effectively.
+
+### Essential Components
+- **BulletWorld:** The simulation environment where the robot operates.
+- **Action Designators:** High-level abstractions that encapsulate complex actions, making it easier to program robotic behaviors.
+
+### Conceptual Understanding
+Understanding how to use `NavigateAction` is fundamental for developing more complex robotic behaviors, as navigation is often the first step in task execution.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always define clear and reachable target locations to avoid navigation errors.
+- Test navigation in a controlled environment before deploying in more complex scenarios.
+
+### Potential Challenges
+- **Collision Avoidance:** Ensure that the target locations do not lead to collisions with obstacles.
+- **Dynamic Environments:** Be aware of changes in the environment that may affect navigation paths.
+
+### Solutions
+- Use costmaps to evaluate reachable areas and avoid obstacles.
+- Implement feedback mechanisms to adjust navigation in real-time based on sensor data.
+
+By following this guide, you can effectively implement the `NavigateAction` in PyCram, enabling your robot to navigate to specified locations within a simulated environment. = Retrieve[How does the 'NavigateAction' work in PyCram? What type of input does it expect for the 'target_locations' parameter?]Plan: Review the 'PickUpAction' and its parameters, focusing on 'object_designator_description', 'arms', and 'grasps'. Ensure that the action is correctly set up to pick up the 'closest_spoon' using the specified arm (Arms.RIGHT) and grasp type (Grasp.TOP).
+# Implementing the PickUpAction in PyCram
+
+## Task Overview and Objectives
+
+### Define the Task
+The task is to utilize the `PickUpAction` in the PyCram framework to enable a robot to pick up an object. This action is crucial for robotic manipulation tasks, allowing the robot to interact with its environment effectively.
+
+### Explain the Goal
+The objective of the `PickUpAction` is to allow the robot to grasp and lift an object from its current location. This action is significant as it forms the basis for many robotic tasks, such as serving, cleaning, or assembling items.
+
+### Prerequisites and Setup
+Before implementing the `PickUpAction`, ensure that:
+- The PyCram framework is properly set up and running.
+- The robot and the object to be picked up are defined in the environment.
+- The robot's arms are configured and ready for manipulation.
+
+## Detailed Workflow Explanation
+
+### Step-by-Step Guide
+
+1. **Define the Object Designator:**
+   - The `object_designator_description` parameter specifies the object to be picked up. This is typically an instance of an object designator that identifies the object by its name or type.
+
+2. **Specify the Arms:**
+   - The `arms` parameter indicates which arm(s) of the robot will be used to perform the pick-up action. This can be set to either the left arm, right arm, or both.
+
+3. **Define the Grasp Type:**
+   - The `grasps` parameter specifies the type of grasp to be used when picking up the object. This can include different grasp configurations, such as a pinch or a full grip.
+
+### Key Concepts
+
+- **Object Designator:** Represents the object in the environment that the robot will interact with.
+- **Arms:** Refers to the specific robotic arms that will be used for the action.
+- **Grasp Types:** Different methods of grasping an object, which can affect the success of the pick-up.
+
+### Relevant Functions
+- `PickUpAction`: This is the main action designator that encapsulates the parameters needed for the pick-up operation.
+
+### Integration
+The `PickUpAction` integrates with other action designators in PyCram, allowing for a seamless workflow where the robot can navigate to an object, look at it, and then pick it up.
+
+## Code Examples and Implementation Guidance
+
+### Code Snippet
+
+```python
+from pycram.designators.action_designator import PickUpAction
+from pycram.designators.object_designator import BelieveObject
+from pycram.datastructures.enums import Arms, Grasp
+from pycram.process_module import simulated_robot
+
+# Define the object to be picked up
+object_name = "spoon2"  # Example object name
+object_designator = BelieveObject(names=[object_name])
+
+# Specify the arm to use and the grasp type
+arm = Arms.RIGHT  # Using the right arm
+grasp_type = Grasp.RIGHT  # Example grasp type
+
+# Perform the pick-up action
+with simulated_robot:
+    pick_up_action = PickUpAction(
+        object_designator_description=object_designator,
+        arms=[arm],
+        grasps=[grasp_type]
+    ).resolve()
+    
+    pick_up_action.perform()
+```
+
+### Explanation
+- **Object Designator:** The `BelieveObject` class is used to create an object designator that identifies the object by its name.
+- **Arms and Grasp:** The `arms` and `grasps` parameters are set to specify which arm to use and the type of grasp.
+- **Performing the Action:** The `perform()` method executes the pick-up action, allowing the robot to grasp the specified object.
+
+### Adaptability
+This code can be easily adapted to pick up different objects by changing the `object_name`, `arm`, and `grasp_type` variables.
+
+## Framework Integration and Concepts
+
+### Broader Context
+The `PickUpAction` is part of the action designators in PyCram, which allow for high-level control of robotic actions. It fits into a larger framework of actions that include navigation, placing objects, and more.
+
+### Essential Components
+- **Action Designators:** These are high-level descriptions of actions that the robot can perform, allowing for complex behaviors to be executed with simple commands.
+- **Object Designators:** These represent the objects in the environment, enabling the robot to identify and interact with them.
+
+### Conceptual Understanding
+Understanding how `PickUpAction` interacts with other designators helps in creating more complex workflows, such as picking up an object after navigating to its location.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure that the object is within reach of the robot's arm before attempting to pick it up.
+- Test different grasp types to find the most effective one for the object being manipulated.
+
+### Potential Challenges
+- Objects may be obstructed or out of reach, leading to failed pick-up attempts.
+- The robot's arm may not be properly aligned with the object, affecting the success of the grasp.
+
+### Solutions
+- Implement checks to ensure the object is reachable before executing the pick-up action.
+- Use navigation and look-at actions to align the robot with the object before attempting to grasp it.
+
+By following this guide, you can effectively implement the `PickUpAction` in PyCram, enabling your robot to interact with its environment in a meaningful way. = Retrieve[Explain the 'PickUpAction' in PyCram. How are the 'object_designator_description', 'arms', and 'grasps' parameters used?]Plan: Verify that the 'ParkArmsAction' and 'MoveTorsoAction' at the beginning of the 'with simulated_robot' block are correctly used and do not interfere with subsequent actions.
+# Task Overview and Objectives
+
+## Define the Task
+The task involves using the PyCram framework to control a PR2 robot to pick up a spoon that is not on a table. This requires the robot to navigate to the spoon's location, adjust its torso for optimal reach, and use its gripper to grasp the spoon.
+
+## Explain the Goal
+The objective is to successfully implement a sequence of actions that allow the PR2 robot to pick up a spoon from a specified location. This task is significant as it demonstrates the integration of various action designators within the PyCram framework, specifically focusing on the `ParkArmsAction` and `MoveTorsoAction`.
+
+## Prerequisites and Setup
+Before starting, ensure that:
+- The PyCram framework is properly set up and running.
+- The PR2 robot and the environment (e.g., the apartment) are initialized in the BulletWorld.
+- The spoon objects are defined and positioned correctly in the environment.
+
+---
+
+# Detailed Workflow Explanation
+
+## Step-by-Step Guide
+
+1. **Park the Robot's Arms:**
+   - **Purpose:** To ensure the robot's arms are in a safe position before executing any movements.
+   - **Action:** Use the `ParkArmsAction` to move both arms to their default parked position.
+
+2. **Adjust the Robot's Torso:**
+   - **Purpose:** To position the torso of the robot for better access to the spoon.
+   - **Action:** Use the `MoveTorsoAction` to raise or lower the torso to a specified height.
+
+3. **Navigate to the Spoon:**
+   - **Purpose:** To move the robot to the location of the spoon.
+   - **Action:** Use the `NavigateAction` to move the robot to the coordinates of the spoon.
+
+4. **Grasp the Spoon:**
+   - **Purpose:** To pick up the spoon using the robot's gripper.
+   - **Action:** Use the `PickUpAction` to grasp the spoon.
+
+## Key Concepts
+- **Action Designators:** High-level descriptions of actions that the robot can perform, such as moving its torso or picking up objects.
+- **ParkArmsAction:** This action designator is used to move the robot's arms to a safe position, preventing interference during navigation or other actions.
+- **MoveTorsoAction:** This action designator adjusts the torso's height, allowing the robot to reach objects more effectively.
+
+## Relevant Functions
+- `ParkArmsAction`: Moves the robot's arms to a parked position.
+- `MoveTorsoAction`: Adjusts the torso's height.
+- `NavigateAction`: Moves the robot to a specified location.
+- `PickUpAction`: Grabs an object with the robot's gripper.
+
+## Integration
+These actions integrate seamlessly within the PyCram framework, allowing for a coherent workflow that combines navigation, torso adjustment, and object manipulation.
+
+---
+
+# Code Examples and Implementation Guidance
+
+## Code Snippets
+
+### 1. Park the Robot's Arms
+```python
+from pycram.designators.action_designator import ParkArmsAction
+from pycram.process_module import simulated_robot
+from pycram.datastructures.enums import Arms
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+```
+**Explanation:** This code parks both arms of the robot, ensuring they are out of the way for subsequent actions.
+
+### 2. Adjust the Robot's Torso
+```python
+from pycram.designators.action_designator import MoveTorsoAction
+
+torso_height = 0.3  # Adjust this value as needed
+with simulated_robot:
+    MoveTorsoAction([torso_height]).resolve().perform()
+```
+**Explanation:** This code raises the robot's torso to a specified height, improving its reach to the spoon.
+
+### 3. Navigate to the Spoon
+```python
+from pycram.designators.action_designator import NavigateAction
+from pycram.datastructures.pose import Pose
+
+spoon_position = Pose([2.5, 2.3, 1.00])  # Coordinates of the spoon
+with simulated_robot:
+    NavigateAction(target_locations=[spoon_position]).resolve().perform()
+```
+**Explanation:** This code moves the robot to the location of the spoon.
+
+### 4. Grasp the Spoon
+```python
+from pycram.designators.action_designator import PickUpAction
+from pycram.datastructures.enums import Grasp
+
+spoon_desig = BelieveObject(names=["spoon2"])  # Assuming spoon2 is the target
+with simulated_robot:
+    PickUpAction(object_designator_description=spoon_desig, arms=[Arms.RIGHT], grasps=[Grasp.RIGHT]).resolve().perform()
+```
+**Explanation:** This code instructs the robot to pick up the specified spoon using its right arm.
+
+---
+
+# Framework Integration and Concepts
+
+## Broader Context
+This task exemplifies how to use action designators in PyCram to control a robot's movements and interactions with objects in its environment. It highlights the importance of combining multiple actions to achieve a complex goal.
+
+## Essential Components
+- **Action Designators:** The core components that define what actions the robot can perform.
+- **Object Designators:** Used to specify which objects the robot will interact with.
+- **Pose:** Represents the position and orientation of objects in the environment.
+
+## Conceptual Understanding
+Understanding how to use action designators effectively allows for the creation of complex robotic behaviors, enabling robots to perform tasks in dynamic environments.
+
+---
+
+# Best Practices and Considerations
+
+## Implementation Tips
+- Always park the robot's arms before executing movements to avoid collisions.
+- Adjust the torso height based on the specific object being targeted for optimal reach.
+- Test each action in isolation to ensure it performs as expected before integrating into a larger workflow.
+
+## Potential Challenges
+- The robot may not reach the object if the torso height is not adjusted correctly.
+- Navigation may fail if the target position is obstructed or unreachable.
+
+## Solutions
+- Use visibility and occupancy costmaps to assess the environment before navigation.
+- Adjust the torso height dynamically based on the object's position relative to the robot.
+
+By following this guide, you can effectively implement the task of picking up a spoon using the PyCram framework, leveraging the `ParkArmsAction` and `MoveTorsoAction` to enhance the robot's capabilities. = Retrieve[Explain the purpose and usage of 'ParkArmsAction' and 'MoveTorsoAction' in PyCram.]
+
+Code Solution:
+prefix="The task is to program the PR2 robot to pick up a spoon that is not on a table. The robot should identify spoons that are not attached to any surface, choose the closest one, navigate to it, and pick it up using a specific grasp type. The environment is set up in a simulated BulletWorld with the PR2 robot and three spoons, where Spoon1 is attached to a cabinet drawer, and Spoon2 and Spoon3 are freely accessible. The robot will use PyCram's designators and action capabilities to perform the task." imports='from pycram.worlds.bullet_world import BulletWorld\nfrom pycram.world_concepts.world_object import Object\nfrom pycram.datastructures.pose import Pose\nfrom pycram.designators.object_designator import BelieveObject\nfrom pycram.designators.location_designator import CostmapLocation\nfrom pycram.designators.action_designator import NavigateAction, PickUpAction\nfrom pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode\nfrom pycram.process_module import simulated_robot\nimport pycram.world_reasoning as wr\nimport numpy as np' code="world = BulletWorld(WorldMode.GUI)\n\n# Define the environment and objects\napartment = Object('apartment', ObjectType.ENVIRONMENT, 'apartment.urdf')\nrobot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf', pose=Pose([1, 2, 0]))\nspoon1 = Object('spoon1', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.4, 2.2, 0.85]))\nspoon2 = Object('spoon2', ObjectType.SPOON, 'spoon.stl', pose=Pose([2.5, 2.3, 1.00]))\nspoon3 = Object('spoon3', ObjectType.SPOON, 'spoon.stl', pose=Pose([0.4, 3.1, 0.96]))\n\n# Attach spoon1 to the cabinet\napartment.attach(spoon1, 'cabinet10_drawer_top')\n\n# Create object designators\nrobot_desig = BelieveObject(names=['pr2']).resolve()\nspoon2_desig = BelieveObject(names=['spoon2'])\nspoon3_desig = BelieveObject(names=['spoon3'])\n\n# Check which spoons are not attached\nfree_spoons = []\nif not wr.contact(spoon2, apartment):\n    free_spoons.append(spoon2)\nif not wr.contact(spoon3, apartment):\n    free_spoons.append(spoon3)\n\n# Calculate distances to the free spoons\nrobot_position = np.array([robot.get_position().x, robot.get_position().y, robot.get_position().z])\nclosest_spoon = None\nmin_distance = float('inf')\nfor spoon in free_spoons:\n    spoon_position = np.array([spoon.get_position().x, spoon.get_position().y, spoon.get_position().z])\n    distance = np.linalg.norm(spoon_position - robot_position)\n    if distance < min_distance:\n        min_distance = distance\n        closest_spoon = spoon\n\n# Create a designator for the closest spoon\nclosest_spoon_desig = BelieveObject(names=[closest_spoon.name])\n\nwith simulated_robot:\n    ParkArmsAction([Arms.BOTH]).resolve().perform()\n    MoveTorsoAction([0.25]).resolve().perform()\n\n    # Locate the closest spoon\n    location_desig = CostmapLocation(target=closest_spoon_desig.resolve(), reachable_for=robot_desig)\n\n    # Navigate to the closest spoon\n    navigate_action = NavigateAction(target_locations=[location_desig.resolve()])\n    navigate_action.resolve().perform()\n\n    # Pick up the closest spoon\n    pickup_action = PickUpAction(object_designator_description=closest_spoon_desig, arms=[Arms.RIGHT], grasps=[Grasp.TOP])\n    pickup_action.resolve().perform()\n\nworld.exit()" description='Schema for code solutions for robot tasks.'
+
+---

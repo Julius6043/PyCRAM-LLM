@@ -152,7 +152,7 @@ def solve(state: ReWOO):
         plan += f"Plan: {_plan}\n{step_name}= {tool}[{tool_input}]\n--\n\n"
     code_example = re_chain_example_solve.invoke(task)
     code_example_filler = (
-        """Here is also an related example of a similar PyCRAM plan code (use this as a semantic and syntactic example for the code structure and not for the world knowledge):
+        """Here is also an example of a similar PyCRAM plan code with the corresponding example plan (use this as a semantic and syntactic example for the code structure of a PyCRAM Plan and NOT for the world knowledge AND NOT as the task):
     <Code example>"""
         + code_example
         + "\n</Code example>"
@@ -225,6 +225,6 @@ world_test = """
 # result = count_tokens("gpt-4", task_test)
 
 
-# result, plan, filled_plan = asyncio.run(stream_rewoo(task_test, world_test))
+#result, plan, filled_plan = asyncio.run(stream_rewoo(task_test, world_test))
 
-# print(result)
+#print(result)

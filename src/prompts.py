@@ -52,6 +52,7 @@ Describe your plans with rich details. Each plan should follow only one #E and i
 PyCram is installed and set up in the plans, as this is already given.
 
 World knowledge: {world}
+---
 Task: {task}"""
 
 prompt_template = ChatPromptTemplate.from_template(rewoo_planer_prompt)
@@ -65,12 +66,9 @@ use them with caution because long evidence might contain irrelevant information
 for specific world information. Also be conscious about you hallucinating and therefore use evidence and example code 
 as strong inspiration.
 
-Example of PyCRAM Plan Code with the corresponding example plan (use this only as a example how the PyCRAM Code to a plan should look like):
-<Code_example>
 {code_example}
-</Code_example>
 
-Plan with evidence and examples:
+Plan with evidence and examples to do the coding task:
 <Plan>
 {plan}
 </Plan>
@@ -112,7 +110,7 @@ tools later. (Plan, #E1, Plan, #E2, Plan, ...).
 The tools can be one of the following: 
 (1) Retrieve[input]: A vector database retrieval system containing the documentation of PyCram. Use this tool when you need information about PyCram functionality. The input should be a specific search query as a detailed question. 
 (2) Code[input]: A vector database retriever to search and look directly into the PyCram package code. As input give the exact Function and a little description.
-(3) URDF[input]: A database retriver which returns the URDF file text. Use this tool when you need information about the URDF files used in the world. Provide the URDF file name as input.
+(3) URDF[input]: A database retriever which returns the URDF file text. Use this tool when you need information about the URDF files used in the world. Provide the URDF file name as input.
 
 PyCramPlanCode follow the following structure (Focus on useing ActionDesignators for the basic moves of the Robot):
 Imports
@@ -128,75 +126,70 @@ The 'with simulated_robot'-Block (defines the Actions and moves of the Robot)
 BulletWorld Close
 
 
-Here is an PyCramPlanCode with its corresponding correction plan (use them just as examples to learn the plan structure):
+Here is an PyCramPlanCode example with its corresponding correction plan (use them just as examples to learn the plan structure):
 <example>
 Failed PyCramPlanCode: 
 <failed_code>
-from pycram.bullet_world import BulletWorld, Object
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
 from pycram.process_module import simulated_robot
-# The import statements for designators are incomplete.
 from pycram.designators.motion_designator import *
 from pycram.designators.location_designator import *
 from pycram.designators.action_designator import *
 from pycram.designators.object_designator import *
-from pycram.enums import ObjectType, Arms
-from pycram.pose import Pose
+from pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode
+from pycram.datastructures.pose import Pose
+world = BulletWorld(WorldMode.GUI)
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.4, 1, 0.95]))
 
-# Initialize the BulletWorld
-world = BulletWorld()
+cereal_desig = ObjectDesignatorDescription(names=["cereal"])
+fridge_desig = ObjectDesignatorDescription(names=["fridge"])
+robot_desig = ObjectDesignatorDescription(names=["pr2"]).resolve()
 
-# Add objects to the world
-kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf')
-robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf')
-cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', pose=Pose([1.4, 1, 0.95]))
-
-# Define designators
-cereal_desig = ObjectDesignatorDescription(names=['cereal'])
-robot_desig = ObjectDesignatorDescription(names=['pr2']).resolve()
-
-# Activate the simulated robot
 with simulated_robot:
-    # Robot actions
     ParkArmsAction([Arms.BOTH]).resolve().perform()
     MoveTorsoAction([0.25]).resolve().perform()
 
-    # Determine the pick-up position for the cereal
-    pickup_pose = CostmapLocation(target=cereal.resolve(), reachable_for=robot_desig).resolve()
+    pickup_pose = CostmapLocation(target=cereal_desig.resolve(), reachable_for=robot_desig).resolve()
     pickup_arm = pickup_pose.reachable_arms[0]
 
-    # Navigate to the cereal and pick it up
     NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
-    PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=['front']).resolve().perform()
 
-    # Determine the target position and move there
-    target_pose = Pose([pickup_pose.pose.position.x + 3, pickup_pose.pose.position.y, pickup_pose.pose.position.z], pickup_pose.pose.orientation)
-    move_motion = MoveMotion(target=target_pose)
-    move_motion.perform()
+    PickUpAction(object_designator_description=cereal_desig, arms=[pickup_arm], grasps=[Grasp.FRONT]).resolve().perform()
 
-    # Place the cereal on the kitchen island
-    place_island = SemanticCostmapLocation('kitchen_island_surface', kitchen.resolve(), cereal.resolve()).resolve()
-    PlaceAction(object_to_place=cereal, target_locations=[place_island.pose], arms=[pickup_arm]).resolve().perform()
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
 
-# Exit the simulation
+    place_fridge = SemanticCostmapLocation("fridge_surface", fridge_desig.resolve(), cereal_desig.resolve()).resolve()
+
+    place_stand = CostmapLocation(place_fridge.pose, reachable_for=robot_desig, reachable_arm=pickup_arm).resolve()
+
+    NavigateAction(target_locations=[place_stand.pose]).resolve().perform()
+
+    PlaceAction(cereal_desig, target_locations=[place_fridge.pose], arms=[pickup_arm]).resolve().perform()
+
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
 world.exit()
 </failed_code>
 ---
 Corresponding error: 
-AttributeError                            Traceback (most recent call last)
-Cell In[1], line 43
-     40     move_motion.perform()
-     42     # Cerealien auf der Kücheninsel ablegen
----> 43     place_island = SemanticCostmapLocation('kitchen_island_surface', kitchen.resolve(), cereal.resolve()).resolve()
-     44     PlaceAction(object_designator_description=cereal_desig, target_locations=[place_island.pose], arms=[pickup_arm]).resolve().perform()
-     46 # Simulation beenden
-
-AttributeError: 'Object' object has no attribute 'resolve'
+Traceback (most recent call last):
+  File "/home/julius/ros/ros_ws/src/pycram/src/llm_pyCram_plans/test.py", line 32, in <module>
+    place_fridge = SemanticCostmapLocation("fridge_surface", fridge_desig.resolve(), cereal_desig.resolve()).resolve()
+  File "/home/julius/ros/ros_ws/src/pycram/src/pycram/designator.py", line 679, in ground
+    return next(iter(self))
+StopIteration
+X connection to :1 broken (explicit kill or server shutdown).
 ---
 World knowledge: 
-[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', pose=Pose([1.4, 1, 0.95])))]
+[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), 
+robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf'), 
+cereal = Object('cereal', ObjectType.BREAKFAST_CEREAL, 'breakfast_cereal.stl', 
+pose=Pose([1.4, 1, 0.95]))]
 ---
 Task: 
-Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?
+Place the cereal box directly next to the refrigerator.
 ---
 Corresponding output plan: 
 Plan 1: Research the Code of the function SemanticCostmapLocation. #E1 = Code[SemanticCostmapLocation]
@@ -235,12 +228,9 @@ and information to write PyCramCode so use them with caution because long eviden
 information and only use the world knowledge for specific world information. Also be conscious about you 
 hallucinating and therefore use evidence and example code as strong inspiration.
 
-Example of PyCRAM Plan Code with the corresponding example plan (use this only as a example how the PyCRAM Code to a plan should look like):
-<Code_example>
 {code_example}
-</Code_example>
 
-Plan with evidence and examples:
+Plan with evidence and examples to do the coding task:
 <Plan>
 {plan}
 </Plan>
