@@ -2,7 +2,7 @@ from langgraph_code_assistant import generate_plan
 from langgraph_code_assistant_parallel import generate_plan_parallel
 from vector_store_SB import get_retriever
 from helper_func import extract_urdf_files
-from prompts import chain_docs_docu, preprocessing_chain, chain_docs_code
+from prompts import chain_docs_docu, preprocessing_chain, chain_docs_code, urdf_tool
 import sys
 
 ## test case documentation
@@ -85,7 +85,7 @@ test_code_retriever = get_retriever(1, 2)
 test_docu_retriever = get_retriever(2, 2)
 
 
-def test_tool(tool_num, test_num, prompt):
+def test_tool(tool_num, test_num, prompt=""):
     task = f"task_test{test_num}"
     world = f"world_test{test_num}"
 
@@ -95,11 +95,23 @@ def test_tool(tool_num, test_num, prompt):
     else:
         return "Der Test existiert nicht"
     if tool_num == 1:
-        result = chain_docs_docu.invoke({"task": prompt, "instruction": task, "world": world})
+        result = chain_docs_docu.invoke(
+            {"task": prompt, "instruction": task, "world": world}
+        )
     elif tool_num == 2:
-        result = chain_docs_code.invoke({"task": prompt, "instruction": task, "world": world})
+        result = chain_docs_code.invoke(
+            {"task": prompt, "instruction": task, "world": world}
+        )
     elif tool_num == 3:
         result = preprocessing_chain.invoke({"prompt": task, "world": world})
+    elif tool_num == 4:
+        urdf_retriever = get_retriever(4, 1, {"source": prompt})
+        files = urdf_retriever.invoke(prompt)
+        if len(files) >= 1:
+            file = files[0].page_content
+            result = urdf_tool.invoke({"prompt": task, "world": world, "urdf": file})
+        else:
+            result = f"The URDF {prompt} is not in the database."
     else:
         raise Exception("Invalid tool number")
     return result
@@ -115,7 +127,15 @@ def make_test(test_num, run_num=1):
     else:
         return "Der Test existiert nicht"
 
-    result, first_plan, first_filled_plan, final_iter, success, plans_code_check, first_solution = generate_plan_parallel(task, world)
+    (
+        result,
+        first_plan,
+        first_filled_plan,
+        final_iter,
+        success,
+        plans_code_check,
+        first_solution,
+    ) = generate_plan_parallel(task, world)
     if final_iter > 1:
         plans_code_check_string = f"All Iterations with Plan and Solution:\nRun 1:\nPlan: \n{first_plan}\n\n Filled Plan:\n{first_filled_plan}\n\nCode Solution:\n{first_solution}\n\n---\n"
         i = 2
@@ -130,7 +150,7 @@ def make_test(test_num, run_num=1):
     else:
         success = "No"
     with open(f"../test_files/test{test_num}v{run_num}.txt", "w") as file:
-        test_string = f"Iterations:\n{final_iter}\n\nSuccess: {success}\n---\n\nPlan:\n{first_plan}\n\n----\nResult:\n{result}\n\n----\nFilled Plan:\n{first_filled_plan}\n\n------\n\n{plans_code_check_string}"
+        test_string = f"Iterations:\n{final_iter}\n\nSuccess: {success}\n----\n\nPlan:\n{first_plan}\n\n----\nResult:\n{result}\n\n----\nFilled Plan:\n{first_filled_plan}\n\n------\n\n{plans_code_check_string}"
         file.write(test_string)
     return result
 
@@ -142,7 +162,7 @@ def make_test(test_num, run_num=1):
 print(pre_thinking)"""
 # print(result_retriever_code)
 
-print(make_test(8, 3))
+# print(make_test(8, 3))
 """code_retrieve = test_code_retriever.invoke("How is CostmapLocation defined?")
 docu_retieve = test_docu_retriever.invoke(
     "What are Action Designators and how do i use them?"
@@ -156,6 +176,10 @@ for text in docu_retieve:
     print(text.page_content)
     print("\n\n-----\n\n")"""
 # Doku Tool
-# print(test_tool(1, "What are Action Designators and how do i use them?"))
+# print(test_tool(1, 4, "What are Action Designators and how are they used?"))
 # code Tool
-# print(test_tool(2, "How is CostmapLocation defined?"))
+# print(test_tool(2, 4, "How is CostmapLocation defined?"))
+# prethink
+# print(test_tool(3, 4))
+# urdf Tool
+# print(test_tool(4, 4, "kitchen.urdf"))

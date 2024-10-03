@@ -75,7 +75,7 @@ def generate(state: GraphState):
             pre_thinking = preprocessing_chain.invoke(
                 {"prompt": question, "world": world}
             )
-            question = f"User Instruction: {question}\n---\nThe following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:\n<thinking>{pre_thinking}</thinking>\n\n"
+            question = f"User Instruction: {question}\n\nThe following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:\n<thinking>{pre_thinking}</thinking>\n\n"
             print(question)
         print("---GENERATE SOLUTION---")
         code_solution, plan, filled_plan = asyncio.run(stream_rewoo(question, world))
@@ -342,7 +342,15 @@ def generate_plan_parallel(question, world, max_iterations=3, should_prethink=Tr
     plans_code_check = result_dic["keys"]["plans_code_check"]
     success = result_dic["keys"]["success"]
     first_solution = result_dic["keys"]["first_solution"]
-    return result_plan, full_result, filled_plan, final_iter, success, plans_code_check, first_solution
+    return (
+        result_plan,
+        full_result,
+        filled_plan,
+        final_iter,
+        success,
+        plans_code_check,
+        first_solution,
+    )
 
 
 task_test = """Kannst du das Müsli aufnehmen und 3 Schritte rechts wieder abstellen?"""

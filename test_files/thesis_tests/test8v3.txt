@@ -2,11 +2,11 @@ Iterations:
 3
 
 Success: No
----
+----
 
 Plan:
 User Instruction: Pick up a spoon, but not one that's already on a table.
----
+
 The following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:
 <thinking>- **Initial stage:**  
     - **PR2 Robot:** Positioned at **[1, 2, 0]**.

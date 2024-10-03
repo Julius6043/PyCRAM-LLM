@@ -129,12 +129,14 @@ re_chain_example_solve = retriever_examples | format_example
 def solve(state: ReWOO):
     plan = ""
     task = state["task"]
+    i = 1
     for _plan, step_name, tool, tool_input in state["steps"]:
         _results = state["results"] or {}
         for k, v in _results.items():
             tool_input = tool_input.replace(k, v)
             step_name = step_name.replace(k, v)
-        plan += f"Plan: {_plan}\n{step_name} = {tool}[{tool_input}]"
+        plan += f"Plan {i}: {_plan}\n{step_name} = {tool}[{tool_input}]"
+        i += 1
     code_example = re_chain_example_solve.invoke(task)
     code_example_filler = (
         """Here is also an related example of a similar PyCRAM plan code (use this as a semantic and syntactic example for the code structure and not for the world knowledge):
