@@ -335,7 +335,7 @@ def generate_plan_parallel(question, world, max_iterations=3, should_prethink=Tr
         }
     )
     result_code = result_dic["keys"]["generation"]
-    result_plan = result_code.imports + "\n\n" + result_code.code
+    result_code_plan = result_code.imports + "\n\n" + result_code.code
     full_result = result_dic["keys"]["full_result"]
     filled_plan = result_dic["keys"]["filled_plan"]
     final_iter = result_dic["keys"]["iterations"]
@@ -343,7 +343,7 @@ def generate_plan_parallel(question, world, max_iterations=3, should_prethink=Tr
     success = result_dic["keys"]["success"]
     first_solution = result_dic["keys"]["first_solution"]
     return (
-        result_plan,
+        result_code_plan,
         full_result,
         filled_plan,
         final_iter,

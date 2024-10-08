@@ -143,13 +143,17 @@ re_chain_example_solve = retriever_examples | format_example
 # Function to solve the task using the generated plan
 def solve(state: ReWOO):
     plan = ""
+    logging_plan = ""
     task = state["task"]
+    i = 1
     for _plan, step_name, tool, tool_input in state["steps"]:
         _results = state["results"] or {}
         for k, v in _results.items():
             tool_input = tool_input.replace(k, v)
             step_name = step_name.replace(k, v)
-        plan += f"Plan: {_plan}\n{step_name}= {tool}[{tool_input}]\n--\n\n"
+        plan += f"Plan {i}: {_plan}\n{step_name} = {tool}[{tool_input}]\n"
+        logging_plan += f"Plan {i}: {_plan}\n{step_name} = {tool}[{tool_input}]\n\n--Next PLAN--\n"
+        i += 1
     code_example = re_chain_example_solve.invoke(task)
     code_example_filler = (
         """Here is also an example of a similar PyCRAM plan code with the corresponding example plan (use this as a semantic and syntactic example for the code structure of a PyCRAM Plan and NOT for the world knowledge AND NOT as the task):
@@ -163,7 +167,7 @@ def solve(state: ReWOO):
     )
     result_chain = llm_with_tool
     result = result_chain.invoke(prompt_solve)
-    return {"result": result, "result_plan": plan}
+    return {"result": result, "result_plan": logging_plan}
 
 
 # Function to route the graph based on the current state

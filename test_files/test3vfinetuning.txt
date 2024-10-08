@@ -1,0 +1,3310 @@
+Iterations:
+3
+
+Success: No
+----
+
+Plan:
+User Instruction: Pick up the bowl from the table.
+
+The following is a pre thinking process for the user instruction. It is not necessarily right especially the Positions. But use it as a foundation for your task:
+<thinking>## Picking up the bowl from the table:
+
+**Initial stage:**
+- **Bowl:** Located on the table (assuming a table is part of the kitchen environment) at position **[1.4, 1, 0.89]**. It is yellow in color.
+- **PR2 Robot:** Positioned in the kitchen environment, likely at a default starting position (this information is not explicitly provided).
+
+**Goal stage:**
+- **Bowl:** Held securely by the PR2 robot's gripper.
+- **PR2 Robot:**  Holding the bowl, potentially in a position suitable for further manipulation or movement.
+
+**Step-by-step plan:**
+
+1. **Robot positioning:**
+    - **Action:** The PR2 robot navigates to a position near the table where the bowl is located, ensuring a clear path to approach the bowl.
+
+2. **Arm positioning:**
+    - **Action:** The robot positions its arm (likely the right arm) towards the bowl, adjusting its shoulder pan, shoulder lift, upper arm roll, elbow flex, and forearm roll joints to reach the bowl's position.
+
+3. **Grasping the bowl:**
+    - **Action:** The robot's gripper opens to a width slightly larger than the bowl's diameter.
+    - **Action:** The robot carefully moves its gripper towards the bowl, aligning it with the bowl's center.
+    - **Action:** The gripper closes firmly but gently around the bowl, ensuring a secure grasp without damaging the bowl.
+
+4. **Lifting the bowl:**
+    - **Action:** The robot smoothly lifts the bowl from the table by adjusting its arm joints, ensuring the bowl remains stable during the lifting process.
+
+5. **Task completion:**
+    - **Action:** The robot holds the bowl securely, ready for the next instruction or for moving to a different location. 
+
+**Note:** This plan assumes that the "table" is part of the kitchen environment described in the kitchen.urdf file. The exact position of the table and the optimal approach path for the robot would need to be determined based on the specific details within the kitchen.urdf file. 
+</thinking>
+
+
+World Knowledge:
+<world_knowledge>
+[kitchen = Object('kitchen', ObjectType.ENVIRONMENT, 'kitchen.urdf'), 
+robot = Object('pr2', ObjectType.ROBOT, 'pr2.urdf')
+bowl = Object('bowl', ObjectType.BOWL, 'bowl.stl', pose=Pose([1.4, 1, 0.89]), 
+color=[1, 1, 0, 1])]
+</world_knowledge>
+
+PyCramPlanCode:
+<code>
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.process_module import simulated_robot
+from pycram.designators.motion_designator import *
+from pycram.designators.location_designator import *
+from pycram.designators.action_designator import *
+from pycram.designators.object_designator import *
+from pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode
+from pycram.datastructures.pose import Pose
+world = BulletWorld(WorldMode.GUI)
+
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 1, 0.89]), color=[1, 1, 0, 1])
+
+cereal_desig = BelieveObject(names=["cereal"]).resolve()
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+bowl_desig = BelieveObject(names=["bowl"]).resolve()
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.25]).resolve().perform()
+    
+    pickup_pose = CostmapLocation(target=bowl_desig, reachable_for=robot_desig).ground()
+    pickup_arm = pickup_pose.reachable_arms[0]
+    
+    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+    
+    PickUpAction(object_designator_description=bowl_desig, arms=[pickup_arm], grasps=[Grasp.FRONT]).resolve().perform()
+    
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+world.exit()
+</code>
+
+This is the corresponding plan:
+Plan 1: Get the URDF file of the kitchen. 
+#E1 = URDF[kitchen.urdf]
+
+Plan 2: Get the URDF file of the pr2 robot. 
+#E2 = URDF[pr2.urdf]
+
+Plan 3: Create a object designator for the bowl and the robot object. 
+#E3 = Retrieve[How to create an object designator in PyCram?]
+
+Plan 4: Retrieve the method for navigating the robot to the bowl. 
+#E4 = Retrieve[How to navigate the robot to a specific position in PyCram? The position should be near the bowl but also reachable for the robot.]
+
+Plan 5: Retrieve the method to locate and pick up the bowl. 
+#E5 = Retrieve[How to locate an object and pick it up? Use the CostmapLocation Designator to find a reachable position for the robot near the bowl.]
+
+Plan 6: Close the BulletWorld. 
+#E6 = Retrieve[How do I close the BulletWorld in PyCram?] 
+
+----
+Result:
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.process_module import simulated_robot
+from pycram.designators.motion_designator import *
+from pycram.designators.location_designator import *
+from pycram.designators.action_designator import *
+from pycram.designators.object_designator import *
+from pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode
+from pycram.datastructures.pose import Pose
+
+world = BulletWorld(WorldMode.GUI)
+
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 1, 0.89]), color=[1, 1, 0, 1])
+
+cereal_desig = BelieveObject(names=["cereal"]).resolve()
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+bowl_desig = BelieveObject(names=["bowl"]).resolve()
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.25]).resolve().perform()
+    
+    pickup_pose = CostmapLocation(target=bowl_desig, reachable_for=robot_desig).ground()
+    pickup_arm = pickup_pose.reachable_arms[0]
+    
+    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+    
+    PickUpAction(object_designator_description=bowl_desig, arms=[pickup_arm], grasps=[Grasp.FRONT]).resolve().perform()
+    
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+world.exit()
+
+----
+Filled Plan:
+Plan 1: Get the URDF file of the kitchen.
+### Summary of the Kitchen Environment URDF
+
+The **kitchen environment** is a complex setting designed for various interactions, particularly focused on cooking and cleaning tasks. It includes several specialized areas like the sink area, oven area, and refrigerator area, each equipped with specific functionalities. The environment is rich in details, with different surfaces, appliances, and tools that create a realistic and immersive setting for robotic operations.
+
+#### Key Components:
+
+1. **Room and Walls**: The kitchen is enclosed by walls, creating a distinct room-like environment.
+2. **Sink Area**: This area includes a sink, countertop, and storage drawers. The sink is functional for washing dishes, and the drawers provide storage space.
+3. **Oven Area**: Houses the oven, which is used for baking and cooking. The oven has a door that can be opened and closed.
+4. **Kitchen Island**: A central workspace that often serves multiple purposes, including food preparation and serving.
+5. **Refrigerator Area**: Contains the refrigerator, a crucial appliance for food storage.
+6. **Surfaces and Drawers**: Various countertops and drawers are part of the kitchen's furniture, providing workspace and storage.
+
+### Important Data for World Understanding
+
+#### General Information
+- **Name**: Kitchen
+- **Type**: Environment
+- **File**: kitchen.urdf
+
+#### Room Structure
+- **Room Link**: `room_link`
+- **World Link**: `world`
+- **Joint (Fixed)**: `world_room_joint`
+  - **Parent**: world
+  - **Child**: room_link
+
+#### Sink Area
+- **Link**: `sink_area`
+- **Joint (Fixed)**: `sink_area_main_joint`
+  - **Child**: sink_area
+- **Components**:
+  - **Sink**: `sink_area_sink`
+  - **Countertop**: `sink_area_surface`
+  - **Drawers**: `sink_area_trash_drawer_main`, `sink_area_left_upper_drawer_main`, `sink_area_left_middle_drawer_main`, `sink_area_left_bottom_drawer_main`
+  - **Handles**: `sink_area_trash_drawer_handle`, `sink_area_left_upper_drawer_handle`, `sink_area_left_middle_drawer_handle`, `sink_area_left_bottom_drawer_handle`
+
+#### Oven Area
+- **Link**: `oven_area`
+- **Joint (Fixed)**: `oven_area_main_joint`
+  - **Child**: oven_area
+- **Components**:
+  - **Oven**: `oven_area_oven_main`
+  - **Oven Door**: `oven_area_oven_door`
+  - **Oven Handle**: `oven_area_oven_door_handle`
+  - **Knobs**: `oven_area_oven_knob_stove_1`, `oven_area_oven_knob_stove_2`, `oven_area_oven_knob_stove_3`, `oven_area_oven_knob_stove_4`
+
+#### Kitchen Island
+- **Link**: `kitchen_island`
+- **Joint (Fixed)**: `kitchen_island_joint`
+- **Components**:
+  - **Island Surface**: `kitchen_island_surface`
+  - **Drawers**: `kitchen_island_left_upper_drawer_main`, `kitchen_island_left_lower_drawer_main`, `kitchen_island_right_upper_drawer_main`, `kitchen_island_right_lower_drawer_main`
+  - **Handles**: `kitchen_island_left_upper_drawer_handle`, `kitchen_island_left_lower_drawer_handle`, `kitchen_island_right_upper_drawer_handle`, `kitchen_island_right_lower_drawer_handle`
+
+#### Refrigerator Area
+- **Link**: `fridge_area`
+- **Joint (Fixed)**: `fridge_area_main_joint`
+- **Components**:
+  - **Refrigerator**: `iai_fridge_main`
+  - **Refrigerator Door**: `iai_fridge_door`
+  - **Refrigerator Handle**: `iai_fridge_door_handle`
+
+#### Environment Features
+- **Lighting**: The environment has different lighting settings, such as "Ias/KitchenLightGray" and "Ias/KitchenDarkGray."
+- **Ground**: The environment is placed on a ground surface, which is part of the world link.
+
+### Conclusion
+This detailed breakdown of the kitchen environment's URDF highlights the intricate structure and components that make up this complex setting. Each area and appliance is carefully defined, providing a comprehensive understanding of the kitchen's layout and functionality, which is essential for effective interaction and task execution within this virtual space. = URDF[kitchen.urdf]
+
+--Next PLAN--
+Plan 2: Get the URDF file of the pr2 robot.
+### Summary of PR2 Robot URDF
+
+The PR2 robot, designed for various tasks, features multiple joints and links that enable its complex movements. Key components include:
+
+- **Base and Mobility**: The robot has a base link with a mass of 116 kg, providing stability. It has four casters for movement, each with rotation and wheel joints.
+- **Arms and Joints**: The PR2 has two arms, each consisting of a shoulder, upper arm, elbow, forearm, and wrist. The arms have multiple joints, such as:
+  - **Shoulder Joints**: Allow lifting and rotating movements.
+  - **Elbow Joints**: Enable bending movements.
+  - **Wrist Joints**: Allow fine rotational adjustments.
+- **Grippers**: Each arm ends with a gripper consisting of multiple fingers. The grippers have:
+  - **Fingertip Joints**: Allow finger movements.
+  - **Motor Joints**: Control the opening and closing of the grippers.
+- **Sensors**: The PR2 is equipped with various sensors, including cameras for vision and LIDAR for distance measurement.
+- **Chassis**: The robot's structure includes a torso and different layers for organization and functionality.
+
+### Important Data for World Understanding
+
+- **Robot Name**: PR2
+- **Mass**: 116 kg (base)
+- **Links and Joints**:
+  - **Base Link**: Provides stability.
+  - **Arm Links**: Upper arm, forearm, wrist, each with specific functions.
+  - **Gripper Links**: Multiple fingers, each as a separate link.
+  - **Joints**: Each link has a corresponding joint for movement (e.g., revolute, prismatic).
+- **Sensors**: Cameras and LIDAR for perception.
+- **Chassis Structure**: Layers for organization.
+
+### World Model
+
+In a kitchen environment, the PR2 robot, weighing 116 kg, is designed with a complex structure of links and joints that enable it to perform various tasks. It has a stable base link and is equipped with arms that have multiple links, such as upper arms, forearms, and wrists. Each arm has a gripper with fingers, all functioning through specific joints that allow for precise movements. The robot is also fitted with sensors, including cameras and LIDAR, to perceive its surroundings. This intricate design allows the PR2 to navigate and interact with objects in the kitchen, like a bowl, effectively. = URDF[pr2.urdf]
+
+--Next PLAN--
+Plan 3: Create a object designator for the bowl and the robot object.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to create an Object Designator in PyCram, which is used to describe and represent objects within the simulation or real environment.
+
+### Explain the Goal
+The goal is to understand the structure and function of Object Designators in PyCram, enabling the description and manipulation of objects within various contexts, such as actions like picking up or interacting with objects.
+
+### Prerequisites and Setup
+Ensure that PyCram is installed and set up correctly, and that you have access to a BulletWorld, as Object Designators are used within this context.
+
+## Detailed Workflow Explanation
+
+### Step 1: Import Necessary Modules
+Begin by importing the required modules from PyCram.
+
+```python
+from pycram.designators.object_designator import BelieveObject
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+```
+
+### Step 2: Create a BulletWorld
+Object Designators are used to describe objects within a BulletWorld, so if you don’t have one running, create it.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+world = BulletWorld()
+```
+
+### Step 3: Spawn Objects
+Spawn the objects that you will work with, as Object Designators describe these objects.
+
+```python
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+```
+
+### Step 4: Create an Object Designator
+Use the `BelieveObject` class to create an Object Designator. This designator will describe the milk object.
+
+```python
+object_description = BelieveObject(names=["milk"])
+```
+
+### Step 5: Resolve the Object Designator
+Resolving the Object Designator will return an instance of the designator that represents the specific object described.
+
+```python
+resolved_object = object_description.resolve()
+print(resolved_object)
+```
+
+## Code Examples and Implementation Guidance
+
+### Complete Example
+Here’s a complete example that includes all the steps mentioned above:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.designators.object_designator import BelieveObject
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+
+# Create a BulletWorld
+world = BulletWorld()
+
+# Spawn objects
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+
+# Create and resolve an Object Designator
+object_description = BelieveObject(names=["milk"])
+resolved_object = object_description.resolve()
+print(resolved_object)
+
+# Exit the world
+world.exit()
+```
+
+## Framework Integration and Concepts
+
+Object Designators are crucial for defining objects that robots can interact with. They provide a way to specify objects in a way that is independent of their exact location or state, allowing for more flexible and robust robot programming.
+
+### Key Components
+- **BelieveObject:** The primary class used for creating Object Designators that describe objects currently in the BulletWorld.
+- **Object:** Represents objects within the BulletWorld, which can be described by Object Designators.
+
+## Best Practices and Considerations
+
+- **Clarity in Naming:** Use clear and unique names for objects to avoid confusion in Object Designators.
+- **Object Lifecycle:** Ensure that objects are properly removed from the BulletWorld when no longer needed to prevent memory leaks.
+
+By following this guide, you will be able to create and use Object Designators in PyCram, enabling more complex and capable robot behaviors through precise object manipulation and interaction. = Retrieve[How to create an object designator in PyCram?]
+
+--Next PLAN--
+Plan 4: Retrieve the method for navigating the robot to the bowl.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to navigate a robot to a specific position in PyCram, ensuring that the position is near a given object (in this case, a bowl) and reachable by the robot.
+
+### Explain the Goal
+The goal of this task is to demonstrate how to use location designators in PyCram to find a suitable position for the robot. This is essential for tasks where the robot needs to interact with objects in its environment.
+
+### Prerequisites and Setup
+Before starting, ensure that you have a BulletWorld running and that the kitchen environment, along with the PR2 robot, is spawned. If you haven't done this yet, you can use the following code:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+world = BulletWorld()
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+If the PR2 is already spawned, you can remove this part.
+
+## Detailed Workflow Explanation
+
+### Step 1: Create Object Designators for the Robot and Bowl
+
+First, we need to create object designators for the PR2 robot and the bowl. Object designators in PyCram are symbolic representations of objects in the world, helping us refer to these objects in a more abstract way.
+
+```python
+from pycram.designators.object_designator import BelieveObject
+from pycram.datastructures.enums import Arms
+
+# Create an object designator for the PR2 robot
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+
+# Create an object designator for the bowl
+bowl_desig = BelieveObject(names=["bowl"]).resolve()
+```
+
+### Step 2: Use CostmapLocation to Find a Position
+
+Next, we'll use the `CostmapLocation` designator to find a position that is both near the bowl and reachable by the PR2. `CostmapLocation` generates a costmap, which is a 2D distribution where each point represents a possible location the robot could be, based on certain criteria (in this case, reachability).
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+
+# Create a location designator that finds a position near the bowl
+location_desig = CostmapLocation(target=bowl_desig, reachable_for=robot_desig).resolve()
+
+# Print the resolved location
+print(location_desig.pose)
+```
+
+### Step 3: Explanation of Location Designator
+
+The `CostmapLocation` designator we used creates a costmap based on two criteria: the target object (the bowl) and the robot (PR2). It then finds a position that meets these criteria. The `reachable_for` parameter specifies which robot should be able to reach the target object from the found position.
+
+## Code Examples and Implementation Guidance
+
+The code provided in the steps above can be run in a PyCram environment to achieve the task of finding a suitable position for the robot. Ensure that the kitchen environment is loaded, as the `CostmapLocation` designator requires a semantic environment to function correctly.
+
+## Framework Integration and Concepts
+
+This task demonstrates the use of location designators in PyCram, which are essential for determining where a robot can be placed based on various criteria. Location designators work by creating costmaps that represent possible positions the robot could occupy.
+
+## Best Practices and Considerations
+
+- **Verify Environment:** Ensure that the semantic environment (kitchen) is loaded, as this is necessary for location designators to work.
+- **Check Robot and Object Names:** Make sure the names used in `BelieveObject` match the names of the objects in the world to avoid resolution errors.
+
+By following this guide, you should be able to navigate a robot to a specific position in PyCram, considering both object proximity and robot reachability. = Retrieve[How to navigate the robot to a specific position in PyCram? The position should be near the bowl but also reachable for the robot.]
+
+--Next PLAN--
+Plan 5: Retrieve the method to locate and pick up the bowl.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to locate a bowl in a kitchen environment and pick it up using a PR2 robot in PyCram. The process involves finding a suitable position for the robot to approach the bowl and then executing the pick-up action.
+
+### Explain the Goal
+The objective is to demonstrate the use of location designators for determining reachable positions and to illustrate the pick-up action designator for object manipulation. This task is fundamental for autonomous robot operation in complex environments.
+
+### Prerequisites and Setup
+Ensure that PyCram is set up and that the kitchen environment and PR2 robot are loaded. If not already done, use the following code to initialize the environment:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+world = BulletWorld(WorldMode.GUI)
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+## Detailed Workflow Explanation
+
+### 1. Finding a Location to Pick Up the Bowl
+
+#### 1.1 Creating a CostmapLocation Designator
+The first step is to create a `CostmapLocation` designator, which will help us find a position where the robot can be placed to reach the bowl.
+
+- **Location Designator:** `CostmapLocation`
+- **Description:** This designator finds locations based on a target object (in this case, the bowl) that the robot should be able to reach.
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+from pycram.datastructures.pose import Pose
+
+# Object designator for the bowl
+bowl_desig = BelieveObject(names=["bowl"]).resolve()
+
+# Object designator for the robot
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+
+# Creating a description for CostmapLocation
+location_description = CostmapLocation(target=bowl_desig, reachable_for=robot_desig)
+```
+
+#### 1.2 Resolving the Location Designator
+Resolving the `CostmapLocation` designator will provide us with a specific location (pose) where the robot can be placed.
+
+```python
+# Resolving the location designator to get a specific pose
+pose = location_description.resolve()
+print(f"Resolved Pose: {pose.pose}")
+```
+
+### 2. Navigating the Robot to the Location
+
+#### 2.1 Creating a Navigate Action Designator
+Next, we need to create a `NavigateAction` designator that will allow the robot to move to the resolved pose.
+
+- **Action Designator:** `NavigateAction`
+- **Description:** This designator describes the action of moving the robot to a specific location.
+
+```python
+from pycram.designators.action_designator import NavigateAction
+from pycram.process_module import simulated_robot
+
+# Creating a navigate action designator
+navigate_desig = NavigateAction(target_locations=[pose.pose])
+```
+
+#### 2.2 Performing the Navigate Action
+We will perform the `NavigateAction` designator within a simulated environment, which allows us to test it without a real robot.
+
+```python
+# Performing the navigate action in a simulated environment
+with simulated_robot:
+    navigate_desig.perform()
+```
+
+### 3. Picking Up the Bowl
+
+#### 3.1 Creating a PickUp Action Designator
+After reaching the bowl, we need to create a `PickUpAction` designator to grasp the bowl.
+
+- **Action Designator:** `PickUpAction`
+- **Description:** This designator describes the action of picking up an object.
+
+```python
+from pycram.designators.action_designator import PickUpAction, ParkArmsAction
+from pycram.datastructures.enums import Arms, Grasp
+
+# Creating a pick-up action designator
+bowl_desig = BelieveObject(names=["bowl"])
+pick_up_desig = PickUpAction(object_designator_description=bowl_desig,
+                             arms=[Arms.RIGHT],
+                             grasps=[Grasp.RIGHT])
+```
+
+#### 3.2 Performing the PickUp Action
+Finally, we will perform the `PickUpAction` designator to pick up the bowl.
+
+```python
+# Performing the pick-up action
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()  # Park both arms
+    pick_up_desig.resolve().perform()  # Pick up the bowl
+```
+
+## Code Examples and Implementation Guidance
+
+### Complete Workflow Code
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode, Arms, Grasp
+from pycram.datastructures.pose import Pose
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+from pycram.designators.action_designator import NavigateAction, PickUpAction, ParkArmsAction
+from pycram.process_module import simulated_robot
+
+# Initialize BulletWorld and Objects
+world = BulletWorld(WorldMode.GUI)
+kitchen = Object("kitchen", ObjectType.ENVIORNMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 1, 0.89], color=[1, 1, 0, 1]))
+
+# Location Designator to find a place to pick up the bowl
+bowl_desig = BelieveObject(names=["bowl"]).resolve()
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+location_description = CostmapLocation(target=bowl_desig, reachable_for=robot_desig)
+pose = location_description.resolve()
+print(f"Resolved Pose: {pose.pose}")
+
+# Navigate Action to move the robot
+navigate_desig = NavigateAction(target_locations=[pose.pose])
+
+# Perform actions in a simulated environment
+with simulated_robot:
+    navigate_desig.resolve().perform()
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    PickUpAction(object_designator_description=bowl_desig, arms=[Arms.RIGHT], grasps=[Grasp.RIGHT]).resolve().perform()
+
+world.exit()
+```
+
+## Framework Integration and Concepts
+
+This workflow integrates various designators in PyCram to achieve a complex task. It demonstrates the use of location designators for determining reachable positions and action designators for executing robot movements. The interaction between these designators showcases how PyCram enables sophisticated robot control through high-level task descriptions.
+
+## Best Practices and Considerations
+
+- **Testing in Simulation:** Always test complex workflows in the simulated environment before deploying them on a real robot.
+- **Designator Descriptions:** Carefully consider the parameters provided in designator descriptions, as they determine the possible outcomes.
+- **Error Handling:** Be prepared to handle cases where a designator cannot find a suitable solution. = Retrieve[How to locate an object and pick it up? Use the CostmapLocation Designator to find a reachable position for the robot near the bowl.]
+
+--Next PLAN--
+Plan 6: Close the BulletWorld.
+### Task Overview and Objectives
+
+#### Define the Task
+This guide will explain how to close the BulletWorld in PyCram, which is essential for terminating the simulation cleanly.
+
+#### Explain the Goal
+Closing the BulletWorld properly ensures that all processes are terminated and resources are freed, preventing potential issues in future runs.
+
+#### Prerequisites and Setup
+This task requires an active BulletWorld session, which can be created using the `BulletWorld` class from `pycram.worlds.bullet_world`.
+
+### Detailed Workflow Explanation
+
+#### Step 1: Creating a BulletWorld
+Before closing the BulletWorld, you need to have one running. This can be done with the following code:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.datastructures.enums import WorldMode
+
+world = BulletWorld(WorldMode.GUI)
+```
+
+This code initializes a BulletWorld in GUI mode, allowing you to interact with it visually.
+
+#### Step 2: Closing the BulletWorld
+To close the BulletWorld, you use the `exit` method. This method not only closes the BulletWorld window but also terminates any background threads that PyCram may have started.
+
+```python
+world.exit()
+```
+
+### Code Examples and Implementation Guidance
+
+#### Example 1: Full Cycle of Opening and Closing BulletWorld
+
+Here’s a complete example that includes opening and then closing the BulletWorld:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.datastructures.enums import WorldMode
+
+# Step 1: Create a BulletWorld
+world = BulletWorld(WorldMode.GUI)
+
+# (Here you can add your simulation tasks)
+
+# Step 2: Close the BulletWorld
+world.exit()
+```
+
+### Framework Integration and Concepts
+
+The `exit` method is a part of the `World` class in PyCram, which handles various aspects of the simulation environment. Closing the BulletWorld properly is crucial for maintaining the integrity of the PyCram framework and ensuring that all processes are correctly terminated.
+
+### Best Practices and Considerations
+
+- **Always Close the BulletWorld:** Make it a habit to close the BulletWorld using the `exit` method after you are done with your simulations. This helps prevent memory leaks and other potential issues.
+- **Check for Background Processes:** The `exit` method should terminate all background processes, but it’s good practice to check if any processes related to PyCram are still running after closing the BulletWorld. = Retrieve[How do I close the BulletWorld in PyCram?]
+
+--Next PLAN--
+
+
+------
+
+All Iterations with Plan and Solution:
+Run 1:
+Plan: 
+
+Plan 1: Get the URDF file of the kitchen. 
+#E1 = URDF[kitchen.urdf]
+
+Plan 2: Get the URDF file of the pr2 robot. 
+#E2 = URDF[pr2.urdf]
+
+Plan 3: Create a object designator for the bowl and the robot object. 
+#E3 = Retrieve[How to create an object designator in PyCram?]
+
+Plan 4: Retrieve the method for navigating the robot to the bowl. 
+#E4 = Retrieve[How to navigate the robot to a specific position in PyCram? The position should be near the bowl but also reachable for the robot.]
+
+Plan 5: Retrieve the method to locate and pick up the bowl. 
+#E5 = Retrieve[How to locate an object and pick it up? Use the CostmapLocation Designator to find a reachable position for the robot near the bowl.]
+
+Plan 6: Close the BulletWorld. 
+#E6 = Retrieve[How do I close the BulletWorld in PyCram?] 
+-
+
+Code Solution:
+from pycram.worlds.bullet_world import BulletWorld\nfrom pycram.world_concepts.world_object import Object\nfrom pycram.process_module import simulated_robot\nfrom pycram.designators.motion_designator import *\nfrom pycram.designators.location_designator import *\nfrom pycram.designators.action_designator import *\nfrom pycram.designators.object_designator import *\nfrom pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode\nfrom pycram.datastructures.pose import Pose
+world = BulletWorld(WorldMode.GUI)\n\nkitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")\nrobot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")\nbowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 1, 0.89]), color=[1, 1, 0, 1])\n\ncereal_desig = BelieveObject(names=["cereal"]).resolve()\nkitchen_desig = BelieveObject(names=["kitchen"]).resolve()\nrobot_desig = BelieveObject(names=["pr2"]).resolve()\nbowl_desig = BelieveObject(names=["bowl"]).resolve()\n\nwith simulated_robot:\n    ParkArmsAction([Arms.BOTH]).resolve().perform()\n    MoveTorsoAction([0.25]).resolve().perform()\n    \n    pickup_pose = CostmapLocation(target=bowl_desig, reachable_for=robot_desig).resolve()\n    pickup_arm = pickup_pose.reachable_arms[0]\n    \n    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()\n    \n    PickUpAction(object_designator_description=bowl_desig, arms=[pickup_arm], grasps=[Grasp.FRONT]).resolve().perform()\n    \n    ParkArmsAction([Arms.BOTH]).resolve().perform()\n\nworld.exit()
+-
+
+Filled Plan:
+Plan 1: Get the URDF file of the kitchen.
+### Summary of the Kitchen Environment URDF
+
+The **kitchen environment** is a complex setting designed for various interactions, particularly focused on cooking and cleaning tasks. It includes several specialized areas like the sink area, oven area, and refrigerator area, each equipped with specific functionalities. The environment is rich in details, with different surfaces, appliances, and tools that create a realistic and immersive setting for robotic operations.
+
+#### Key Components:
+
+1. **Room and Walls**: The kitchen is enclosed by walls, creating a distinct room-like environment.
+2. **Sink Area**: This area includes a sink, countertop, and storage drawers. The sink is functional for washing dishes, and the drawers provide storage space.
+3. **Oven Area**: Houses the oven, which is used for baking and cooking. The oven has a door that can be opened and closed.
+4. **Kitchen Island**: A central workspace that often serves multiple purposes, including food preparation and serving.
+5. **Refrigerator Area**: Contains the refrigerator, a crucial appliance for food storage.
+6. **Surfaces and Drawers**: Various countertops and drawers are part of the kitchen's furniture, providing workspace and storage.
+
+### Important Data for World Understanding
+
+#### General Information
+- **Name**: Kitchen
+- **Type**: Environment
+- **File**: kitchen.urdf
+
+#### Room Structure
+- **Room Link**: `room_link`
+- **World Link**: `world`
+- **Joint (Fixed)**: `world_room_joint`
+  - **Parent**: world
+  - **Child**: room_link
+
+#### Sink Area
+- **Link**: `sink_area`
+- **Joint (Fixed)**: `sink_area_main_joint`
+  - **Child**: sink_area
+- **Components**:
+  - **Sink**: `sink_area_sink`
+  - **Countertop**: `sink_area_surface`
+  - **Drawers**: `sink_area_trash_drawer_main`, `sink_area_left_upper_drawer_main`, `sink_area_left_middle_drawer_main`, `sink_area_left_bottom_drawer_main`
+  - **Handles**: `sink_area_trash_drawer_handle`, `sink_area_left_upper_drawer_handle`, `sink_area_left_middle_drawer_handle`, `sink_area_left_bottom_drawer_handle`
+
+#### Oven Area
+- **Link**: `oven_area`
+- **Joint (Fixed)**: `oven_area_main_joint`
+  - **Child**: oven_area
+- **Components**:
+  - **Oven**: `oven_area_oven_main`
+  - **Oven Door**: `oven_area_oven_door`
+  - **Oven Handle**: `oven_area_oven_door_handle`
+  - **Knobs**: `oven_area_oven_knob_stove_1`, `oven_area_oven_knob_stove_2`, `oven_area_oven_knob_stove_3`, `oven_area_oven_knob_stove_4`
+
+#### Kitchen Island
+- **Link**: `kitchen_island`
+- **Joint (Fixed)**: `kitchen_island_joint`
+- **Components**:
+  - **Island Surface**: `kitchen_island_surface`
+  - **Drawers**: `kitchen_island_left_upper_drawer_main`, `kitchen_island_left_lower_drawer_main`, `kitchen_island_right_upper_drawer_main`, `kitchen_island_right_lower_drawer_main`
+  - **Handles**: `kitchen_island_left_upper_drawer_handle`, `kitchen_island_left_lower_drawer_handle`, `kitchen_island_right_upper_drawer_handle`, `kitchen_island_right_lower_drawer_handle`
+
+#### Refrigerator Area
+- **Link**: `fridge_area`
+- **Joint (Fixed)**: `fridge_area_main_joint`
+- **Components**:
+  - **Refrigerator**: `iai_fridge_main`
+  - **Refrigerator Door**: `iai_fridge_door`
+  - **Refrigerator Handle**: `iai_fridge_door_handle`
+
+#### Environment Features
+- **Lighting**: The environment has different lighting settings, such as "Ias/KitchenLightGray" and "Ias/KitchenDarkGray."
+- **Ground**: The environment is placed on a ground surface, which is part of the world link.
+
+### Conclusion
+This detailed breakdown of the kitchen environment's URDF highlights the intricate structure and components that make up this complex setting. Each area and appliance is carefully defined, providing a comprehensive understanding of the kitchen's layout and functionality, which is essential for effective interaction and task execution within this virtual space. = URDF[kitchen.urdf]
+
+--Next PLAN--
+Plan 2: Get the URDF file of the pr2 robot.
+### Summary of PR2 Robot URDF
+
+The PR2 robot, designed for various tasks, features multiple joints and links that enable its complex movements. Key components include:
+
+- **Base and Mobility**: The robot has a base link with a mass of 116 kg, providing stability. It has four casters for movement, each with rotation and wheel joints.
+- **Arms and Joints**: The PR2 has two arms, each consisting of a shoulder, upper arm, elbow, forearm, and wrist. The arms have multiple joints, such as:
+  - **Shoulder Joints**: Allow lifting and rotating movements.
+  - **Elbow Joints**: Enable bending movements.
+  - **Wrist Joints**: Allow fine rotational adjustments.
+- **Grippers**: Each arm ends with a gripper consisting of multiple fingers. The grippers have:
+  - **Fingertip Joints**: Allow finger movements.
+  - **Motor Joints**: Control the opening and closing of the grippers.
+- **Sensors**: The PR2 is equipped with various sensors, including cameras for vision and LIDAR for distance measurement.
+- **Chassis**: The robot's structure includes a torso and different layers for organization and functionality.
+
+### Important Data for World Understanding
+
+- **Robot Name**: PR2
+- **Mass**: 116 kg (base)
+- **Links and Joints**:
+  - **Base Link**: Provides stability.
+  - **Arm Links**: Upper arm, forearm, wrist, each with specific functions.
+  - **Gripper Links**: Multiple fingers, each as a separate link.
+  - **Joints**: Each link has a corresponding joint for movement (e.g., revolute, prismatic).
+- **Sensors**: Cameras and LIDAR for perception.
+- **Chassis Structure**: Layers for organization.
+
+### World Model
+
+In a kitchen environment, the PR2 robot, weighing 116 kg, is designed with a complex structure of links and joints that enable it to perform various tasks. It has a stable base link and is equipped with arms that have multiple links, such as upper arms, forearms, and wrists. Each arm has a gripper with fingers, all functioning through specific joints that allow for precise movements. The robot is also fitted with sensors, including cameras and LIDAR, to perceive its surroundings. This intricate design allows the PR2 to navigate and interact with objects in the kitchen, like a bowl, effectively. = URDF[pr2.urdf]
+
+--Next PLAN--
+Plan 3: Create a object designator for the bowl and the robot object.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to create an Object Designator in PyCram, which is used to describe and represent objects within the simulation or real environment.
+
+### Explain the Goal
+The goal is to understand the structure and function of Object Designators in PyCram, enabling the description and manipulation of objects within various contexts, such as actions like picking up or interacting with objects.
+
+### Prerequisites and Setup
+Ensure that PyCram is installed and set up correctly, and that you have access to a BulletWorld, as Object Designators are used within this context.
+
+## Detailed Workflow Explanation
+
+### Step 1: Import Necessary Modules
+Begin by importing the required modules from PyCram.
+
+```python
+from pycram.designators.object_designator import BelieveObject
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+```
+
+### Step 2: Create a BulletWorld
+Object Designators are used to describe objects within a BulletWorld, so if you don’t have one running, create it.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+world = BulletWorld()
+```
+
+### Step 3: Spawn Objects
+Spawn the objects that you will work with, as Object Designators describe these objects.
+
+```python
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+```
+
+### Step 4: Create an Object Designator
+Use the `BelieveObject` class to create an Object Designator. This designator will describe the milk object.
+
+```python
+object_description = BelieveObject(names=["milk"])
+```
+
+### Step 5: Resolve the Object Designator
+Resolving the Object Designator will return an instance of the designator that represents the specific object described.
+
+```python
+resolved_object = object_description.resolve()
+print(resolved_object)
+```
+
+## Code Examples and Implementation Guidance
+
+### Complete Example
+Here’s a complete example that includes all the steps mentioned above:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.designators.object_designator import BelieveObject
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+
+# Create a BulletWorld
+world = BulletWorld()
+
+# Spawn objects
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+
+# Create and resolve an Object Designator
+object_description = BelieveObject(names=["milk"])
+resolved_object = object_description.resolve()
+print(resolved_object)
+
+# Exit the world
+world.exit()
+```
+
+## Framework Integration and Concepts
+
+Object Designators are crucial for defining objects that robots can interact with. They provide a way to specify objects in a way that is independent of their exact location or state, allowing for more flexible and robust robot programming.
+
+### Key Components
+- **BelieveObject:** The primary class used for creating Object Designators that describe objects currently in the BulletWorld.
+- **Object:** Represents objects within the BulletWorld, which can be described by Object Designators.
+
+## Best Practices and Considerations
+
+- **Clarity in Naming:** Use clear and unique names for objects to avoid confusion in Object Designators.
+- **Object Lifecycle:** Ensure that objects are properly removed from the BulletWorld when no longer needed to prevent memory leaks.
+
+By following this guide, you will be able to create and use Object Designators in PyCram, enabling more complex and capable robot behaviors through precise object manipulation and interaction. = Retrieve[How to create an object designator in PyCram?]
+
+--Next PLAN--
+Plan 4: Retrieve the method for navigating the robot to the bowl.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to navigate a robot to a specific position in PyCram, ensuring that the position is near a given object (in this case, a bowl) and reachable by the robot.
+
+### Explain the Goal
+The goal of this task is to demonstrate how to use location designators in PyCram to find a suitable position for the robot. This is essential for tasks where the robot needs to interact with objects in its environment.
+
+### Prerequisites and Setup
+Before starting, ensure that you have a BulletWorld running and that the kitchen environment, along with the PR2 robot, is spawned. If you haven't done this yet, you can use the following code:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+world = BulletWorld()
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+If the PR2 is already spawned, you can remove this part.
+
+## Detailed Workflow Explanation
+
+### Step 1: Create Object Designators for the Robot and Bowl
+
+First, we need to create object designators for the PR2 robot and the bowl. Object designators in PyCram are symbolic representations of objects in the world, helping us refer to these objects in a more abstract way.
+
+```python
+from pycram.designators.object_designator import BelieveObject
+from pycram.datastructures.enums import Arms
+
+# Create an object designator for the PR2 robot
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+
+# Create an object designator for the bowl
+bowl_desig = BelieveObject(names=["bowl"]).resolve()
+```
+
+### Step 2: Use CostmapLocation to Find a Position
+
+Next, we'll use the `CostmapLocation` designator to find a position that is both near the bowl and reachable by the PR2. `CostmapLocation` generates a costmap, which is a 2D distribution where each point represents a possible location the robot could be, based on certain criteria (in this case, reachability).
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+
+# Create a location designator that finds a position near the bowl
+location_desig = CostmapLocation(target=bowl_desig, reachable_for=robot_desig).resolve()
+
+# Print the resolved location
+print(location_desig.pose)
+```
+
+### Step 3: Explanation of Location Designator
+
+The `CostmapLocation` designator we used creates a costmap based on two criteria: the target object (the bowl) and the robot (PR2). It then finds a position that meets these criteria. The `reachable_for` parameter specifies which robot should be able to reach the target object from the found position.
+
+## Code Examples and Implementation Guidance
+
+The code provided in the steps above can be run in a PyCram environment to achieve the task of finding a suitable position for the robot. Ensure that the kitchen environment is loaded, as the `CostmapLocation` designator requires a semantic environment to function correctly.
+
+## Framework Integration and Concepts
+
+This task demonstrates the use of location designators in PyCram, which are essential for determining where a robot can be placed based on various criteria. Location designators work by creating costmaps that represent possible positions the robot could occupy.
+
+## Best Practices and Considerations
+
+- **Verify Environment:** Ensure that the semantic environment (kitchen) is loaded, as this is necessary for location designators to work.
+- **Check Robot and Object Names:** Make sure the names used in `BelieveObject` match the names of the objects in the world to avoid resolution errors.
+
+By following this guide, you should be able to navigate a robot to a specific position in PyCram, considering both object proximity and robot reachability. = Retrieve[How to navigate the robot to a specific position in PyCram? The position should be near the bowl but also reachable for the robot.]
+
+--Next PLAN--
+Plan 5: Retrieve the method to locate and pick up the bowl.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to locate a bowl in a kitchen environment and pick it up using a PR2 robot in PyCram. The process involves finding a suitable position for the robot to approach the bowl and then executing the pick-up action.
+
+### Explain the Goal
+The objective is to demonstrate the use of location designators for determining reachable positions and to illustrate the pick-up action designator for object manipulation. This task is fundamental for autonomous robot operation in complex environments.
+
+### Prerequisites and Setup
+Ensure that PyCram is set up and that the kitchen environment and PR2 robot are loaded. If not already done, use the following code to initialize the environment:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+world = BulletWorld(WorldMode.GUI)
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+## Detailed Workflow Explanation
+
+### 1. Finding a Location to Pick Up the Bowl
+
+#### 1.1 Creating a CostmapLocation Designator
+The first step is to create a `CostmapLocation` designator, which will help us find a position where the robot can be placed to reach the bowl.
+
+- **Location Designator:** `CostmapLocation`
+- **Description:** This designator finds locations based on a target object (in this case, the bowl) that the robot should be able to reach.
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+from pycram.datastructures.pose import Pose
+
+# Object designator for the bowl
+bowl_desig = BelieveObject(names=["bowl"]).resolve()
+
+# Object designator for the robot
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+
+# Creating a description for CostmapLocation
+location_description = CostmapLocation(target=bowl_desig, reachable_for=robot_desig)
+```
+
+#### 1.2 Resolving the Location Designator
+Resolving the `CostmapLocation` designator will provide us with a specific location (pose) where the robot can be placed.
+
+```python
+# Resolving the location designator to get a specific pose
+pose = location_description.resolve()
+print(f"Resolved Pose: {pose.pose}")
+```
+
+### 2. Navigating the Robot to the Location
+
+#### 2.1 Creating a Navigate Action Designator
+Next, we need to create a `NavigateAction` designator that will allow the robot to move to the resolved pose.
+
+- **Action Designator:** `NavigateAction`
+- **Description:** This designator describes the action of moving the robot to a specific location.
+
+```python
+from pycram.designators.action_designator import NavigateAction
+from pycram.process_module import simulated_robot
+
+# Creating a navigate action designator
+navigate_desig = NavigateAction(target_locations=[pose.pose])
+```
+
+#### 2.2 Performing the Navigate Action
+We will perform the `NavigateAction` designator within a simulated environment, which allows us to test it without a real robot.
+
+```python
+# Performing the navigate action in a simulated environment
+with simulated_robot:
+    navigate_desig.perform()
+```
+
+### 3. Picking Up the Bowl
+
+#### 3.1 Creating a PickUp Action Designator
+After reaching the bowl, we need to create a `PickUpAction` designator to grasp the bowl.
+
+- **Action Designator:** `PickUpAction`
+- **Description:** This designator describes the action of picking up an object.
+
+```python
+from pycram.designators.action_designator import PickUpAction, ParkArmsAction
+from pycram.datastructures.enums import Arms, Grasp
+
+# Creating a pick-up action designator
+bowl_desig = BelieveObject(names=["bowl"])
+pick_up_desig = PickUpAction(object_designator_description=bowl_desig,
+                             arms=[Arms.RIGHT],
+                             grasps=[Grasp.RIGHT])
+```
+
+#### 3.2 Performing the PickUp Action
+Finally, we will perform the `PickUpAction` designator to pick up the bowl.
+
+```python
+# Performing the pick-up action
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()  # Park both arms
+    pick_up_desig.resolve().perform()  # Pick up the bowl
+```
+
+## Code Examples and Implementation Guidance
+
+### Complete Workflow Code
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode, Arms, Grasp
+from pycram.datastructures.pose import Pose
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+from pycram.designators.action_designator import NavigateAction, PickUpAction, ParkArmsAction
+from pycram.process_module import simulated_robot
+
+# Initialize BulletWorld and Objects
+world = BulletWorld(WorldMode.GUI)
+kitchen = Object("kitchen", ObjectType.ENVIORNMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 1, 0.89], color=[1, 1, 0, 1]))
+
+# Location Designator to find a place to pick up the bowl
+bowl_desig = BelieveObject(names=["bowl"]).resolve()
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+location_description = CostmapLocation(target=bowl_desig, reachable_for=robot_desig)
+pose = location_description.resolve()
+print(f"Resolved Pose: {pose.pose}")
+
+# Navigate Action to move the robot
+navigate_desig = NavigateAction(target_locations=[pose.pose])
+
+# Perform actions in a simulated environment
+with simulated_robot:
+    navigate_desig.resolve().perform()
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    PickUpAction(object_designator_description=bowl_desig, arms=[Arms.RIGHT], grasps=[Grasp.RIGHT]).resolve().perform()
+
+world.exit()
+```
+
+## Framework Integration and Concepts
+
+This workflow integrates various designators in PyCram to achieve a complex task. It demonstrates the use of location designators for determining reachable positions and action designators for executing robot movements. The interaction between these designators showcases how PyCram enables sophisticated robot control through high-level task descriptions.
+
+## Best Practices and Considerations
+
+- **Testing in Simulation:** Always test complex workflows in the simulated environment before deploying them on a real robot.
+- **Designator Descriptions:** Carefully consider the parameters provided in designator descriptions, as they determine the possible outcomes.
+- **Error Handling:** Be prepared to handle cases where a designator cannot find a suitable solution. = Retrieve[How to locate an object and pick it up? Use the CostmapLocation Designator to find a reachable position for the robot near the bowl.]
+
+--Next PLAN--
+Plan 6: Close the BulletWorld.
+### Task Overview and Objectives
+
+#### Define the Task
+This guide will explain how to close the BulletWorld in PyCram, which is essential for terminating the simulation cleanly.
+
+#### Explain the Goal
+Closing the BulletWorld properly ensures that all processes are terminated and resources are freed, preventing potential issues in future runs.
+
+#### Prerequisites and Setup
+This task requires an active BulletWorld session, which can be created using the `BulletWorld` class from `pycram.worlds.bullet_world`.
+
+### Detailed Workflow Explanation
+
+#### Step 1: Creating a BulletWorld
+Before closing the BulletWorld, you need to have one running. This can be done with the following code:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.datastructures.enums import WorldMode
+
+world = BulletWorld(WorldMode.GUI)
+```
+
+This code initializes a BulletWorld in GUI mode, allowing you to interact with it visually.
+
+#### Step 2: Closing the BulletWorld
+To close the BulletWorld, you use the `exit` method. This method not only closes the BulletWorld window but also terminates any background threads that PyCram may have started.
+
+```python
+world.exit()
+```
+
+### Code Examples and Implementation Guidance
+
+#### Example 1: Full Cycle of Opening and Closing BulletWorld
+
+Here’s a complete example that includes opening and then closing the BulletWorld:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.datastructures.enums import WorldMode
+
+# Step 1: Create a BulletWorld
+world = BulletWorld(WorldMode.GUI)
+
+# (Here you can add your simulation tasks)
+
+# Step 2: Close the BulletWorld
+world.exit()
+```
+
+### Framework Integration and Concepts
+
+The `exit` method is a part of the `World` class in PyCram, which handles various aspects of the simulation environment. Closing the BulletWorld properly is crucial for maintaining the integrity of the PyCram framework and ensuring that all processes are correctly terminated.
+
+### Best Practices and Considerations
+
+- **Always Close the BulletWorld:** Make it a habit to close the BulletWorld using the `exit` method after you are done with your simulations. This helps prevent memory leaks and other potential issues.
+- **Check for Background Processes:** The `exit` method should terminate all background processes, but it’s good practice to check if any processes related to PyCram are still running after closing the BulletWorld. = Retrieve[How do I close the BulletWorld in PyCram?]
+
+--Next PLAN--
+
+
+---
+Code Check Run 2:
+Plan: 
+Plan 1: Analyze the error message to understand the cause of the SyntaxError. The error message indicates an unexpected character after a line continuation character, suggesting an issue with how lines are broken in the code.
+#E1 = Retrieve[How to correctly use line continuation characters in Python]
+
+Plan 2: Investigate the correct way to format multi-line imports in Python. The error might stem from incorrect formatting of the import statements at the beginning of the code.
+#E2 = Retrieve[Best practices for formatting multi-line imports in Python]
+
+Plan 3: Verify the usage of the BelieveObject designator in PyCram. The code uses BelieveObject to resolve object designators, which might not be the intended or correct way to achieve this.
+#E3 = Retrieve[How to correctly use and resolve object designators in PyCram, including BelieveObject]
+
+Plan 4: Examine the usage of CostmapLocation and ensure it's appropriate for the task. The code uses CostmapLocation to determine the pickup pose, but it might not be the most suitable approach for navigating to an object on a table.
+#E4 = Retrieve[Different ways to define and use location designators in PyCram, including CostmapLocation and alternatives]
+
+Plan 5: Investigate the correct usage of PickUpAction and its parameters. The code uses PickUpAction to grasp the bowl, but it's crucial to ensure the parameters like grasp type and arm selection are appropriate for the bowl object.
+#E5 = Retrieve[Detailed explanation of PickUpAction in PyCram, including parameter descriptions and usage examples]
+
+Plan 6: Check the URDF file of the kitchen environment ("kitchen.urdf") to ensure the table is defined and has a surface suitable for placing the bowl. The plan assumes the existence of a table, so verifying its presence and properties in the URDF is essential.
+#E6 = URDF[kitchen.urdf]
+
+Plan 7: Investigate how to define and use semantic locations in PyCram, particularly for interacting with objects on surfaces like tables. This could provide a more robust way to define the target location for picking up the bowl.
+#E7 = Retrieve[How to define and use semantic locations in PyCram, especially for interacting with objects on surfaces]
+
+Plan 8: Explore alternative approaches for robot navigation and object manipulation in PyCram, such as using Moveit for arm planning or incorporating collision avoidance mechanisms. This could improve the robustness and efficiency of the plan.
+#E8 = Retrieve[Advanced techniques for robot navigation and object manipulation in PyCram, including Moveit integration and collision avoidance]
+-
+
+Code Solution:
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.process_module import simulated_robot
+from pycram.designators.motion_designator import *
+from pycram.designators.location_designator import *
+from pycram.designators.action_designator import *
+from pycram.designators.object_designator import *
+from pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode
+from pycram.datastructures.pose import Pose
+world = BulletWorld(WorldMode.GUI)
+
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 1, 0.89]), color=[1, 1, 0, 1])
+
+cereal_desig = BelieveObject(names=["cereal"]).resolve()
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+bowl_desig = BelieveObject(names=["bowl"]).resolve()
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.25]).resolve().perform()
+    
+    pickup_pose = CostmapLocation(target=bowl_desig, reachable_for=robot_desig).resolve()
+    pickup_arm = pickup_pose.reachable_arms[0]
+    
+    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+    
+    PickUpAction(object_designator_description=bowl_desig, arms=[pickup_arm], grasps=[Grasp.FRONT]).resolve().perform()
+    
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+world.exit()
+-
+
+Filled Plan:
+Plan 1: Analyze the error message to understand the cause of the SyntaxError. The error message indicates an unexpected character after a line continuation character, suggesting an issue with how lines are broken in the code.
+**Task Overview and Objectives**
+
+- **Define the Task:** This guide will explain how to use the PyCram plan language to structure and execute a series of designators, which are symbolic representations of actions, motions, objects, and locations that a robot will perform or interact with. The plan language allows for sequential or parallel execution of designators, with built-in error handling and monitoring capabilities.
+  
+- **Explain the Goal:** The goal is to provide a comprehensive understanding of the PyCram plan language, enabling users to create complex, reliable robot control scripts through structured designator execution.
+
+- **Prerequisites and Setup:** This guide assumes that PyCram is already installed and set up, and that the user has a basic understanding of Python programming.
+
+**Detailed Workflow Explanation**
+
+### 1. Introduction to the Plan Language
+
+The plan language in PyCram allows you to execute designators in a structured manner, handling errors and interruptions systematically. It uses a tree structure, similar to the task tree, where the language expression is the root and the designators are the leaves.
+
+### 2. Creating a Bullet World
+
+Before using the plan language, you need a BulletWorld, as this is where the robot will be simulated.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+
+world = BulletWorld()
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+### 3. Language Expressions
+
+The plan language supports five expressions: Sequential, Try In Order, Parallel, Try All, and Monitor. Each expression has a unique way of executing designators and handling errors.
+
+#### 3.1. Sequential
+
+The Sequential expression executes designators one after another. If any designator raises an exception, the execution is aborted.
+
+```python
+from pycram.designators.action_designator import NavigateAction, ParkArmsAction
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+
+navigate = NavigateAction([Pose([1, 1, 0])])
+park = ParkArmsAction([Arms.BOTH])
+
+plan = navigate + park
+
+with simulated_robot:
+    plan.perform()
+```
+
+#### 3.2. Try In Order
+
+Try In Order is similar to Sequential but does not abort the entire process if an error occurs.
+
+```python
+from pycram.designators.action_designator import NavigateAction, ParkArmsAction
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+
+navigate = NavigateAction([Pose([1, 1, 0])])
+park = ParkArmsAction([Arms.BOTH])
+
+plan = navigate - park
+
+with simulated_robot:
+    plan.perform()
+```
+
+#### 3.3. Parallel
+
+Parallel executes all designators at once in separate threads. However, this can lead to conflicts, so it’s recommended to use it with simpler actions.
+
+```python
+from pycram.designators.action_designator import NavigateAction, ParkArmsAction
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+
+navigate = NavigateAction([Pose([1, 1, 0])])
+park = ParkArmsAction([Arms.BOTH])
+
+plan = navigate | park
+
+with simulated_robot:
+    plan.perform()
+```
+
+#### 3.4. Try All
+
+Try All executes all designators in parallel and returns SUCCESS if at least one designator executes without an exception.
+
+```python
+from pycram.designators.action_designator import NavigateAction, ParkArmsAction
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+
+navigate = NavigateAction([Pose([1, 1, 0])])
+park = ParkArmsAction([Arms.BOTH])
+
+plan = navigate ^ park
+
+with simulated_robot:
+    plan.perform()
+```
+
+#### 3.5. Monitor
+
+Monitor allows you to interrupt a plan when a specific condition is met. The condition can be a callable that returns a boolean or a Fluent.
+
+```python
+from pycram.designators.action_designator import NavigateAction, ParkArmsAction, MoveTorsoAction
+from pycram.datastructures.pose import Pose
+from pycram.datastructures.enums import Arms
+from pycram.process_module import simulated_robot
+import time
+
+def monitor_condition():
+    time.sleep(2)
+    return True
+
+plan = (NavigateAction([Pose([1, 1, 0])]) | ParkArmsAction([Arms.BOTH])) >> Monitor(monitor_condition)
+
+with simulated_robot:
+    plan.perform()
+```
+
+### 4. Exception Handling
+
+The plan language will catch any exceptions of type PlanFailure that occur during designator execution. Other Python exceptions will interrupt the execution.
+
+```python
+from pycram.designators.action_designator import NavigateAction, ParkArmsAction
+from pycram.process_module import simulated_robot
+from pycram.plan_failures import PlanFailure
+
+def error_designator():
+    raise PlanFailure
+
+NavigateAction([Pose([1, 1, 0])]) | ParkArmsAction([Arms.BOTH]) | Code(error_designator).perform()
+```
+
+### 5. Best Practices and Considerations
+
+- **Choose the Right Expression:** Select the language expression based on the desired error handling and execution style.
+- **Avoid Conflicts:** Be cautious when using Parallel, as simultaneous actions can interfere with each other.
+- **Handle Exceptions:** Ensure that all designators used in a plan can handle exceptions appropriately.
+
+**Framework Integration and Concepts**
+
+The plan language is a crucial part of PyCram, allowing for structured and reliable robot control. It integrates with the task tree and process modules to provide a comprehensive robot programming framework.
+
+**Best Practices and Considerations**
+
+- **Choose the Right Expression:** Select the language expression based on the desired error handling and execution style.
+- **Avoid Conflicts:** Be cautious when using Parallel, as simultaneous actions can interfere with each other.
+- **Handle Exceptions:** Ensure that all designators used in a plan can handle exceptions appropriately. = Retrieve[How to correctly use line continuation characters in Python]
+
+--Next PLAN--
+Plan 2: Investigate the correct way to format multi-line imports in Python. The error might stem from incorrect formatting of the import statements at the beginning of the code.
+**Task Overview and Objectives**
+
+- **Define the Task:** This guide will explain how to serialize a plan in PyCram using the Object Relational Mapping (ORM) module, allowing for storage and querying of plan data in a database.
+- **Explain the Goal:** The goal is to understand how to use PyCram's ORM to manage plan data, enabling better analysis and record-keeping of robot actions.
+- **Prerequisites and Setup:** Ensure you have a working installation of PyCram and a basic understanding of its planning and designator systems.
+
+**Detailed Workflow Explanation**
+
+1. **Creating a Database Session**
+   - Start by importing the necessary SQLAlchemy modules and creating a database engine and session.
+   ```python
+   import sqlalchemy
+   import sqlalchemy.orm
+   engine = sqlalchemy.create_engine("sqlite+pysqlite:///:memory:", echo=False)
+   session = sqlalchemy.orm.Session(bind=engine)
+   ```
+
+2. **Creating the ORM Schema**
+   - Import the base module from PyCram's ORM and create the schema in the database.
+   ```python
+   import pycram.orm.base
+   import pycram.orm.action_designator
+   pycram.orm.base.Base.metadata.create_all(engine)
+   session.commit()
+   ```
+
+3. **Writing a Simple Plan**
+   - Use the BulletWorld to create an environment and an object, then write a simple plan that involves moving the robot and interacting with an object.
+   ```python
+   from pycram.worlds.bullet_world import BulletWorld
+   from pycram.world_concepts.world_object import Object
+   from pycram.datastructures.enums import ObjectType
+   from pycram.designators.action_designator import *
+   from pycram.designators.location_designator import *
+   from pycram.process_module import simulated_robot
+   from pycram.tasktree import with_tree
+   from pycram.datastructures.pose import Pose
+
+   world = BulletWorld()
+   pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+   kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+   cereal = Object("cereal", ObjectType.BREAKFAST_CEREAL, "breakfast_cereal.stl", pose=Pose([1.3, 1, 0.95]))
+
+   @with_tree
+   def plan():
+       with simulated_robot:
+           ParkArmsAction([Arms.BOTH]).resolve().perform()
+           MoveTorsoAction([0.2]).resolve().perform()
+           pickup_pose = CostmapLocation(target=ObjectDesignatorDescription(names=["cereal"]).resolve(),
+                                         reachable_for=ObjectDesignatorDescription(names=["pr2"]).resolve()).resolve()
+           NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+           PickUpAction(object_designator_description=ObjectDesignatorDescription(names=["cereal"]),
+                        arms=[pickup_pose.reachable_arms[0]], grasps=[Grasp.FRONT]).resolve().perform()
+           PlaceAction(ObjectDesignatorDescription(names=["cereal"]),
+                       target_locations=SemanticCostmapLocation("kitchen_island_surface",
+                                                                ObjectDesignatorDescription(names=["kitchen"]).resolve(),
+                                                                ObjectDesignatorDescription(names=["cereal"]).resolve()).resolve(),
+                       arms=[pickup_pose.reachable_arms[0]]).resolve().perform()
+           ParkArmsAction([Arms.BOTH]).resolve().perform()
+   ```
+
+4. **Inserting the Task Tree into the Database**
+   - After executing the plan, the corresponding task tree is inserted into the session, allowing for future queries.
+   ```python
+   plan()
+   pycram.tasktree.task_tree.root.insert(session)
+   ```
+
+5. **Querying the Database**
+   - Use SQLAlchemy queries to retrieve specific data from the ORM tables. For example, to get all navigations in the plan:
+   ```python
+   from sqlalchemy import select
+   navigations = session.scalars(select(pycram.orm.action_designator.NavigateAction)).all()
+   print(*navigations, sep="\n")
+   ```
+
+6. **Exploring ORM Relationships**
+   - The ORM allows for complex queries using SQLAlchemy's capabilities. For instance, you can join multiple tables to retrieve related data.
+   ```python
+   all_actions = (session.scalars(select(pycram.orm.action_designator.Action)).all())
+   print(*all_actions, sep="\n")
+   ```
+
+**Framework Integration and Concepts**
+
+- This workflow integrates with PyCram's planning system, as the designators used in the plan are part of the core framework.
+- The ORM module is a powerful tool for managing plan data, and its capabilities extend beyond what is covered in this guide.
+
+**Best Practices and Considerations**
+
+- **Use Clear Naming Conventions:** This helps in understanding the structure and purpose of each table and column in the ORM.
+- **Leverage SQLAlchemy's Capabilities:** The ORM's design allows you to use all of SQLAlchemy's querying capabilities, so make use of them to retrieve data efficiently.
+- **Handle Exceptions:** Ensure that your code properly handles any exceptions that may arise during database operations. = Retrieve[Best practices for formatting multi-line imports in Python]
+
+--Next PLAN--
+Plan 3: Verify the usage of the BelieveObject designator in PyCram. The code uses BelieveObject to resolve object designators, which might not be the intended or correct way to achieve this.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to use and resolve object designators in PyCram, focusing on the `BelieveObject` designator. Object designators in PyCram are symbolic representations of objects in the (simulated) world, allowing for structured interaction with these objects within the framework.
+
+### Explain the Goal
+The objective is to understand the creation and resolution of object designators, which is crucial for tasks involving object manipulation in PyCram. This knowledge will enable users to define and work with objects within the PyCram environment effectively.
+
+### Prerequisites and Setup
+Before starting, ensure that PyCram is installed and set up correctly. This guide assumes a basic familiarity with PyCram's concepts and terminology.
+
+## Detailed Workflow Explanation
+
+### Step 1: Understanding Object Designators
+
+Object designators represent objects in the (simulated) world, providing a way to interact with these objects symbolically. They are defined by descriptions that specify criteria the object must meet, such as names or types. When resolved, the object designator description returns a specific object that fits the criteria.
+
+### Step 2: Creating a BelieveObject Designator
+
+`BelieveObject` is used to describe objects currently in the BulletWorld. The following example creates a `BelieveObject` designator for an object named "milk":
+
+```python
+from pycram.designators.object_designator import BelieveObject
+
+object_description = BelieveObject(names=["milk"])
+```
+
+This code imports the necessary module from PyCram and creates a `BelieveObject` instance that describes an object with the name "milk". The `names` parameter is a list of names the object could have, and since all objects in PyCram have unique names, this list can contain only one name.
+
+### Step 3: Resolving the Object Designator
+
+Resolving the object designator description returns an instance of the designator with the first object that matches the description:
+
+```python
+resolved_object = object_description.resolve()
+print(resolved_object)
+```
+
+The `resolve()` method searches for an object that fits the description and returns a specific object designator instance. This instance contains the object from the BulletWorld, allowing for direct interaction with the object.
+
+### Step 4: Iterating Over Objects with Object Designators
+
+`BelieveObject` and other object designator descriptions can be used as generators to iterate over all objects that match the description. The following example iterates over all objects in the BulletWorld:
+
+```python
+from pycram.designators.object_designator import BelieveObject
+
+object_description = BelieveObject()
+for obj in object_description:
+    print(obj)
+```
+
+This code will print every object currently in the BulletWorld, demonstrating how object designator descriptions can be used to access all relevant objects.
+
+## Code Examples and Implementation Guidance
+
+### Example 1: Creating and Resolving a BelieveObject Designator
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+
+# Initialize BulletWorld
+world = BulletWorld()
+
+# Create an object in the BulletWorld
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+
+# Import BelieveObject
+from pycram.designators.object_designator import BelieveObject
+
+# Create a BelieveObject designator
+object_description = BelieveObject(names=["milk"])
+
+# Resolve the designator to the actual object
+resolved_object = object_description.resolve()
+print(resolved_object)  # Should print the Milk object
+```
+
+### Example 2: Iterating Over Objects with BelieveObject
+
+```python
+# Assuming BulletWorld and objects are already initialized
+
+from pycram.designators.object_designator import BelieveObject
+
+# Create a BelieveObject designator for all objects
+object_description = BelieveObject()
+
+# Iterate over all objects
+for obj in object_description:
+    print(obj)  # Prints each object in the BulletWorld
+```
+
+## Framework Integration and Concepts
+
+Object designators are a crucial part of PyCram's framework for interacting with objects. They provide a symbolic representation of objects, allowing for more complex interactions and manipulations within the PyCram environment. Understanding how to create and use object designators is essential for any PyCram user, as they are often a prerequisite for other actions and processes within the framework.
+
+## Best Practices and Considerations
+
+- **Clarity in Descriptions:** When creating an object designator description, ensure that the names or types provided clearly define the set of objects you are interested in. This will make it easier to find and work with the specific objects you need.
+- **Utilizing Generators:** Take advantage of the generator capabilities of object designator descriptions to iterate over and access objects in the BulletWorld. This can be useful for tasks that need to consider multiple objects.
+- **Integration with Other Designators:** Object designators often work in conjunction with other designators (like action or location designators) to create complex behaviors. Understanding how they interact is key to effective PyCram programming. = Retrieve[How to correctly use and resolve object designators in PyCram, including BelieveObject]
+
+--Next PLAN--
+Plan 4: Examine the usage of CostmapLocation and ensure it's appropriate for the task. The code uses CostmapLocation to determine the pickup pose, but it might not be the most suitable approach for navigating to an object on a table.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explore how to define and use location designators in PyCram, focusing on `CostmapLocation` and its alternatives. Location designators in PyCram are essential for semantically describing locations in the world based on specific criteria like visibility, reachability, and occupancy. They create costmaps, which are 2D distributions representing valid positions that meet certain constraints.
+
+### Explain the Goal
+The objective is to understand the different types of location designators in PyCram, how to use them, and the scenarios in which each is appropriate. This knowledge is crucial for effectively determining robot positions within a simulated environment.
+
+### Prerequisites and Setup
+Ensure that PyCram is installed and set up correctly. This guide assumes familiarity with basic PyCram concepts and workflows.
+
+## Detailed Workflow Explanation
+
+### 1. Introduction to Location Designators
+Location designators in PyCram describe sets of locations based on specific constraints. These constraints can relate to visibility, reachability, occupancy, or semantic entities like a table. A location designator creates a costmap, which is a 2D distribution where each point represents a position in the world that meets the given constraints.
+
+### 2. Location Designator for Occupancy
+The `CostmapLocation` designator is used to find a location where an object, typically a robot, can be placed without colliding with the environment. This is the default behavior of location designators.
+
+#### Code Example: Occupancy Costmap Location
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+
+world = BulletWorld()
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+
+from pycram.designators.location_designator import CostmapLocation
+
+target = kitchen.get_pose()
+location_description = CostmapLocation(target=target)
+
+pose = location_description.resolve()
+print(pose)
+```
+
+### 3. Location Designator for Reachability
+To find locations from which a robot can reach a specific point, use `CostmapLocation` with the `reachable_for` parameter.
+
+#### Code Example: Reachable Costmap Location
+```python
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+pr2_desig = BelieveObject(names=["pr2"]).resolve()
+milk_desig = BelieveObject(names=["milk"]).resolve()
+
+location_description = CostmapLocation(target=milk_desig, reachable_for=pr2_desig)
+print(location_description.resolve())
+```
+
+### 4. Location Designator for Visibility
+To find positions from which a robot can see a specific object, use `CostmapLocation` with the `visible_for` parameter.
+
+#### Code Example: Visible Costmap Location
+```python
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+pr2_desig = BelieveObject(names=["pr2"]).resolve()
+milk_desig = BelieveObject(names=["milk"]).resolve()
+
+location_description = CostmapLocation(target=milk_desig, visible_for=pr2_desig)
+print(location_description.resolve())
+```
+
+### 5. Semantic Location Designator
+Semantic location designators find positions related to semantic entities, like finding a position on a table.
+
+#### Code Example: Semantic Costmap Location
+```python
+from pycram.designators.location_designator import SemanticCostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+milk_desig = BelieveObject(names=["milk"]).resolve()
+
+location_description = SemanticCostmapLocation(urdf_link_name="kitchen_island_surface", part_of=kitchen_desig, for_object=milk_desig)
+print(location_description.resolve())
+```
+
+### 6. Location Designator as a Generator
+Location designator descriptions can be used as generators to iterate over all possible solutions for a location.
+
+#### Code Example: Generator for Costmap Location
+```python
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+milk_desig = BelieveObject(names=["milk"]).resolve()
+pr2_desig = BelieveObject(names=["pr2"]).resolve()
+
+location_description = CostmapLocation(target=milk_desig, reachable_for=pr2_desig)
+
+for pose in location_description:
+    print(pose.pose)
+```
+
+### 7. Accessing Location Designator
+Accessing location designators describe positions from which a robot can open a drawer. The drawer is specified by an `ObjectPart` designator describing the handle.
+
+#### Code Example: Accessing Costmap Location
+```python
+from pycram.designators.object_designator import BelieveObject, ObjectPart
+from pycram.designators.location_designator import AccessingLocation
+
+apartment_desig = BelieveObject(names=["apartment"]).resolve()
+handle_desig = ObjectPart(names=["handle_cab10_t"], part_of=apartment_desig).resolve()
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+
+access_location = AccessingLocation(handle_desig, robot_desig).resolve()
+print(access_location.pose)
+```
+
+### 8. Giskard Location Designator
+The `GiskardLocation` designator is used for robots that require a full-body IK solver to find a pose for reaching a target.
+
+#### Code Example: Giskard Costmap Location
+```python
+from pycram.designators.specialized_designators.location.giskard_location import GiskardLocation
+from pycram.designators.object_designator import BelieveObject
+
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+loc = GiskardLocation(target=Pose([1, 1, 1]), reachable_for=robot_desig).resolve()
+print(loc.pose)
+```
+
+## Best Practices and Considerations
+- **Choosing the Right Location Designator:** Select the location designator based on the specific constraint you need to address (e.g., reachability, visibility, semantic relationship).
+- **Using Generators:** Consider using the generator capability of location designators to explore multiple potential solutions.
+- **Giskard for Complex Robots:** Use `GiskardLocation` for robots that require full-body IK solutions.
+
+## Conclusion
+Understanding and effectively using location designators in PyCram is crucial for accurately positioning robots within a simulated environment based on specific constraints. = Retrieve[Different ways to define and use location designators in PyCram, including CostmapLocation and alternatives]
+
+--Next PLAN--
+Plan 5: Investigate the correct usage of PickUpAction and its parameters. The code uses PickUpAction to grasp the bowl, but it's crucial to ensure the parameters like grasp type and arm selection are appropriate for the bowl object.
+**Task Overview and Objectives**
+
+- **Define the Task:** This guide will explain how to use the `PickUpAction` designator in PyCram to have a robot pick up an object.
+- **Explain the Goal:** The goal is to understand how `PickUpAction` works, its parameters, and how to implement it effectively in a robot manipulation task.
+- **Prerequisites and Setup:** Ensure PyCram is installed and set up, and you have a basic understanding of designators in PyCram.
+
+**Detailed Workflow Explanation**
+
+### 1. Introduction to PickUpAction
+
+`PickUpAction` is an action designator in PyCram that instructs a robot to pick up an object. It requires an object designator describing the object to be picked up, the arm to be used, and the grasping method.
+
+### 2. Parameters of PickUpAction
+
+- **object_designator_description (ObjectDesignatorDescription, Object):** Describes the object to be picked up. This can be a general description or a specific instance of the object.
+- **arms (List[Arms]):** A list of arms that can be used to pick up the object.
+- **grasps (List[Grasp]):** A list of grasps that can be used to pick up the object.
+
+### 3. Example Workflow
+
+This example will demonstrate how to use `PickUpAction` in a typical robot task.
+
+#### 3.1. Setting Up the Environment
+
+First, we need to import the necessary modules and create a BulletWorld with a robot and an object.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+
+world = BulletWorld()
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+```
+
+#### 3.2. Creating an Object Designator
+
+Next, we create an object designator for the milk, as `PickUpAction` requires an object designator describing the object to be picked up.
+
+```python
+from pycram.designators.object_designator import BelieveObject
+
+milk_desig = BelieveObject(names=["milk"]).resolve()
+```
+
+#### 3.3. Defining the PickUpAction
+
+Now we can define the `PickUpAction`. We will use the right arm and the "front" grasp for this example.
+
+```python
+from pycram.designators.action_designator import PickUpAction
+from pycram.datastructures.enums import Arms, Grasp
+
+pickup_action = PickUpAction(object_designator_description=milk_desig, arms=[Arms.RIGHT], grasps=[Grasp.FRONT])
+```
+
+#### 3.4. Resolving the Action Designator
+
+Before performing the action, we need to resolve the `PickUpAction`. This will create a performable action designator with specific parameters.
+
+```python
+pickup_action_resolved = pickup_action.resolve()
+```
+
+#### 3.5. Performing the Action
+
+Finally, we can perform the resolved action designator. This will execute the pickup action with the robot.
+
+```python
+from pycram.process_module import simulated_robot
+
+with simulated_robot:
+    pickup_action_resolved.perform()
+```
+
+**Framework Integration and Concepts**
+
+The `PickUpAction` designator is part of PyCram's action designators, which describe complex actions for robots. It integrates with object designators to specify the object involved in the action.
+
+**Best Practices and Considerations**
+
+- Ensure the object designator correctly describes the object to be picked up.
+- Choose the arm and grasp carefully based on the robot's capabilities and the object's position.
+- Test the `PickUpAction` in a simulated environment first to avoid issues in the real world. = Retrieve[Detailed explanation of PickUpAction in PyCram, including parameter descriptions and usage examples]
+
+--Next PLAN--
+Plan 6: Check the URDF file of the kitchen environment ("kitchen.urdf") to ensure the table is defined and has a surface suitable for placing the bowl. The plan assumes the existence of a table, so verifying its presence and properties in the URDF is essential.
+### Summary of the Kitchen Environment URDF
+
+The **kitchen environment** is a complex setting designed for various interactions, particularly focused on cooking and cleaning tasks. It includes specialized areas like the **sink area**, **oven area**, **island**, and **fridge area**, each with distinct functionalities. The environment is equipped with **walls** that enclose the space, creating a realistic kitchen setting. The **floor** of the kitchen is also part of the environment, providing a base for all the kitchen units and appliances.
+
+#### Key Components:
+
+1. **Sink Area**: 
+   - **Function**: Washing dishes and hands.
+   - **Features**: Sink, faucet, cabinets.
+   - **Interactions**: Can be used to fill containers or wash items.
+
+2. **Oven Area**: 
+   - **Function**: Baking and roasting food.
+   - **Features**: Oven with controls, storage drawers.
+   - **Interactions**: Oven can be opened and closed; food items can be placed inside or removed.
+
+3. **Kitchen Island**: 
+   - **Function**: Food preparation and additional workspace.
+   - **Features**: Countertop, storage drawers.
+   - **Interactions**: Island surface can be used for cutting and mixing; drawers can be opened for utensil access.
+
+4. **Fridge Area**: 
+   - **Function**: Food storage and preservation.
+   - **Features**: Refrigerator with opening doors.
+   - **Interactions**: Fridge doors can be opened to access food items; items can be placed inside for storage.
+
+5. **Walls and Floor**: 
+   - **Function**: Enclosing the kitchen and providing a base.
+   - **Features**: Solid structures that complete the kitchen environment.
+   - **Interactions**: Walls separate the kitchen from other environments; the floor is the foundation for all units.
+
+### Detailed Component Breakdown
+
+#### Sink Area
+- **Links**: `sink_area`, `sink`, `sink_surface`, `sink_cabinet`, `sink_left_door`, `sink_right_door`
+- **Joints**: `sink_area_joint`, `sink_joint`, `sink_surface_joint`, `sink_left_door_joint`, `sink_right_door_joint`
+- **Descriptions**: The sink area consists of a sink unit with a faucet, a countertop, and cabinets. The sink is used for washing, and the cabinets provide storage.
+
+#### Oven Area
+- **Links**: `oven_area`, `oven`, `oven_door`, `oven_handle`, `oven_panel`
+- **Joints**: `oven_area_joint`, `oven_joint`, `oven_door_joint`, `oven_handle_joint`, `oven_panel_joint`
+- **Descriptions**: The oven area is designed for baking. The oven has a door that opens and closes, and there are drawers for additional storage.
+
+#### Kitchen Island
+- **Links**: `kitchen_island`, `kitchen_island_surface`, `kitchen_island_drawer`
+- **Joints**: `kitchen_island_joint`, `kitchen_island_drawer_joint`
+- **Descriptions**: The kitchen island serves as a central workspace. It has a countertop for preparation and drawers for utensil storage.
+
+#### Fridge Area
+- **Links**: `fridge_area`, `fridge`, `fridge_door`
+- **Joints**: `fridge_area_joint`, `fridge_joint`, `fridge_door_joint`
+- **Descriptions**: The fridge area is for food storage. The fridge has doors that open to provide access to the interior.
+
+#### Walls and Floor
+- **Links**: `kitchen_wall_1`, `kitchen_wall_2`, `kitchen_wall_3`, `kitchen_wall_4`, `kitchen_wall_5`, `kitchen_wall_6`, `floor`
+- **Joints**: `kitchen_origin_joint`, `kitchen_wall_1_joint`, `kitchen_wall_2_joint`, `kitchen_wall_3_joint`, `kitchen_wall_4_joint`, `kitchen_wall_5_joint`, `kitchen_wall_6_joint`
+- **Descriptions**: The walls enclose the kitchen, creating a separate environment, while the floor provides a stable base for all units.
+
+### Interaction Overview
+- **Washing**: Use the sink area to wash hands or dishes.
+- **Cooking**: Use the stove on the kitchen island or the oven for cooking.
+- **Refrigerating**: Store food in the fridge and access it as needed.
+- **Cleaning**: Use the sink for cleaning dishes and the countertop for general cleaning tasks.
+
+### Conclusion
+The kitchen environment is a well-structured setting that allows for various cooking and cleaning tasks. Each area is designed for specific functions, and the interactions between the robot and the environment are crucial for task completion. The detailed breakdown of links and joints provides insight into the structural complexity of the kitchen, making it a rich environment for robotic operations. = URDF[kitchen.urdf]
+
+--Next PLAN--
+Plan 7: Investigate how to define and use semantic locations in PyCram, particularly for interacting with objects on surfaces like tables. This could provide a more robust way to define the target location for picking up the bowl.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to use semantic location designators in PyCram to find and interact with objects located on surfaces, such as a kitchen countertop. We will use the example of a PR2 robot picking up a bowl from a kitchen island to illustrate this process.
+
+### Explain the Goal
+The goal is to understand how semantic location designators work in PyCram and how they can be used to define and resolve locations for interacting with objects in a structured environment. This knowledge is essential for creating complex robot manipulation tasks in PyCram.
+
+### Prerequisites and Setup
+Before starting, ensure you have the PyCram environment set up with the necessary robots and environments loaded. Specifically, you should have the PR2 robot and the kitchen environment (with the kitchen island) loaded, as the task will involve these objects.
+
+```python
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+## Detailed Workflow Explanation
+
+### 1. Understanding Semantic Location Designators
+
+Semantic location designators in PyCram are used to find positions that are related to semantic entities, like a table or a countertop. They help define locations where a robot can interact with objects in a meaningful way.
+
+### 2. Setting Up the Environment and Objects
+
+First, ensure that the environment and objects are set up. If you haven't already, load the kitchen and PR2 objects. You can also remove the kitchen if it's already loaded, and then load the apartment environment for a different context.
+
+```python
+kitchen.remove()  # If the kitchen is already loaded
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+### 3. Creating an Object Designator for the Bowl
+
+Before we can use semantic location designators, we need to create an object designator for the item we want to interact with, in this case, a bowl. This object designator will help us refer to the bowl within our semantic location designator.
+
+```python
+bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 1, 0.89], [0, 0, 0, 1]))
+
+from pycram.designators.object_designator import BelieveObject
+
+bowl_desig = BelieveObject(names=["bowl"])
+```
+
+### 4. Creating an Object Designator for the Kitchen
+
+Similarly, we need an object designator for the kitchen since the semantic location designator will relate the bowl's location to the kitchen environment.
+
+```python
+kitchen_desig = BelieveObject(names=["kitchen"])
+```
+
+### 5. Using Semantic Location Designator
+
+Now, we can use the `SemanticCostmapLocation` designator to find a location on the kitchen island where the bowl can be placed. This designator requires the URDF link name of the kitchen island surface and the object designators for the bowl and kitchen.
+
+```python
+from pycram.designators.location_designator import SemanticCostmapLocation
+
+sem_loc = SemanticCostmapLocation(urdf_link_name="kitchen_island_surface", part_of=kitchen_desig.resolve(), for_object=bowl_desig.resolve())
+print(sem_loc.resolve())
+```
+
+### 6. Navigating the Robot and Interacting with the Bowl
+
+Once we have the semantic location, we can use it to navigate the robot and perform actions like picking up the bowl. This part involves using other designators like `CostmapLocation` for navigation and `PickUpAction` for picking up the bowl.
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.action_designator import NavigateAction, PickUpAction, ParkArmsAction
+from pycram.datastructures.enums import Arms
+
+# Example of navigating the robot and picking up the bowl
+nav_loc = CostmapLocation(target=sem_loc.resolve().pose, reachable_for=BelieveObject(names=["pr2"]).resolve())
+NavigateAction(target_locations=[nav_loc.resolve().pose]).resolve().perform()
+
+PickUpAction(object_designator_description=bowl_desig, arms=[Arms.RIGHT], grasps=["front"]).resolve().perform()
+```
+
+## Code Examples and Implementation Guidance
+
+The code examples provided in the workflow explanation serve as a comprehensive guide to implementing semantic location designators in PyCram. Each example is accompanied by explanations of its purpose and functionality.
+
+## Framework Integration and Concepts
+
+This guide integrates with the broader PyCram framework by utilizing various designators and actions that are fundamental to robot task planning and execution. The concepts of semantic location designators, object designators, and action designators are interconnected and form the basis of creating complex robot behaviors in PyCram.
+
+## Best Practices and Considerations
+
+- **Clarity in Object Designators:** Ensure that object designators clearly define the objects they represent, as this is crucial for semantic understanding in location designators.
+- **Testing in BulletWorld:** Always test your implementations in the BulletWorld to verify that the locations resolved by semantic location designators are valid for robot operations.
+- **Interconnecting Designators:** Leverage the connections between different designators (e.g., location, action, and object designators) to create comprehensive and robust robot task plans. = Retrieve[How to define and use semantic locations in PyCram, especially for interacting with objects on surfaces]
+
+--Next PLAN--
+Plan 8: Explore alternative approaches for robot navigation and object manipulation in PyCram, such as using Moveit for arm planning or incorporating collision avoidance mechanisms. This could improve the robustness and efficiency of the plan.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to navigate a robot to a table, pick up a bowl, and then place it down at another location using the PyCram framework. This involves using various designators for navigation, object manipulation, and collision avoidance.
+
+### Explain the Goal
+The goal is to demonstrate a complete workflow of robot navigation and object manipulation in PyCram, showcasing how different designators and actions are combined to achieve a complex task.
+
+### Prerequisites and Setup
+Ensure that the PyCram environment is set up and that the `kitchen.urdf` and `bowl.stl` files are accessible. Start with a clean BulletWorld to avoid any conflicts.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+world = BulletWorld(WorldMode.GUI)
+```
+
+## Detailed Workflow Explanation
+
+### 1. Loading the Environment and Objects
+
+First, we need to load the environment (kitchen) and the objects (bowl and robot) into the BulletWorld.
+
+```python
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 1, 0.89]))
+```
+
+### 2. Navigating the Robot to the Table
+
+We start by navigating the robot to a position where it can reach the table. This is done using the `NavigateAction` designator.
+
+```python
+from pycram.designators.action_designator import NavigateAction
+from pycram.process_module import simulated_robot
+
+with simulated_robot:
+    nav_description = NavigateAction(target_locations=[Pose([1, 0, 0], [0, 0, 0, 1])])
+    nav_description.resolve().perform()
+```
+
+### 3. Positioning the Robot's Arm
+
+Once the robot is at the table, we need to position its arm to reach the bowl. This is done using the `MoveArm` designator.
+
+```python
+from pycram.designators.action_designator import MoveArmAction
+from pycram.datastructures.enums import Arms
+
+with simulated_robot:
+    move_arm_description = MoveArmAction(arm=Arms.RIGHT, target_pose=Pose([1.2, 0, 0.8], [0, 0, 0, 1])).resolve()
+    move_arm_description.perform()
+```
+
+### 4. Picking Up the Bowl
+
+To pick up the bowl, we use the `PickUpAction` designator. This requires the robot's gripper to be in the correct position.
+
+```python
+from pycram.designators.action_designator import PickUpAction, MoveGripperAction
+
+with simulated_robot:
+    # Open the gripper
+    MoveGripperAction(Arms.RIGHT, [GripperState.OPEN]).resolve().perform()
+
+    # Pick up the bowl
+    pickup_description = PickUpAction(object_designator_description=ObjectDesignatorDescription(names=["bowl"]),
+                                      arms=[Arms.RIGHT]).resolve()
+    pickup_description.perform()
+```
+
+### 5. Placing the Bowl at Another Location
+
+After picking up the bowl, we can navigate the robot to another location and place the bowl there.
+
+```python
+from pycram.designators.action_designator import PlaceAction
+
+with simulated_robot:
+    # Navigate to the target location
+    target_pose = Pose([2, 1, 0.8], [0, 0, 0, 1])
+    nav_description = NavigateAction(target_locations=[target_pose]).resolve()
+    nav_description.perform()
+
+    # Place the bowl
+    place_description = PlaceAction(object_designator_description=ObjectDesignatorDescription(names=["bowl"]),
+                                    target_locations=[target_pose], arms=[Arms.RIGHT]).resolve()
+    place_description.perform()
+```
+
+### 6. Closing the BulletWorld
+
+Finally, we close the BulletWorld to end the simulation.
+
+```python
+world.exit()
+```
+
+## Code Examples and Implementation Guidance
+
+The code examples provided above are complete and can be run in a PyCram environment. Each code block corresponds to a step in the workflow, and the explanations detail the purpose and function of each designator and action.
+
+## Framework Integration and Concepts
+
+This workflow integrates various PyCram designators and actions, demonstrating how they can be combined to achieve complex tasks. It highlights the importance of planning and coordination in robot programming, as well as the capabilities of the PyCram framework in facilitating these processes.
+
+## Best Practices and Considerations
+
+- **Testing:** Each step should be tested individually to ensure correctness before combining them into a complete workflow.
+- **Error Handling:** Be aware of potential errors, such as unreachable positions or collisions, and handle them appropriately.
+- **Optimization:** Consider optimizing the robot's path and actions for efficiency and effectiveness. = Retrieve[Advanced techniques for robot navigation and object manipulation in PyCram, including Moveit integration and collision avoidance]
+
+--Next PLAN--
+
+
+---Next Run---
+Code Check Run 3:
+Plan: 
+Plan 1: Use the URDF tool to retrieve the kitchen.urdf file to verify if a table is defined within the kitchen environment and its position. This will help determine whether the table exists in the kitchen's URDF and is correctly referenced in the plan, as the bowl is assumed to be on a table.
+#E1 = URDF[kitchen.urdf]
+
+Plan 2: Investigate the code for the function CostmapLocation to understand its behavior and possible causes of the error, especially in the context of navigating to an object on a table.
+#E2 = Code[CostmapLocation]
+
+Plan 3: Confirm the correct usage of the resolve method for object designators. This will help ensure that the bowl_desig.resolve() and robot_desig.resolve() in the line causing the error are being used correctly.
+#E3 = Retrieve[Correct usage of resolve method on ObjectDesignators in PyCram]
+
+Plan 4: Validate how to use object designators in context with actions and location definitions in PyCram, specifically when defining the target location for navigation based on an object's position.
+#E4 = Retrieve[Proper usage of ObjectDesignators in actions and locations in PyCram]
+
+Plan 5: Examine how to correctly instantiate and use CostmapLocation in a way that avoids the error and properly defines the location of the bowl on the table for the navigation task.
+#E5 = Retrieve[Correct instantiation and usage of CostmapLocation in PyCram]
+
+Plan 6: Investigate the correct usage of PickUpAction in PyCram, particularly how to specify the object and grasp parameters effectively to achieve the intended grasping behavior for the bowl.
+#E6 = Retrieve[Correct usage of PickUpAction in PyCram, including object_designator_description and grasps]
+
+Plan 7: Ensure that the position of the bowl is calculated correctly. We need to confirm how to compute the target position for the robot's gripper based on the bowl's position on the table, especially when using CostmapLocation.
+#E7 = Retrieve[How to compute target positions for grasping objects based on their position in PyCram]
+
+Plan 8: Investigate the correct usage of NavigateAction in PyCram, particularly how to specify the target location effectively to ensure the robot navigates to a suitable position near the table for picking up the bowl.
+#E8 = Retrieve[Correct usage of NavigateAction in PyCram, including target_locations]
+
+Plan 9: Verify the correct usage of ParkArmsAction and MoveTorsoAction in PyCram to ensure the robot is in a suitable initial state before navigating and picking up the bowl.
+#E9 = Retrieve[Correct usage of ParkArmsAction and MoveTorsoAction in PyCram]
+
+Plan 10: Check if the bowl's pose and dimensions are correctly defined in the world knowledge and the code, as this information is crucial for accurate grasping and manipulation.
+#E10 = Retrieve[How to define and use object pose and dimensions in PyCram]
+-
+
+Code Solution:
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.process_module import simulated_robot
+from pycram.designators.motion_designator import *
+from pycram.designators.location_designator import *
+from pycram.designators.action_designator import *
+from pycram.designators.object_designator import *
+from pycram.datastructures.enums import ObjectType, Arms, Grasp, WorldMode
+from pycram.datastructures.pose import Pose
+world = BulletWorld(WorldMode.GUI)
+
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+robot = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 1, 0.89]), color=[1, 1, 0, 1])
+
+cereal_desig = BelieveObject(names=["cereal"]).resolve()
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+robot_desig = BelieveObject(names=["pr2"]).resolve()
+bowl_desig = BelieveObject(names=["bowl"]).resolve()
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.25]).resolve().perform()
+    
+    pickup_pose = CostmapLocation(target=bowl_desig, reachable_for=robot_desig).ground()
+    pickup_arm = pickup_pose.reachable_arms[0]
+    
+    NavigateAction(target_locations=[pickup_pose.pose]).resolve().perform()
+    
+    PickUpAction(object_designator_description=bowl_desig, arms=[pickup_arm], grasps=[Grasp.FRONT]).resolve().perform()
+    
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+
+world.exit()
+-
+
+Filled Plan:
+Plan 1: Use the URDF tool to retrieve the kitchen.urdf file to verify if a table is defined within the kitchen environment and its position. This will help determine whether the table exists in the kitchen's URDF and is correctly referenced in the plan, as the bowl is assumed to be on a table.
+### Summary of the Kitchen Environment URDF
+
+The **kitchen environment** is a complex setting designed for various interactions, particularly cooking and cleaning. It includes a **kitchen island**, **sink area**, **oven area**, and **fridge area**, each with specific functionalities. The environment is equipped with **walls** that enclose the space, creating a distinct room-like atmosphere. The kitchen is filled with **objects** and **utensils** that are essential for cooking tasks. The environment's design allows for a variety of activities, from meal preparation to cleaning, making it a versatile and functional space.
+
+### Important Data from the Kitchen URDF
+
+- **General Structure:**
+  - The kitchen is described as a robot in the URDF, with various links and joints representing its components.
+  - The file includes a **map** link, which is a visual representation of the environment for navigation purposes.
+
+- **Walls:**
+  - The kitchen has four walls (kitchen_wall_1, kitchen_wall_2, kitchen_wall_3, kitchen_wall_4) that enclose the space.
+  - Each wall is a link with visual and collision boxes to represent its structure.
+
+- **Islands and Areas:**
+  - The **kitchen island** is a central feature with its own surface and various drawers.
+  - The **sink area** includes a sink, countertop, and several drawers.
+  - The **oven area** has an oven unit with doors and knobs.
+  - The **fridge area** contains the refrigerator with its doors.
+
+- **Functionality:**
+  - The kitchen island and sink area have drawers that can be opened and closed, allowing access to utensils and other items.
+  - The oven area has an oven unit with knobs to control the cooking process.
+  - The refrigerator has compartments for storing food items, with doors that open and close.
+
+- **Materials and Textures:**
+  - The kitchen's surfaces, such as the countertop and sink, have specific materials like "Ias/KitchenCountertop" and "Ias/KitchenSink."
+  - The walls and other structures have materials like "Ias/KitchenWhite" for a cohesive aesthetic.
+
+- **Environmental Details:**
+  - The kitchen is designed with a realistic approach, including details like the height of surfaces, the arrangement of drawers, and the overall layout to mimic a real kitchen.
+  - The URDF also includes instructions for spawning the kitchen in a Gazebo simulation environment, with specific parameters for positioning and orientation.
+
+### Conclusion
+
+The kitchen environment's URDF provides a comprehensive description of a complex, interactive space designed for cooking and cleaning tasks. Its detailed structure, functionality, and realistic design make it an ideal setting for robotic tasks and simulations. = URDF[kitchen.urdf]
+
+--Next PLAN--
+Plan 2: Investigate the code for the function CostmapLocation to understand its behavior and possible causes of the error, especially in the context of navigating to an object on a table.
+## CostmapLocation: A Comprehensive Guide
+
+### 1. Function Explanation and Contextualization
+
+**Detailed Description:**  
+`CostmapLocation` is a class within the PyCram framework that utilizes costmaps to determine locations based on complex constraints such as reachability and visibility. It extends the `LocationDesignatorDescription` class, providing a structured way to find and describe locations that meet specific criteria. This is particularly useful in robotics, where precise positioning is crucial for task execution.
+
+**Syntax and Parameters:**
+```python
+class CostmapLocation(LocationDesignatorDescription.Location):
+    ...
+```
+- **Parameters:**
+  - `target` (Union[Pose, ObjectDesignatorDescription.Object]): The objective for which the location is being determined.
+  - `reachable_for` (Optional[ObjectDesignatorDescription.Object]): The entity (usually a robot) that the location must be reachable for.
+  - `visible_for` (Optional[ObjectDesignatorDescription.Object]): The entity for which the location must be visible.
+  - `reachable_arm` (Optional[Arms]): An optional parameter specifying the arm that should be used to reach the target.
+
+**Integration:**  
+`CostmapLocation` integrates into the PyCram framework by providing a method for resolving locations that meet complex operational constraints. It works in conjunction with other location designators and costmaps to ensure that robots are positioned effectively for task execution.
+
+**Relationship with Other Components:**  
+`CostmapLocation` is related to other location designators like `GiskardLocation` and `SemanticCostmapLocation`, as well as various costmaps such as `VisibilityCostmap` and `OccupancyCostmap`. These relationships create a comprehensive system for location resolution in PyCram.
+
+### 2. Code Examples and Implementation
+
+**Full Function Code:**  
+The `CostmapLocation` class is part of the `location_designator` module in PyCram. Below is the complete code for the class:
+
+```python
+class CostmapLocation(LocationDesignatorDescription.Location):
+    """
+    Uses Costmaps to create locations for complex constrains
+    """
+
+    @dataclasses.dataclass
+    class Location(LocationDesignatorDescription.Location):
+        reachable_arms: List[Arms]
+        """
+        List of arms with which the pose can be reached, is only used when the 'rechable_for' parameter is used
+        """
+
+    def __init__(self, target: Union[Pose, ObjectDesignatorDescription.Object],
+                 reachable_for: Optional[ObjectDesignatorDescription.Object] = None,
+                 visible_for: Optional[ObjectDesignatorDescription.Object] = None,
+                 reachable_arm: Optional[Arms] = None, resolver: Optional[Callable] = None):
+        """
+        Location designator that uses costmaps as base to calculate locations for complex constrains like reachable or
+        visible. In case of reachable the resolved location contains a list of arms with which the location is reachable.
+
+        :param target: Location for which visibility or reachability should be calculated
+        :param reachable_for: Object for which the reachability should be calculated, usually a robot
+        :param visible_for: Object for which the visibility should be calculated, usually a robot
+        :param reachable_arm: An optional arm with which the target should be reached
+        :param resolver: An alternative specialized_designators that returns a resolved location for the given input of this description
+        """
+        super().__init__(resolver)
+        self.target: Union[Pose, ObjectDesignatorDescription.Object] = target
+        self.reachable_for: ObjectDesignatorDescription.Object = reachable_for
+        self.visible_for: ObjectDesignatorDescription.Object = visible_for
+        self.reachable_arm: Optional[Arms] = reachable_arm
+
+    def ground(self) -> Location:
+        """
+        Default specialized_designators which returns the first result from the iterator of this instance.
+
+        :return: A resolved location
+        """
+        return next(iter(self))
+
+    def __iter__(self):
+        """
+           Generates positions for a given set of constrains from a costmap and returns
+           them. The generation is based of a costmap which itself is the product of
+           merging costmaps, each for a different purpose. In any case an occupancy costmap
+           is used as the base, then according to the given constrains a visibility or
+           gaussian costmap is also merged with this. Once the costmaps are merged,
+           a generator generates pose candidates from the costmap. Each pose candidate
+           is then validated against the constraints given by the designator if all validators
+           pass the pose is considered valid and yielded.
+
+           :yield: An instance of CostmapLocation.Location with a valid position that satisfies the given constraints
+           """
+        min_height = RobotDescription.current_robot_description.get_default_camera().minimal_height
+        max_height = RobotDescription.current_robot_description.get_default_camera().maximal_height
+        # This ensures that the costmaps always get a position as their origin.
+        if isinstance(self.target, ObjectDesignatorDescription.Object):
+            target_pose = self.target.world_object.get_pose()
+        else:
+            target_pose = self.target.copy()
+
+        ground_pose = Pose(target_pose.position_as_list())
+        ground_pose.position.z = 0
+
+        occupancy = OccupancyCostmap(0.32, False, 200, 0.02, ground_pose)
+        final_map = occupancy
+
+        if self.reachable_for:
+            gaussian = GaussianCostmap(200, 15, 0.02, ground_pose)
+            final_map += gaussian
+        if self.visible_for:
+            visible = VisibilityCostmap(min_height, max_height, 200, 0.02, Pose(target_pose.position_as_list()))
+            final_map += visible
+
+            robot_object = self.visible_for.world_object if self.visible_for else self.reachable_for.world_object
+            test_robot = World.current_world.get_prospection_object_for_object(robot_object)
+        with UseProspectionWorld():
+            for maybe_pose in PoseGenerator(final_map, number_of_samples=600):
+                res = True
+                arms = None
+                if self.visible_for:
+                    res = res and visibility_validator(maybe_pose, test_robot, target_pose,
+                                                       World.current_world)
+                if self.reachable_for:
+                    hand_links = []
+                    for description in RobotDescription.current_robot_description.get_manipulator_chains():
+                        hand_links += description.end_effector.links
+                    valid, arms = reachability_validator(maybe_pose, test_robot, target_pose,
+                                                         allowed_collision={test_robot: hand_links})
+                if res:
+                    yield self.Location(maybe_pose, arms)
+```
+
+**Demonstration Snippets:**  
+The `CostmapLocation` class is used in various parts of the PyCram framework where precise location determination is crucial. For example, it can be used when a robot needs to pick up an object from a specific location while ensuring that the location is reachable and visible.
+
+**Step-by-Step Explanation:**  
+1. **Initialization:** The `CostmapLocation` class is initialized with a target, and optionally, an object that the location must be reachable and visible for, and the arm to be used.
+2. **Grounding:** The `ground` method returns the first result from the iterator, which represents a resolved location.
+3. **Iteration:** The `__iter__` method generates possible locations by creating and merging different types of costmaps (occupancy, visibility, and Gaussian). It then uses the `PoseGenerator` to create pose candidates and validates them against the specified constraints.
+4. **Yielding Results:** Validated poses are yielded as instances of `CostmapLocation.Location`, which includes the pose and the arms that can be used.
+
+**Adaptation:**  
+This code can be adapted to other scenarios where complex constraints need to be considered for location determination, such as in multi-robot systems or when dealing with obstacles.
+
+### 3. General Framework Functionality
+
+**Fundamental Concepts:**  
+PyCram's location designators, including `CostmapLocation`, use costmaps to determine locations based on various constraints. This process involves generating maps that represent different factors (like visibility and reachability) and then finding positions that meet these criteria.
+
+**Key Principles:**  
+- **Costmaps:** These are the foundation of location determination in PyCram. Each type of costmap represents a different factor that can influence the choice of location.
+- **Validation:** After generating possible locations, they are validated against specific constraints to ensure they are suitable for the task.
+
+**Importance:**  
+Understanding these concepts is crucial for effectively using PyCram's location designators and for ensuring that robots are positioned correctly for their tasks.
+
+### 4. Best Practices and Recommendations
+
+**Effective Usage:**  
+- Choose the appropriate location designator based on the specific constraints of your task.
+- Ensure that the robot's description is correctly defined, as this is used during the validation process.
+
+**Common Pitfalls:**  
+- Using a location designator that does not match the task's requirements can lead to unsuitable positions being chosen.
+- Failing to define the robot's description correctly can result in validation errors.
+
+**Optimization Tips:**  
+- If you find that location determination is slow, consider reducing the size of the costmaps or the number of samples in the `PoseGenerator`.
+
+### 5. Planning and Implementation for Developers
+
+**Implementation Plan:**  
+1. Import the `CostmapLocation` class from the `location_designator` module.
+2. Create an instance of `CostmapLocation`, providing the target object and any other relevant parameters.
+3. Call the `ground` method to get a resolved location.
+4. Use the `__iter__` method to iterate through possible locations.
+
+**Integration Steps:**  
+- Ensure that your task-specific code provides the necessary objects and descriptions that `CostmapLocation` requires.
+
+**Customization Guidance:**  
+- You can extend the `CostmapLocation` class to include additional constraints or to use different types of costmaps if needed. = Code[CostmapLocation]
+
+--Next PLAN--
+Plan 3: Confirm the correct usage of the resolve method for object designators. This will help ensure that the bowl_desig.resolve() and robot_desig.resolve() in the line causing the error are being used correctly.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to use the `resolve` method on ObjectDesignators in PyCram, specifically focusing on the `BelieveObject` designator. This will include creating an object designator description, resolving it to a specific instance, and understanding the significance of each step.
+
+### Explain the Goal
+The goal is to provide a comprehensive understanding of how to work with ObjectDesignators in PyCram, enabling users to effectively describe and interact with objects within the BulletWorld.
+
+### Prerequisites and Setup
+Before starting, ensure that you have a BulletWorld running, as ObjectDesignators operate in this environment. If you don't have a BulletWorld open, you can create one using the following code:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.datastructures.enums import WorldMode
+
+world = BulletWorld(WorldMode.GUI)
+```
+
+## Detailed Workflow Explanation
+
+### 1. Understanding Object Designators
+
+Object designators in PyCram are used to describe and interact with objects in the BulletWorld or the real environment. They differ from the Object class in `bullet_world.py` as they describe objects without creating them or providing methods to manipulate them.
+
+### 2. Creating a Believe Object Designator
+
+`BelieveObject` is used to describe objects located in the BulletWorld. The first step is to create some objects in the BulletWorld if they are not already present.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+
+world = BulletWorld(WorldMode.GUI)
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+```
+
+Next, import the necessary module for creating a `BelieveObject` designator and create a description for the milk object.
+
+```python
+from pycram.designators.object_designator import BelieveObject
+
+object_description = BelieveObject(names=["milk"])
+```
+
+### 3. Resolving the Object Designator
+
+The `resolve` method will return a specific instance of the object designator that matches the description.
+
+```python
+resolved_object = object_description.resolve()
+print(resolved_object)
+```
+
+### 4. Iterating Over Object Designators
+
+`BelieveObject` designators can also be used as generators to iterate over all objects that match the description.
+
+```python
+for obj in object_description:
+    print(obj)
+```
+
+## Code Examples and Implementation Guidance
+
+### Complete Example of Using BelieveObject
+
+Here’s a complete example that includes creating a BulletWorld, spawning an object, and using `BelieveObject` to describe and resolve it.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+from pycram.datastructures.pose import Pose
+from pycram.designators.object_designator import BelieveObject
+
+# Create a BulletWorld
+world = BulletWorld(WorldMode.GUI)
+
+# Spawn objects
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+
+# Create a BelieveObject designator
+object_description = BelieveObject(names=["milk"])
+
+# Resolve the designator
+resolved_object = object_description.resolve()
+print(resolved_object)
+
+# Iterate over the object designator
+for obj in object_description:
+    print(obj)
+
+# Exit the world
+world.exit()
+```
+
+## Framework Integration and Concepts
+
+Object designators are a crucial part of PyCram as they allow for the description and interaction with objects within both the simulated and real environments. Understanding how to use them effectively is essential for any PyCram user.
+
+## Best Practices and Considerations
+
+- **Clarity in Description:** When creating an object designator description, ensure that the names or types provided clearly describe the object you are interested in.
+- **Utilizing Iteration:** Take advantage of the iteration capability of object designators to explore all objects that match a certain criterion.
+- **Integration with Actions:** Object designators are often used in conjunction with action designators to specify objects involved in complex tasks. = Retrieve[Correct usage of resolve method on ObjectDesignators in PyCram]
+
+--Next PLAN--
+Plan 4: Validate how to use object designators in context with actions and location definitions in PyCram, specifically when defining the target location for navigation based on an object's position.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to use ObjectDesignators in actions and locations within the PyCram framework, focusing on their role in describing and interacting with objects in a simulated environment.
+
+### Explain the Goal
+The objective is to understand how ObjectDesignators function within PyCram, particularly in relation to actions and locations. This knowledge is crucial for effectively programming robot behaviors that involve object manipulation.
+
+### Prerequisites and Setup
+Ensure that PyCram is installed and set up correctly. This guide assumes a basic familiarity with Python and robotics concepts.
+
+## Detailed Workflow Explanation
+
+### Step 1: Understanding ObjectDesignators
+
+ObjectDesignators in PyCram are used to describe objects in the BulletWorld, which the robot can perceive and interact with. They provide a way to reference objects abstractly, allowing for more flexible and general programming of robot tasks.
+
+There are different types of ObjectDesignators, but this guide will focus on `BelieveObject`, which is used to describe objects that are currently in the BulletWorld.
+
+#### Example: Creating a BelieveObject
+
+```python
+from pycram.designators.object_designator import BelieveObject
+from pycram.worlds.bullet_world import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl", pose=Pose([1.3, 1, 0.9]))
+
+# Creating an ObjectDesignator for the milk
+milk_desig = BelieveObject(names=["milk"])
+```
+
+### Step 2: Using ObjectDesignators in Actions
+
+ObjectDesignators are often used in action designators to specify the objects the robot should interact with. For example, a `PickUpAction` designator uses an ObjectDesignator to determine which object the robot should pick up.
+
+#### Example: Using ObjectDesignator in PickUpAction
+
+```python
+from pycram.designators.action_designator import PickUpAction, ParkArmsAction, MoveTorsoAction, NavigateAction
+from pycram.designators.object_designator import BelieveObject
+from pycram.datastructures.enums import Arms, Grasp
+from pycram.process_module import simulated_robot
+from pycram.datastructures.pose import Pose
+
+# Assuming 'milk' is an Object in the BulletWorld
+milk_desig = BelieveObject(names=["milk"])
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+    MoveTorsoAction([0.2]).resolve().perform()
+    NavigateAction([Pose([1, 0, 0], [0, 0, 0, 1])]).resolve().perform()
+    PickUpAction(object_designator_description=milk_desig, arms=[Arms.RIGHT], grasps=[Grasp.RIGHT]).resolve().perform()
+```
+
+### Step 3: Using ObjectDesignators in Locations
+
+ObjectDesignators can also be used in location designators to specify positions related to objects. For instance, a `CostmapLocation` designator might be used to find a location where the robot can reach an object.
+
+#### Example: Using ObjectDesignator in CostmapLocation
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+# Assuming 'milk' is an Object in the BulletWorld
+milk_desig = BelieveObject(names=["milk"])
+
+# Finding a location where the robot can reach the milk
+location = CostmapLocation(target=milk_desig.resolve().pose).resolve()
+print(location)
+```
+
+## Framework Integration and Concepts
+
+ObjectDesignators are integral to PyCram's approach to robot programming. They provide a flexible way to define and manipulate the relationship between robots, objects, and actions. By using ObjectDesignators, programmers can create more general and reusable code, as the same action can be applied to different objects by simply changing the ObjectDesignator.
+
+## Best Practices and Considerations
+
+- **Clarity in Description**: When creating an ObjectDesignator, ensure that the name or type provided uniquely identifies the object. This clarity is crucial for the correct functioning of actions and locations that depend on the ObjectDesignator.
+- **Reuse**: ObjectDesignators can be reused across different actions and locations, promoting code efficiency and reducing redundancy.
+- **Testing**: Always test actions and locations in the BulletWorld to ensure that the ObjectDesignator correctly identifies the object and that the robot behaves as expected.
+
+By following this guide, you will gain a deeper understanding of how to effectively use ObjectDesignators in PyCram, enabling you to write more sophisticated and capable robot control programs. = Retrieve[Proper usage of ObjectDesignators in actions and locations in PyCram]
+
+--Next PLAN--
+Plan 5: Examine how to correctly instantiate and use CostmapLocation in a way that avoids the error and properly defines the location of the bowl on the table for the navigation task.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to correctly instantiate and use the `CostmapLocation` designator in PyCram. `CostmapLocation` is a powerful tool for finding locations in a 2D Cartesian space that meet specific criteria, such as being reachable by a robot or having visibility of a target object.
+
+### Explain the Goal
+The objective is to provide a comprehensive understanding of `CostmapLocation`, including its purpose, how to instantiate it, and how to interpret its results. This knowledge is essential for anyone looking to work with location-based constraints in PyCram.
+
+### Prerequisites and Setup
+Before diving into `CostmapLocation`, ensure you have a basic understanding of designators in PyCram, as this guide will build on that knowledge. Additionally, you should have a BulletWorld running, as `CostmapLocation` operates within this environment.
+
+## Detailed Workflow Explanation
+
+### Introduction to CostmapLocation
+`CostmapLocation` is a location designator that uses costmaps to find positions in Cartesian space that meet specific criteria. It can be used to find locations that are reachable by a robot, have visibility of a target object, or other similar constraints.
+
+### Step 1: Understanding the Parameters
+`CostmapLocation` takes several parameters that define its purpose and constraints:
+
+- **target**: This is either a `Pose` object or an `ObjectDesignatorDescription` describing the object or location the designator is for.
+- **reachable_for** (optional): An `ObjectDesignatorDescription` describing the robot that should be able to reach the location.
+- **visible_for** (optional): An `ObjectDesignatorDescription` describing the robot that should have visibility from the location.
+- **height_offset** (optional): A float representing an offset in the Z-axis.
+
+### 2. Creating a Simple CostmapLocation
+
+In this example, we will create a `CostmapLocation` designator that finds positions where the PR2 robot can be placed without colliding with the kitchen counter. This is a common scenario in robot programming, as it's essential to find valid positions for the robot within its environment.
+
+#### 2.1 Setting Up the Environment
+First, ensure you have the kitchen environment loaded, as this example will be based in the kitchen. If you haven't already loaded the kitchen, you can do so with the following code:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+
+world = BulletWorld()
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+```
+
+#### 2.2 Creating the Object Designator for the Kitchen
+Next, we need to create an `ObjectDesignatorDescription` for the kitchen, as `CostmapLocation` requires a target object or location to describe.
+
+```python
+from pycram.designators.object_designator import *
+
+kitchen_desig = ObjectDesignatorDescription(names=["kitchen"])
+```
+
+#### 2.3 Creating the CostmapLocation Designator
+Now we can create the `CostmapLocation` designator. The `target` parameter will be the pose of the kitchen, which represents the location of the kitchen counter. Since this location designator is only for finding valid positions in the kitchen, we don't need to specify a robot that should be able to reach the position.
+
+```python
+from pycram.designators.location_designator import *
+
+print(CostmapLocation(target=kitchen_desig.resolve()).resolve())
+```
+
+### 3. Finding Reachable Positions with CostmapLocation
+
+In this example, we will extend the `CostmapLocation` designator to find positions where the PR2 robot can reach a specific object. This is useful when you want to ensure that the robot can interact with objects in its environment.
+
+#### 3.1 Setting Up the PR2 and the Object
+
+If you haven't already, load the PR2 robot and the object (e.g., a milk carton) that the robot should be able to reach. You can use the following code to load the PR2 and the milk:
+
+```python
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+milk = Object("milk", ObjectType.MILK, "milk.stl")
+```
+
+#### 3.2 Creating the Object Designators
+
+Next, create `ObjectPart` designators for the milk (if it's not already loaded) and a general `ObjectDesignatorDescription` for the PR2. These designators will be used to specify the objects involved in the task.
+
+```python
+from pycram.designators.object_designator import *
+
+ObjectPart(names=["milk"])  # Ensure the milk object is recognized
+kitchen_desig = ObjectDesignatorDescription(names=["kitchen"])
+robot_desig = ObjectDesignatorDescription(names=["pr2"])
+```
+
+#### 3.3 Creating the CostmapLocation Designator
+
+Now, create the `CostmapLocation` designator. This time, the `reachable_for` parameter will be the `ObjectDesignatorDescription` for the PR2, indicating that the PR2 should be able to reach the positions found by the designator.
+
+```python
+from pycram.designators.location_designator import *
+
+location_description = CostmapLocation(
+    target=ObjectPart(names=["milk"]),
+    reachable_for=robot_desig
+)
+
+print(location_description.resolve())
+```
+
+## Code Examples and Implementation Guidance
+
+### 1. Basic CostmapLocation for Kitchen Access
+
+This code creates a `CostmapLocation` designator that finds positions where the PR2 can be placed without colliding with the kitchen counter.
+
+```python
+from pycram.designators.object_designator import *
+from pycram.designators.location_designator import *
+
+kitchen_desig = ObjectDesignatorDescription(names=["kitchen"])
+kitchen_desig = kitchen_desig.resolve()
+
+print(CostmapLocation(target=kitchen_desig).resolve())
+```
+
+### 2. Extended CostmapLocation for Reachability
+
+This code extends the `CostmapLocation` designator to ensure that the PR2 can reach a specific object.
+
+```python
+from pycram.designators.object_designator import *
+from pycram.designators.location_designator import *
+
+ObjectPart(names=["milk"])  # Ensure the milk is recognized
+kitchen_desig = ObjectPart(names=["kitchen"]).resolve()
+robot_desig = ObjectPart(names=["pr2"]).resolve()
+
+location_description = CostmapLocation(
+    target=ObjectPart(names=["milk"]),
+    reachable_for=robot_desig
+)
+
+print(location_description.resolve())
+```
+
+## Framework Integration and Concepts
+
+`CostmapLocation` integrates with other designators and actions in PyCram to provide a comprehensive solution for robot
+programming. For example, the locations found by `CostmapLocation` can be used as targets for `NavigateAction`, allowing
+the robot to move to specific positions based on complex criteria.
+
+## Best Practices and Considerations
+
+- **Clear Descriptions**: Ensure that your `ObjectDesignatorDescription` and `CostmapLocation` descriptions are clear and unambiguous, as these will determine how PyCram interprets your intentions.
+- **Testing**: Always test your location designators in the BulletWorld to ensure they behave as expected.
+- **Integration**: Consider how your `CostmapLocation` designator will integrate with other actions and designators in your plan.
+
+This guide provides a comprehensive overview of `CostmapLocation`, from its basic usage to more complex applications. By understanding this designator, you'll be better equipped to handle location-based constraints in PyCram. = Retrieve[Correct instantiation and usage of CostmapLocation in PyCram]
+
+--Next PLAN--
+Plan 6: Investigate the correct usage of PickUpAction in PyCram, particularly how to specify the object and grasp parameters effectively to achieve the intended grasping behavior for the bowl.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to use the `PickUpAction` designator in PyCram to have a robot pick up an object. The `PickUpAction` designator is crucial for object manipulation tasks, allowing the robot to grasp and lift objects within its environment.
+
+### Explain the Goal
+The objective is to understand the correct usage of `PickUpAction`, including how to define the `object_designator_description` and `grasps` parameters. This knowledge is essential for anyone looking to implement object pickup tasks in PyCram.
+
+### Prerequisites and Setup
+Before starting, ensure that you have a PyCram environment set up with a robot and an object. This guide assumes you are working in the `bulletworld` environment. If you haven't already, load the `kitchen` environment and spawn a `bowl` object, as the task will involve picking up this bowl with the PR2 robot.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+world = BulletWorld(WorldMode.GUI)
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 1, 0.89], [0, 0, 0, 1]))
+```
+
+## Detailed Workflow Explanation
+
+### Step 1: Import Necessary Modules
+Begin by importing the required modules from PyCram. This includes the `PickUpAction` designator and `BelieveObject` object designator, which will help us describe the bowl we want to pick up.
+
+```python
+from pycram.designators.action_designator import PickUpAction
+from pycram.designators.object_designator import BelieveObject
+from pycram.datastructures.enums import Arms, Grasp
+```
+
+### Step 2: Define the Object Designator Description
+The `object_designator_description` parameter in `PickUpAction` describes the object the robot will interact with. Since we want the robot to pick up the `bowl`, we create a `BelieveObject` designator describing the bowl. This designator will help us refer to the bowl in a more abstract way, which is useful for tasks where the exact instance might not be known.
+
+```python
+bowl_desig = BelieveObject(names=["bowl"])
+```
+
+### Step 3: Create and Resolve the PickUpAction Designator
+Next, we create the `PickUpAction` designator. This designator requires three parameters:
+- `object_designator_description`: The object we want to pick up (described by `bowl_desig`).
+- `arms`: A list of arms the robot can use to pick up the object. We typically use `Arms.RIGHT` or `Arms.LEFT`.
+- `grasps`: A list of grasp types. Grasp types define the orientation of the object when held by the robot. Possible values are `Grasp.FRONT`, `Grasp.LEFT`, `Grasp.RIGHT`, and `Grasp.TOP`.
+
+For this example, we'll use the right arm and the `Grasp.FRONT` orientation.
+
+```python
+pickup_desig = PickUpAction(object_designator_description=bowl_desig,
+                            arms=[Arms.RIGHT],
+                            grasps=[Grasp.FRONT])
+```
+
+### Step 4: Perform the Action
+Finally, we perform the `PickUpAction` designator within a `simulated_robot` environment. This environment specifies whether the action is performed on a real or simulated robot.
+
+```python
+from pycram.process_module import simulated_robot
+
+with simulated_robot:
+    pickup_desig.resolve().perform()
+```
+
+## Code Example
+
+Here’s the complete code snippet for the task:
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+world = BulletWorld(WorldMode.GUI)
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 1, 0.89], [0, 0, 0, 1]))
+
+from pycram.designators.action_designator import PickUpAction
+from pycram.designators.object_designator import BelieveObject
+from pycram.datastructures.enums import Arms, Grasp
+from pycram.process_module import simulated_robot
+
+bowl_desig = BelieveObject(names=["bowl"])
+
+pickup_desig = PickUpAction(object_designator_description=bowl_desig,
+                            arms=[Arms.RIGHT],
+                            grasps=[Grasp.FRONT])
+
+with simulated_robot:
+    pickup_desig.resolve().perform()
+```
+
+## Framework Integration and Concepts
+
+The `PickUpAction` designator is part of PyCram's action designators, which describe complex actions the robot can perform. Understanding how to use this designator is crucial for any object manipulation task in PyCram.
+
+## Best Practices and Considerations
+
+- **Object Designator**: Always use an object designator description to describe the object the robot will interact with. This allows for more flexible and abstract task definitions.
+- **Grasps**: Choose the grasp type based on the desired orientation of the object when picked up.
+- **Testing**: Always test your action in the `simulated_robot` environment before deploying it to a real robot.
+
+By following this guide, you should have a clear understanding of how to use the `PickUpAction` designator in PyCram, enabling you to implement complex object manipulation tasks for your robot. = Retrieve[Correct usage of PickUpAction in PyCram, including object_designator_description and grasps]
+
+--Next PLAN--
+Plan 7: Ensure that the position of the bowl is calculated correctly. We need to confirm how to compute the target position for the robot's gripper based on the bowl's position on the table, especially when using CostmapLocation.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to compute target positions for grasping objects based on their position within the PyCram framework. This process is essential for determining the robot's arm reach and finding a suitable position to grasp the object.
+
+### Explain the Goal
+The goal is to understand and implement the calculation of grasping target positions using PyCram's semantic and spatial reasoning capabilities. This knowledge is crucial for developing robust object manipulation tasks in robotic applications.
+
+### Prerequisites and Setup
+Ensure you have a basic understanding of PyCram's object and location designators. This guide assumes you are working within a PyCram environment with a robot and object loaded, such as the PR2 and a cereal box.
+
+## Detailed Workflow Explanation
+
+### Step 1: Understanding the Need for Grasping Target Positions
+When a robot is tasked with grasping an object, it's not enough to know the object's position. The robot's arm reach, the object's geometry, and potential obstacles must all be considered. This is where grasping target positions come into play.
+
+### Step 2: Using Semantic Costmaps for Initial Target Position
+Semantic costmaps help identify surfaces (like a table) where the object can be placed. This is typically done when the object is spawned, but if the object is already in the world, you can create a semantic costmap location designator to find its current location.
+
+```python
+from pycram.designators.location_designator import SemanticCostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+cereal_desig = BelieveObject(names=["cereal"]).resolve()
+
+sem_loc = SemanticCostmapLocation(target=cereal_desig, surface=kitchen_desig).resolve()
+print(sem_loc)
+```
+
+### Step 3: Using Visibility Costmaps for Robot Reachability
+Once you have a candidate position, you need to ensure the robot can reach it. This is done using visibility costmaps, which calculate positions from where the robot can reach the target position.
+
+```python
+from pycram.costmaps import Visibility
+
+vis = Visibility(1, 200, origin=sem_loc.pose)
+vis.visualize()
+```
+
+### Step 4: Combining Semantic and Visibility Costmaps
+You can combine semantic and visibility costmaps to find positions that satisfy both placement and reachability criteria.
+
+```python
+from pycram.costmaps import Merge
+
+merged = Merge(sem_loc, vis)
+merged.visualize()
+```
+
+### Step 5: Cleaning Up
+Close any visualizations and exits the BulletWorld if necessary.
+
+```python
+vis.close()
+merged.close()
+```
+
+## Code Examples and Implementation Guidance
+
+### Example 1: Creating a Semantic Costmap Location
+This example demonstrates how to create a semantic costmap location designator to find the current location of an object.
+
+```python
+from pycram.designators.location_designator import SemanticCostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+cereal_desig = BelieveObject(names=["cereal"]).resolve()
+
+sem_loc = SemanticCostmapLocation(target=cereal_desig, surface=kitchen_desig).resolve()
+print(sem_loc)
+```
+
+### Example 2: Creating a Visibility Costmap
+This example shows how to create a visibility costmap to determine where the robot can be positioned to reach a target.
+
+```python
+from pycram.costmaps import Visibility
+
+vis = Visibility(1, 200, origin=sem_loc.pose)
+vis.visualize()
+```
+
+### Example 3: Merging Semantic and Visibility Costmaps
+This example illustrates how to merge two costmaps to find a solution that meets both criteria.
+
+```python
+from pycram.costmaps import Merge
+
+merged = Merge(sem_loc, vis)
+merged.visualize()
+```
+
+## Framework Integration and Concepts
+
+This workflow integrates several key PyCram concepts and tools:
+
+- **Semantic Costmaps:** Used for determining initial target positions based on environmental surfaces.
+- **Visibility Costmaps:** Used for determining robot reachability.
+- **Merging Costmaps:** Combines different criteria to find the best solution.
+
+These tools are essential for robust object manipulation in robotics, as they consider both the object and robot perspectives.
+
+## Best Practices and Considerations
+
+- **Ensure Object and Environment are Loaded:** The object you are working with should be in the BulletWorld, and the environment should be loaded.
+- **Visualizations:** Use costmap visualizations to verify that the solutions make sense in the context of the environment.
+- **Cleanup:** Always close visualizations and exit the BulletWorld properly to avoid any issues.
+
+This guide provides a comprehensive overview of computing grasping target positions in PyCram, equipping you with the knowledge to tackle similar challenges in robotic programming. = Retrieve[How to compute target positions for grasping objects based on their position in PyCram]
+
+--Next PLAN--
+Plan 8: Investigate the correct usage of NavigateAction in PyCram, particularly how to specify the target location effectively to ensure the robot navigates to a suitable position near the table for picking up the bowl.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to use the `NavigateAction` designator in PyCram, focusing on its `target_locations` parameter.
+
+### Explain the Goal
+The goal is to understand how to correctly implement and utilize `NavigateAction` for robot navigation within the PyCram framework.
+
+### Prerequisites and Setup
+Ensure PyCram is installed and set up. This guide assumes familiarity with basic PyCram concepts.
+
+## Detailed Workflow Explanation
+
+### Step 1: Importing Necessary Modules
+Begin by importing the required modules from PyCram.
+
+```python
+from pycram.designators.action_designator import NavigateAction
+from pycram.datastructures.pose import Pose
+```
+
+### Step 2: Creating a BulletWorld
+The BulletWorld is where all actions are simulated.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+world = BulletWorld()
+```
+
+### Step 3: Defining the Robot and Environment
+Load the robot and environment (kitchen) into the BulletWorld.
+
+```python
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+### Step 4: Setting Up the NavigateAction
+- **Description:** `NavigateAction` is used for moving the robot to a specific location.
+- **Key Concept:** `target_locations` is a list of possible poses the robot can be navigated to.
+
+```python
+# Define a pose as the target location
+target_pose = Pose([1, 0, 0], [0, 0, 0, 1])
+
+# Create a NavigateAction designator
+navigate_desig = NavigateAction(target_locations=[target_pose]).resolve()
+```
+
+### Step 5: Performing the NavigateAction
+Execute the resolved designator in a simulated environment.
+
+```python
+from pycram.process_module import simulated_robot
+
+with simulated_robot:
+    navigate_desig.perform()
+```
+
+## Code Examples and Implementation Guidance
+
+### Complete Example
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.designators.action_designator import NavigateAction
+from pycram.datastructures.pose import Pose
+from pycram.process_module import simulated_robot
+
+# Create BulletWorld
+world = BulletWorld()
+
+# Load Environment and Robot
+kitchen = Object("kitchen", ObjectType.ENVIRONMENT, "kitchen.urdf")
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+
+# Define Target Location
+target_pose = Pose([1, 0, 0], [0, 0, 0, 1])
+
+# Create and Resolve NavigateAction
+navigate_desig = NavigateAction(target_locations=[target_pose]).resolve()
+
+# Perform NavigateAction
+with simulated_robot:
+    navigate_desig.perform()
+```
+
+## Framework Integration and Concepts
+
+### Broader Context
+`NavigateAction` is crucial for any task requiring robot movement. Understanding it lays the foundation for more complex actions.
+
+### Essential Components
+- **BulletWorld:** The simulation environment.
+- **Object:** Represents entities in the BulletWorld.
+- **Pose:** Defines positions and orientations.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always define a list of possible `target_locations` to allow flexibility in navigation.
+
+### Potential Challenges
+- The robot may not reach the target due to obstacles.
+
+### Solutions
+- Ensure the `target_locations` list contains reachable poses. Use costmaps to determine valid locations if necessary. = Retrieve[Correct usage of NavigateAction in PyCram, including target_locations]
+
+--Next PLAN--
+Plan 9: Verify the correct usage of ParkArmsAction and MoveTorsoAction in PyCram to ensure the robot is in a suitable initial state before navigating and picking up the bowl.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to use the `ParkArmsAction` and `MoveTorsoAction` designators in PyCram to control a robot's arms and torso. These actions are fundamental for positioning the robot appropriately before executing more complex tasks.
+
+### Explain the Goal
+The goal is to understand how to use these two action designators to manipulate the robot's arms and torso. This knowledge is essential for anyone looking to programmatically control a robot's movements in PyCram.
+
+### Prerequisites and Setup
+Ensure that PyCram is installed and set up correctly. This guide assumes you are working in an environment where PyCram can interface with either a real robot or a simulated one.
+
+## Detailed Workflow Explanation
+
+### Step 1: Import Necessary Modules and Create a Bullet World
+First, we need to import the necessary modules from PyCram and create a Bullet World, which is the environment where our robot will operate.
+
+```python
+from pycram.worlds.bullet_world import BulletWorld
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType, WorldMode
+
+world = BulletWorld(WorldMode.GUI)
+pr2 = Object("pr2", ObjectType.ROBOT, "pr2.urdf")
+```
+
+### Step 2: Setting Up the Process Module
+We will use the simulated robot for this task. The process module connects PyCram to either a real or simulated robot.
+
+```python
+from pycram.process_module import simulated_robot
+```
+
+### Step 3: Using ParkArmsAction
+`ParkArmsAction` is used to move the robot's arms to a resting position. This is often done before other actions to ensure the arms are not in the way.
+
+#### Code Example for ParkArmsAction
+```python
+from pycram.designators.action_designator import ParkArmsAction
+from pycram.datastructures.enums import Arms
+
+with simulated_robot:
+    ParkArmsAction([Arms.BOTH]).resolve().perform()
+```
+
+### Step 4: Using MoveTorsoAction
+`MoveTorsoAction` is used to move the robot's torso up or down. This can be useful for adjusting the robot's height to reach objects or to be in a better position for a task.
+
+#### Code Example for MoveTorsoAction
+```python
+from pycram.designators.action_designator import MoveTorsoAction
+from pycram.datastructures.pose import Pose
+
+def move_torso(position):
+    with simulated_robot:
+        MoveTorsoAction([position]).resolve().perform()
+
+# Example: Move the torso to 0.3 meters
+move_torso(0.3)
+```
+
+## Framework Integration and Concepts
+
+### How These Actions Fit into PyCram
+`ParkArmsAction` and `MoveTorsoAction` are basic actions that set the stage for more complex tasks. In robot programming, positioning is crucial, and these actions provide the means to achieve it.
+
+### Key Components
+- **Action Designators**: These are high-level descriptions of actions the robot should perform. `ParkArmsAction` and `MoveTorsoAction` are examples of action designators.
+- **Process Module**: This module connects PyCram to a robot, whether real or simulated, allowing action designators to control the robot.
+
+## Best Practices and Considerations
+
+### Implementation Tips
+- Always ensure the robot is in a suitable environment for the task at hand.
+- Use `ParkArmsAction` and `MoveTorsoAction` to prepare the robot before executing more complex actions.
+
+### Potential Challenges
+- The robot may not be able to reach certain positions due to obstacles. In such cases, consider using `NavigateAction` to move the robot.
+
+### Solutions
+- If the robot cannot reach a position, check the environment and adjust the robot's position using `NavigateAction`.
+
+## Conclusion
+Understanding how to use `ParkArmsAction` and `MoveTorsoAction` is fundamental for anyone looking to programmatically control a robot in PyCram. These actions are the building blocks for more complex robot behaviors and tasks. = Retrieve[Correct usage of ParkArmsAction and MoveTorsoAction in PyCram]
+
+--Next PLAN--
+Plan 10: Check if the bowl's pose and dimensions are correctly defined in the world knowledge and the code, as this information is crucial for accurate grasping and manipulation.
+## Task Overview and Objectives
+
+### Define the Task
+This guide will explain how to define and use object poses and dimensions in PyCram, particularly focusing on the `Bowl` object. Understanding how to work with poses and dimensions is crucial for effective object manipulation and interaction within the PyCram framework.
+
+### Explain the Goal
+The goal is to provide a comprehensive understanding of how to define, access, and utilize object poses and dimensions in PyCram. This knowledge is essential for tasks involving object manipulation, collision detection, and robot programming.
+
+### Prerequisites and Setup
+Ensure that you have a basic understanding of PyCram's object-oriented structure and have set up a BulletWorld instance, as this guide will involve practical examples within the BulletWorld.
+
+## Detailed Workflow Explanation
+
+### Step 1: Understanding Object Poses
+
+In PyCram, objects are instances of the `Object` class, which includes attributes like `name`, `type`, and `pose`. The `pose` attribute is an instance of the `Pose` class, representing the object's position and orientation in the BulletWorld.
+
+#### Example: Accessing the Bowl's Pose
+
+```python
+from pycram.world_concepts.world_object import Object
+from pycram.datastructures.enums import ObjectType
+from pycram.datastructures.pose import Pose
+
+bowl = Object("bowl", ObjectType.BOWL, "bowl.stl", pose=Pose([1.4, 1, 0.89]))
+
+print(bowl.pose)  # Displays the current pose of the bowl
+```
+
+### Step 2: Setting an Object's Pose
+
+You can set an object's pose using the `set_pose` method, which takes a `Pose` object as an argument. This method updates the object's position and orientation in the BulletWorld.
+
+#### Example: Setting the Bowl's Pose
+
+```python
+new_pose = Pose([1.5, 1, 0.89])
+bowl.set_pose(new_pose)  # Updates the bowl's pose
+```
+
+### Step 3: Getting an Object's Position and Orientation
+
+To retrieve an object's position and orientation separately, you can use the `get_position` and `get_orientation` methods. These methods return `Pose` objects representing the object's current state.
+
+#### Example: Getting the Bowl's Position and Orientation
+
+```python
+position = bowl.get_position()  # Retrieves the bowl's position
+orientation = bowl.get_orientation()  # Retrieves the bowl's orientation
+
+print(f"Position: {position}, Orientation: {orientation}")
+```
+
+### Step 4: Working with Poses in Designators
+
+Phrases like "at the refrigerator" or "next to the sink" are often used to describe object locations. These are typically expressed as `CostmapLocation` designators in PyCram, which create a location based on a specific description.
+
+#### Example: Creating a `CostmapLocation` Designator
+
+```python
+from pycram.designators.location_designator import CostmapLocation
+from pycram.designators.object_designator import BelieveObject
+
+bowl_desig = BelieveObject(names=["bowl"]).resolve()
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+
+location_desig = CostmapLocation(target=bowl_desig, reachable_for=kitchen_desig).resolve()
+print(location_desig.pose)  # Prints the pose of the location
+```
+
+## Code Examples and Implementation Guidance
+
+### Example 1: Accessing and Setting an Object's Pose
+
+```python
+# Accessing the Bowl's Pose
+print(bowl.pose)
+
+# Setting the Bowl's Pose
+new_pose = Pose([1.6, 1, 0.89])
+bowl.set_pose(new_pose)
+```
+
+### Example 2: Getting an Object's Position and Orientation
+
+```python
+# Getting the Bowl's Position and Orientation
+position = bowl.get_position()
+orientation = bowl.get_orientation()
+
+print(f"Position: {position}, Orientation: {orientation}")
+```
+
+### Example 3: Working with Poses in Designators
+
+```python
+# Creating a CostmapLocation Designator
+bowl_desig = BelieveObject(names=["bowl"]).resolve()
+kitchen_desig = BelieveObject(names=["kitchen"]).resolve()
+
+location_desig = CostmapLocation(target=bowl_desig, reachable_for=kitchen_desig).resolve()
+print(location_desig.pose)
+```
+
+## Framework Integration and Concepts
+
+This workflow integrates with PyCram's object manipulation and location designator systems. Understanding how to work with object poses is crucial for effective robot programming and task execution.
+
+## Best Practices and Considerations
+
+- Ensure that object poses are set correctly to avoid collision issues.
+- Use location designators to interpret complex spatial descriptions.
+- Regularly check object positions and orientations, especially after movements or actions.
+
+This guide provides a comprehensive overview of working with object poses and dimensions in PyCram, using the `Bowl` object as a primary example. Understanding these concepts is essential for effective robot programming and task execution within the PyCram framework. = Retrieve[How to define and use object pose and dimensions in PyCram]
+
+--Next PLAN--
+
+
+---Next Run---

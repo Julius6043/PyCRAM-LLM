@@ -1,3 +1,5 @@
+from openai import fine_tuning
+
 from langgraph_code_assistant import generate_plan
 from langgraph_code_assistant_parallel import generate_plan_parallel
 from vector_store_SB import get_retriever
@@ -117,9 +119,12 @@ def test_tool(tool_num, test_num, prompt=""):
     return result
 
 
-def make_test(test_num, run_num=1):
+def make_test(test_num, run_sufix=None):
     task = f"task_test{test_num}"
     world = f"world_test{test_num}"
+
+    if run_sufix is None:
+        run_num = 1
 
     if task in globals() and world in globals():
         task = globals()[task]
@@ -129,19 +134,22 @@ def make_test(test_num, run_num=1):
 
     (
         result,
-        first_plan,
+        full_result_plan,
         first_filled_plan,
         final_iter,
         success,
         plans_code_check,
         first_solution,
     ) = generate_plan_parallel(task, world)
+    first_plan = full_result_plan.split("This is the corresponding plan:")[-1]
+    first_solution = first_solution.imports + "\n" + first_solution.code
     if final_iter > 1:
-        plans_code_check_string = f"All Iterations with Plan and Solution:\nRun 1:\nPlan: \n{first_plan}\n\n Filled Plan:\n{first_filled_plan}\n\nCode Solution:\n{first_solution}\n\n---\n"
+        plans_code_check_string = f"All Iterations with Plan and Solution:\nRun 1:\nPlan: \n{first_plan}\n-\n\nCode Solution:\n{first_solution}\n-\n\nFilled Plan:\n{first_filled_plan}\n\n---\n"
         i = 2
         for plan in plans_code_check:
             plan_string, filled_plan_string, code_solution = plan
-            plans_code_check_string += f"Code Check Run {i}:\nPlan: \n{plan_string}\n\n Filled Plan:\n{filled_plan_string}\n\nCode Solution:\n{code_solution}\n\n---\n"
+            code_solution = code_solution.imports + "\n" + code_solution.code
+            plans_code_check_string += f"Code Check Run {i}:\nPlan: \n{plan_string}\n-\n\nCode Solution:\n{code_solution}\n-\n\nFilled Plan:\n{filled_plan_string}\n\n---Next Run---\n"
             i += 1
     else:
         plans_code_check_string = ""
@@ -149,8 +157,8 @@ def make_test(test_num, run_num=1):
         success = "Yes"
     else:
         success = "No"
-    with open(f"../test_files/test{test_num}v{run_num}.txt", "w") as file:
-        test_string = f"Iterations:\n{final_iter}\n\nSuccess: {success}\n----\n\nPlan:\n{first_plan}\n\n----\nResult:\n{result}\n\n----\nFilled Plan:\n{first_filled_plan}\n\n------\n\n{plans_code_check_string}"
+    with open(f"../test_files/test{test_num}v{run_sufix}.txt", "w") as file:
+        test_string = f"Iterations:\n{final_iter}\n\nSuccess: {success}\n----\n\nPlan:\n{full_result_plan}\n\n----\nResult:\n{result}\n\n----\nFilled Plan:\n{first_filled_plan}\n\n------\n\n{plans_code_check_string}"
         file.write(test_string)
     return result
 
@@ -162,7 +170,7 @@ def make_test(test_num, run_num=1):
 print(pre_thinking)"""
 # print(result_retriever_code)
 
-# print(make_test(8, 3))
+print(make_test(8, "finetuning"))
 """code_retrieve = test_code_retriever.invoke("How is CostmapLocation defined?")
 docu_retieve = test_docu_retriever.invoke(
     "What are Action Designators and how do i use them?"
