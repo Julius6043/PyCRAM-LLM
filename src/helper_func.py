@@ -34,9 +34,9 @@ llm_mini_json = ChatOpenAI(
     temperature=0,
     model_kwargs={"response_format": {"type": "json_object"}},
 )
-llm_solver = llm_pycram
+llm_solver = llm
 llm_planer = llm_GP
-llm_tools = llm_pycram_mini
+llm_tools = llm_mini
 # llm_llama3 = ChatOllama(model="llama3")
 
 
